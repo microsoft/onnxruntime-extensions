@@ -6,16 +6,20 @@
 #include <chrono>
 #include <atomic>
 
+// ============================================================================
+// PROFILING: Define OCOS_PROFILING=1 via CMake or uncomment below to enable
+// #define OCOS_PROFILING 1
+// ============================================================================
+// SPECULATIVE BPE PROFILING: Always enabled in debug; otherwise requires OCOS_PROFILING.
+#if defined(_DEBUG) || defined(OCOS_PROFILING)
+#define BPE_SPEC_PROFILING 1
+#endif
+
 #include "base64.h"
 #include "file_sys.h"
 #include "bpe_kernels.h"
 #include "bpe_tokenizer_model.hpp"
 #include "tokenizer_jsconfig.hpp"
-
-// ============================================================================
-// PROFILING: Define OCOS_PROFILING=1 via CMake or uncomment below to enable
-// #define OCOS_PROFILING 1
-// ============================================================================
 
 #ifdef OCOS_PROFILING
 namespace {
@@ -99,6 +103,93 @@ void BpeProfiler_Print(const char* label) {
 void BpeProfiler_Reset() {}
 void BpeProfiler_Print(const char*) {}
 #endif
+
+// ============================================================================
+// SPECULATIVE BPE PROFILING: Global stats accumulator
+// ============================================================================
+#ifdef BPE_SPEC_PROFILING
+namespace {
+struct SpecBpeGlobalStats {
+  std::atomic<int64_t> total_bpe_calls{0};
+  std::atomic<int64_t> spec_attempts{0};
+  std::atomic<int64_t> spec_successes{0};
+  std::atomic<int64_t> spec_fallbacks{0};
+  std::atomic<int64_t> boundaries_total{0};
+  std::atomic<int64_t> boundaries_fast_pass{0};
+  std::atomic<int64_t> boundaries_verified{0};
+  std::atomic<int64_t> boundaries_failed{0};
+  std::atomic<int64_t> atoms_input_total{0};
+  std::atomic<int64_t> tokens_output_spec{0};
+
+  void Reset() {
+    total_bpe_calls = 0; spec_attempts = 0; spec_successes = 0;
+    spec_fallbacks = 0; boundaries_total = 0; boundaries_fast_pass = 0;
+    boundaries_verified = 0; boundaries_failed = 0;
+    atoms_input_total = 0; tokens_output_spec = 0;
+  }
+
+  void Print(const char* label) const {
+    auto calls = total_bpe_calls.load();
+    auto attempts = spec_attempts.load();
+    auto successes = spec_successes.load();
+    auto fallbacks = spec_fallbacks.load();
+    auto btotal = boundaries_total.load();
+    auto bfast = boundaries_fast_pass.load();
+    auto bverified = boundaries_verified.load();
+    auto bfailed = boundaries_failed.load();
+    auto atoms = atoms_input_total.load();
+    auto tokens = tokens_output_spec.load();
+
+    fprintf(stderr, "\n=== SPECULATIVE BPE STATS [%s] ===\n", label ? label : "");
+    fprintf(stderr, "  PerformBPE calls:     %lld\n", (long long)calls);
+    fprintf(stderr, "  Spec attempts:        %lld (%.1f%% of calls)\n",
+            (long long)attempts, calls ? 100.0 * attempts / calls : 0);
+    fprintf(stderr, "  Spec successes:       %lld (%.1f%% of attempts)\n",
+            (long long)successes, attempts ? 100.0 * successes / attempts : 0);
+    fprintf(stderr, "  Spec fallbacks:       %lld (no trie coverage)\n", (long long)fallbacks);
+    fprintf(stderr, "  Heap/Flat fallback:   %lld (spec not attempted or failed)\n",
+            (long long)(calls - successes));
+    fprintf(stderr, "  ---\n");
+    fprintf(stderr, "  Boundaries total:     %lld\n", (long long)btotal);
+    fprintf(stderr, "  Fast pass (no merge): %lld (%.1f%%)\n",
+            (long long)bfast, btotal ? 100.0 * bfast / btotal : 0);
+    fprintf(stderr, "  Full verification:    %lld (%.1f%%)\n",
+            (long long)bverified, btotal ? 100.0 * bverified / btotal : 0);
+    fprintf(stderr, "  Boundaries failed:    %lld (%.1f%% of verified)\n",
+            (long long)bfailed, bverified ? 100.0 * bfailed / bverified : 0);
+    fprintf(stderr, "  ---\n");
+    fprintf(stderr, "  Avg compression:      %.2fx (atoms -> tokens)\n",
+            tokens ? (double)atoms / tokens : 0);
+    fprintf(stderr, "================================================\n\n");
+  }
+};
+
+static SpecBpeGlobalStats g_spec_bpe_stats;
+}  // namespace
+
+void SpecBpeProfiler_Reset() { g_spec_bpe_stats.Reset(); }
+void SpecBpeProfiler_Print(const char* label) { g_spec_bpe_stats.Print(label); }
+
+void SpecBpeStats_Increment(int field, int64_t val) {
+  switch (field) {
+    case 0: g_spec_bpe_stats.total_bpe_calls.fetch_add(val, std::memory_order_relaxed); break;
+    case 1: g_spec_bpe_stats.spec_attempts.fetch_add(val, std::memory_order_relaxed); break;
+    case 2: g_spec_bpe_stats.spec_successes.fetch_add(val, std::memory_order_relaxed); break;
+    case 3: g_spec_bpe_stats.spec_fallbacks.fetch_add(val, std::memory_order_relaxed); break;
+    case 4: g_spec_bpe_stats.boundaries_total.fetch_add(val, std::memory_order_relaxed); break;
+    case 5: g_spec_bpe_stats.boundaries_fast_pass.fetch_add(val, std::memory_order_relaxed); break;
+    case 6: g_spec_bpe_stats.boundaries_verified.fetch_add(val, std::memory_order_relaxed); break;
+    case 7: g_spec_bpe_stats.boundaries_failed.fetch_add(val, std::memory_order_relaxed); break;
+    case 8: g_spec_bpe_stats.atoms_input_total.fetch_add(val, std::memory_order_relaxed); break;
+    case 9: g_spec_bpe_stats.tokens_output_spec.fetch_add(val, std::memory_order_relaxed); break;
+  }
+}
+#else
+void SpecBpeProfiler_Reset() {}
+void SpecBpeProfiler_Print(const char*) {}
+void SpecBpeStats_Increment(int, int64_t) {}
+#endif
+
 #include "bpe_tokenizer_model.hpp"
 
 // Cached pre-tokenizer splitters: compiled once at model load, reused per Tokenize/SpmTokenize call.

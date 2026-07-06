@@ -807,6 +807,8 @@ TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
 // =============================================================================
 extern void BpeProfiler_Reset();
 extern void BpeProfiler_Print(const char* label);
+extern void SpecBpeProfiler_Reset();
+extern void SpecBpeProfiler_Print(const char* label);
 
 TEST(OrtxTokenizerProfileTest, DISABLED_ProfileAllModels) {
   // A ~2KB English text to exercise the tokenizer meaningfully
@@ -860,11 +862,13 @@ TEST(OrtxTokenizerProfileTest, DISABLED_ProfileAllModels) {
 
     // Profiled run
     BpeProfiler_Reset();
+    SpecBpeProfiler_Reset();
     for (int i = 0; i < iterations; i++) {
       token_ids.clear();
       tokenizer->Tokenize(input, token_ids);
     }
     BpeProfiler_Print(model.name);
+    SpecBpeProfiler_Print(model.name);
 
     fprintf(stderr, "  [%s] Tokens produced: %zu (per call)\n\n", model.name, token_ids[0].size());
   }

@@ -26,6 +26,26 @@
 #include "trietree.hpp"
 #include "tokenizer_common.h"
 
+// Speculative BPE profiling macros — map to global atomic counters in bpe_kernels.cc
+#ifdef BPE_SPEC_PROFILING
+struct SpecBpeGlobalStats;
+extern void SpecBpeStats_Increment(int field, int64_t val);
+#define SPEC_PROFILE_INC(field, val) SpecBpeStats_Increment(field, val)
+// Field indices
+#define SPEC_FIELD_BPE_CALLS       0
+#define SPEC_FIELD_ATTEMPTS        1
+#define SPEC_FIELD_SUCCESSES       2
+#define SPEC_FIELD_FALLBACKS       3
+#define SPEC_FIELD_BOUNDARIES      4
+#define SPEC_FIELD_FAST_PASS       5
+#define SPEC_FIELD_VERIFIED        6
+#define SPEC_FIELD_FAILED          7
+#define SPEC_FIELD_ATOMS           8
+#define SPEC_FIELD_TOKENS          9
+#else
+#define SPEC_PROFILE_INC(field, val) ((void)0)
+#endif
+
 #define ORTX_JSON_RETURN_IF_NULL(node_iter, name, var) \
   auto var = (node_iter)->find(name);                  \
   if (var == (node_iter)->end() || var->is_null()) {   \
@@ -412,15 +432,16 @@ class BpeModel {
   void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     if (vals.size() < 2) return;
 
-    // Phase 2: Speculative O(N) greedy tokenization via trie.
-    // Greedy longest-match + boundary verification. Falls back to heap/flat if
-    // speculation fails (cross-boundary merges detected).
+    SPEC_PROFILE_INC(SPEC_FIELD_BPE_CALLS, 1);
+
+    // Try speculative path first: greedy longest-match via trie + boundary
+    // verification. Falls back to heap/flat if trie has no coverage.
     if (spec_trie_valid_ && PerformBPE_Speculative(vals)) {
+      SPEC_PROFILE_INC(SPEC_FIELD_SUCCESSES, 1);
       return;
     }
 
-    // Use appropriate algorithm based on sequence length.
-    // For longer sequences, use priority-queue BPE: O(N log N) vs O(N*R) for flat scan.
+    // Fallback: priority-queue BPE for long sequences, flat-scan for short ones.
     if (vals.size() > 32) {
       PerformBPE_Heap(vals);
       return;
@@ -430,8 +451,8 @@ class BpeModel {
   }
 
  private:
-  // O(N*R) flat-array scan: best for short sequences (pre-tokens from regex splitting).
-  // R = number of distinct merge rounds needed.
+  // Flat-array linked-list BPE scan. Used for short sequences and as a subroutine
+  // for boundary verification and local repair in speculative BPE.
   void PerformBPE_FlatScan(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     // Flat-array linked list for cache-friendly traversal.
     // Each node stores token_id, byte_length, and prev/next indices.
@@ -520,10 +541,9 @@ class BpeModel {
     }
   }
 
-  // O(N log N) priority-queue BPE: best for longer sequences where the flat scan
-  // would do many rounds (e.g., Gemma with 256K merges and 100+ char pre-tokens).
-  // Uses a min-heap of adjacent pairs keyed by merge rank with lazy deletion.
-  // Based on Zouhar et al. "A Formal Perspective on Byte-Pair Encoding" (ACL 2023).
+  // Priority-queue BPE for longer sequences. Uses a min-heap of adjacent pairs
+  // keyed by merge rank with lazy deletion.
+  // Reference: Zouhar et al. "A Formal Perspective on Byte-Pair Encoding" (ACL 2023).
   void PerformBPE_Heap(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     struct BpeListNode {
       uint32_t token_id;
@@ -615,14 +635,16 @@ class BpeModel {
   }
 
   // =========================================================================
-  // Speculative O(N) BPE with partial acceptance and local repair.
-  // Greedy longest-match via full-depth trie → pairwise boundary verification →
-  // only re-BPE failing regions. Returns true if speculation produced a result.
+  // Speculative BPE: greedy trie match with boundary verification and local
+  // repair. Returns true if speculation produced a valid result.
   // =========================================================================
   bool PerformBPE_Speculative(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     const size_t n = vals.size();
 
-    // Phase 1: Greedy longest-match through the trie, recording token spans.
+    SPEC_PROFILE_INC(SPEC_FIELD_ATTEMPTS, 1);
+    SPEC_PROFILE_INC(SPEC_FIELD_ATOMS, static_cast<int64_t>(n));
+
+    // Step 1: Greedy longest-match through the trie, recording token spans.
     struct OutputToken {
       uint32_t token_id;
       uint32_t byte_len;
@@ -661,32 +683,34 @@ class BpeModel {
       pos = best_end;
     }
 
-    // If no compression, trie has no coverage for this input — fall back.
+    // If no compression achieved, fall back to standard BPE.
     if (output.size() >= n) {
+      SPEC_PROFILE_INC(SPEC_FIELD_FALLBACKS, 1);
       return false;
     }
 
-    // Phase 2: Pairwise boundary verification with partial acceptance.
-    // A passing boundary is a "wall" — tokens on either side are independent.
-    // Failing boundaries group adjacent tokens into repair regions.
-    //
-    // FAST PATH: If no merge rule exists for the pair of raw atoms at the boundary
-    // (last atom of Ti's span, first atom of Ti+1's span), no merge can initiate
-    // across the boundary — it trivially passes without running BPE.
-    // This reduces O(K) flat-scan BPE calls to only the few "suspicious" boundaries.
+    // Step 2: Boundary verification. A passing boundary is a "wall" separating
+    // independent segments. Fast path: if no merge rule exists for the atom pair
+    // at the boundary, it trivially passes (single hash lookup). Otherwise, run
+    // full BPE on the combined span to verify.
     const size_t num_boundaries = output.size() - 1;
     std::vector<bool> boundary_pass(num_boundaries, false);
 
+    SPEC_PROFILE_INC(SPEC_FIELD_BOUNDARIES, static_cast<int64_t>(num_boundaries));
+    SPEC_PROFILE_INC(SPEC_FIELD_TOKENS, static_cast<int64_t>(output.size()));
+
     std::vector<std::pair<uint32_t, uint32_t>> test_vals;
     for (size_t i = 0; i < num_boundaries; i++) {
-      // Fast check: no merge rule for boundary atoms → trivially passes.
+      // Fast check: no merge rule for boundary atoms -- trivially passes.
       uint32_t last_atom = vals[output[i].end - 1].first;
       uint32_t first_atom = vals[output[i + 1].start].first;
       if (bpe_rank_.find(GetRankKey(last_atom, first_atom)) == bpe_rank_.end()) {
         boundary_pass[i] = true;
+        SPEC_PROFILE_INC(SPEC_FIELD_FAST_PASS, 1);
         continue;
       }
 
+      SPEC_PROFILE_INC(SPEC_FIELD_VERIFIED, 1);
       // Full verification: run BPE on the combined span of both tokens.
       size_t span_start = output[i].start;
       size_t span_end = output[i + 1].end;
@@ -702,11 +726,10 @@ class BpeModel {
       boundary_pass[i] = (test_vals.size() == 2 &&
                           test_vals[0].first == output[i].token_id &&
                           test_vals[1].first == output[i + 1].token_id);
+      if (!boundary_pass[i]) SPEC_PROFILE_INC(SPEC_FIELD_FAILED, 1);
     }
 
-    // Phase 3: Group tokens into independent segments separated by walls.
-    // Single-token segments are confirmed; multi-token segments get repaired.
-    // Save original input since we'll overwrite vals.
+    // Step 3: Emit confirmed tokens at walls; re-run BPE on failing segments.
     const size_t num_tokens = output.size();
     std::vector<std::pair<uint32_t, uint32_t>> orig_vals(std::move(vals));
     vals.clear();
@@ -808,7 +831,7 @@ class BpeModel {
   // Speculative BPE trie structures
   // =========================================================================
   struct SpecTrieNode {
-    std::unordered_map<uint32_t, uint32_t> children;  // atom_token_id → child node index
+    std::unordered_map<uint32_t, uint32_t> children;  // atom_token_id -> child node index
     uint32_t token_id = bpe::kInvalidTokenId;
   };
 
@@ -826,7 +849,7 @@ class BpeModel {
   void BuildSpeculativeTrie() {
     spec_trie_valid_ = false;
 
-    // 1. Collect all merges in a sortable list
+    // Collect all merges and sort by rank.
     struct MergeEntry {
       uint32_t left_id;
       uint32_t right_id;
@@ -842,20 +865,16 @@ class BpeModel {
       merges.push_back({left_id, right_id, node.id, node.value});
     }
 
-    // Sort merges by rank (ascending) so we process them in BPE order
     std::sort(merges.begin(), merges.end(),
               [](const MergeEntry& a, const MergeEntry& b) { return a.rank < b.rank; });
 
-    // 2. Identify effective input atoms.
-    // These are tokens that can appear directly in the input to PerformBPE
-    // (from ByteEncode for GPT-2, or SpmEncodeChar for SPM models).
-    // Two categories:
-    //   (a) True base atoms: operand AND NOT merge product (byte tokens, always input atoms)
-    //   (b) Single-character merge products: operand AND merge product, but their text
-    //       in id2token_map_ is a single Unicode code point. These are character tokens
-    //       produced by byte-level merges in SPM models (e.g., ▁ = U+2581 from 3 bytes),
-    //       but SpmEncodeChar emits them directly as input atoms.
-    // Both categories get char_ids = {self} — decomposition stops here.
+    // Identify effective input atoms: tokens that appear directly in the input
+    // to PerformBPE (from ByteEncode or SpmEncodeChar). Two categories:
+    //   (a) True base atoms: merge operands that are never themselves produced by
+    //       a merge (byte tokens in GPT-2, some char tokens in SPM).
+    //   (b) Single-character merge products: tokens formed by byte-level merges
+    //       but emitted directly by SpmEncodeChar (e.g. U+2581 from 3 bytes).
+    // Both get char_ids = {self} -- decomposition stops here.
     std::unordered_set<uint32_t> is_operand;
     std::unordered_set<uint32_t> is_merge_product;
     for (const auto& m : merges) {
@@ -889,10 +908,8 @@ class BpeModel {
       spec_token_meta_[tid].last_atom = tid;
     }
 
-    // 3. Process merges in rank order to build full base-atom decompositions.
-    // Because we process in rank order and only true base atoms start with char_ids,
-    // each merge result gets the concatenation of its operands' base-atom sequences.
-    // Intermediate tokens (both operand AND merge product) get their char_ids here.
+    // Build full atom decompositions by processing merges in rank order.
+    // Each merge result's char_ids = concat(left.char_ids, right.char_ids).
     for (const auto& m : merges) {
       if (m.result_id >= max_token_id) continue;
       if (m.left_id >= max_token_id || m.right_id >= max_token_id) continue;
@@ -919,10 +936,8 @@ class BpeModel {
       }
     }
 
-    // 4. BPE-consistency check + trie construction.
-    // Only insert a token into the trie if running BPE on its char_ids produces
-    // exactly that token. This prevents inserting tokens that BPE wouldn't produce
-    // from those atoms (even in isolation), reducing unnecessary greedy matches.
+    // Build the trie. Only insert tokens whose atom decomposition BPE-reduces
+    // back to exactly that token (BPE-consistency check).
     spec_trie_.clear();
     spec_trie_.emplace_back();  // root node (index 0)
 
