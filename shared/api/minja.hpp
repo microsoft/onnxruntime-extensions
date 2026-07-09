@@ -2212,6 +2212,61 @@ namespace minja
           }
           return res;
         }
+        else if (method->get_name() == "upper")
+        {
+          vargs.expectArgs("upper method", {0, 0}, {0, 0});
+          // ASCII-only case mapping for deterministic, locale-independent
+          // behavior. Matches upstream minja in practice for ASCII inputs;
+          // non-ASCII bytes are passed through unchanged. Full Unicode
+          // case folding is out of scope for the parser.
+          auto res = str;
+          for (char& c : res) {
+            if (c >= 'a' && c <= 'z') c = static_cast<char>(c - ('a' - 'A'));
+          }
+          return Value(res);
+        }
+        else if (method->get_name() == "lower")
+        {
+          vargs.expectArgs("lower method", {0, 0}, {0, 0});
+          // ASCII-only case mapping; see .upper() comment above.
+          auto res = str;
+          for (char& c : res) {
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c + ('a' - 'A'));
+          }
+          return Value(res);
+        }
+        else if (method->get_name() == "replace")
+        {
+          vargs.expectArgs("replace method", {2, 3}, {0, 0});
+          auto before = vargs.args[0].get<std::string>();
+          auto after = vargs.args[1].get<std::string>();
+          auto res = str;
+          if (before.empty())
+          {
+            return Value(res);
+          }
+          // Python str.replace semantics: count < 0 means "replace all";
+          // count >= 0 limits the number of replacements; omitted argument
+          // also means "replace all".
+          int64_t count = (std::numeric_limits<int64_t>::max)();
+          if (vargs.args.size() == 3)
+          {
+            auto requested = vargs.args[2].get<int64_t>();
+            if (requested >= 0)
+            {
+              count = requested;
+            }
+          }
+          size_t start_pos = 0;
+          while (count > 0 &&
+                 (start_pos = res.find(before, start_pos)) != std::string::npos)
+          {
+            res.replace(start_pos, before.length(), after);
+            start_pos += after.length();
+            --count;
+          }
+          return Value(res);
+        }
       }
       throw std::runtime_error("Unknown method: " + method->get_name());
     }

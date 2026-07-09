@@ -2222,3 +2222,91 @@ TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
     EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
   }
 }
+
+// Regression tests for missing string methods (.replace, .upper, .lower) in
+// the vendored minja parser. Chat templates from popular HF models (e.g.
+// smollm3-3b) call these on string values; previously they failed with
+// "Unknown method: <name>". See:
+// - microsoft/onnxruntime-extensions#1081
+// - microsoft/Foundry-Local#800
+namespace {
+
+void ExpectTemplateRenders(OrtxTokenizer* tokenizer,
+                           const std::string& tmpl,
+                           const std::string& expected) {
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplate(
+      tokenizer, tmpl.c_str(), messages_json.c_str(), nullptr,
+      result.ToBeAssigned(), false, false);
+  ASSERT_EQ(err, kOrtxOK) << "template: " << tmpl
+                          << " err: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK) << "OrtxTensorResultGetAt failed for template: " << tmpl;
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text = nullptr;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text),
+                          nullptr, nullptr);
+  ASSERT_EQ(err, kOrtxOK) << "OrtxGetTensorData failed for template: " << tmpl;
+  ASSERT_NE(text, nullptr) << "OrtxGetTensorData returned null data for template: " << tmpl;
+  EXPECT_STREQ(text, expected.c_str()) << "template: " << tmpl;
+}
+
+}  // namespace
+
+TEST(OrtxTokenizerTest, MinjaStringReplace) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  // Single replacement.
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'foo and foo'.replace('foo', 'bar') }}",
+                        "bar and bar");
+
+  // Chained replace + rstrip, exactly the pattern smollm3-3b uses.
+  ExpectTemplateRenders(
+      tokenizer.get(),
+      "{{ 'be helpful /no_think and /think  '"
+      ".replace('/no_think', '').replace('/think', '').rstrip() }}",
+      "be helpful  and");
+
+  // Replace with optional count argument (Python str.replace semantics).
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'aaaa'.replace('a', 'X', 2) }}",
+                        "XXaa");
+
+  // Python str.replace semantics: count < 0 means "replace all".
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'aaaa'.replace('a', 'X', -1) }}",
+                        "XXXX");
+
+  // Python str.replace semantics: count == 0 means no replacements.
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'aaaa'.replace('a', 'X', 0) }}",
+                        "aaaa");
+
+  // Replace with empty `before` is a no-op (matches upstream minja behavior).
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'abc'.replace('', 'X') }}",
+                        "abc");
+
+  // No match: original string returned unchanged.
+  ExpectTemplateRenders(tokenizer.get(),
+                        "{{ 'abc'.replace('z', 'X') }}",
+                        "abc");
+}
+
+TEST(OrtxTokenizerTest, MinjaStringUpperLower) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  ExpectTemplateRenders(tokenizer.get(), "{{ 'Hello, World!'.upper() }}",
+                        "HELLO, WORLD!");
+  ExpectTemplateRenders(tokenizer.get(), "{{ 'Hello, World!'.lower() }}",
+                        "hello, world!");
+  // Idempotent on already-cased strings.
+  ExpectTemplateRenders(tokenizer.get(), "{{ 'ABC'.upper() }}", "ABC");
+  ExpectTemplateRenders(tokenizer.get(), "{{ 'abc'.lower() }}", "abc");
+}
