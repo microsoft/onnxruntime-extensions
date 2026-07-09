@@ -483,8 +483,9 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
     EXPECT_EQ(pos_data[i * 2 + 1], -1);
   }
 
-  // Copy merged patch 0 before running the second (teacher) config, which
-  // invalidates pv_data.
+  // Copy merged patch 0 out now: the tensor's backing buffer is owned by the
+  // first result, and reusing `tensor`/running the teacher config below would
+  // rebind pv_data, so snapshot it into an independent buffer first.
   std::vector<float> merged_patch0(pv_data, pv_data + kMergedPatchDim);
 
   // --- standard config: 16px teacher patches ---
@@ -509,6 +510,10 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   //   merged flat index: ((r*48 + col)*3 + c)   for r,col in [0,16)
   //   teacher flat index: ((r*16 + col)*3 + c)
   constexpr int64_t kTeacherPatchDim = 16 * 16 * 3;  // 768
+  // Guard the raw indexing below against an unexpected teacher tensor layout.
+  ASSERT_EQ(teacher_dims, 3ULL);              // (batch, num_patches, patch_dim)
+  ASSERT_GE(teacher_shape[1], 1);             // at least patch 0
+  ASSERT_EQ(teacher_shape[2], kTeacherPatchDim);
   for (int64_t r = 0; r < 16; ++r) {
     for (int64_t col = 0; col < 16; ++col) {
       for (int64_t c = 0; c < 3; ++c) {
@@ -518,7 +523,6 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
       }
     }
   }
-  (void)kTeacherPatchDim;
 }
 
 TEST(ProcessorTest, TestGemma4ImageProcessingMultiImage) {

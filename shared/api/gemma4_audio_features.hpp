@@ -410,11 +410,23 @@ class Gemma4UnifiedAudioFrames {
       return {kOrtxErrorInvalidArgument,
               "[Gemma4UnifiedAudioFrames]: audio_samples_per_token must be positive"};
     }
+    // The op frames whatever PCM the upstream AudioDecoder produces; the frame
+    // size is defined in samples, so this op is intrinsically sample-rate
+    // agnostic. ``sampling_rate`` therefore only documents the rate the decoder
+    // is expected to output (16 kHz for the gemma-4 contract, where 640 samples
+    // == 40 ms). Reject non-positive values so a misconfiguration is loud
+    // rather than silently producing frames at an unintended rate.
+    if (sampling_rate_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: sampling_rate must be positive"};
+    }
     return {};
   }
 
  private:
   int64_t audio_samples_per_token_ = 640;  // 640 samples = 40 ms @ 16 kHz
+  // Expected decoder output rate. Informational only: the op frames by sample
+  // count and does not resample (see the note in Init()).
   int64_t sampling_rate_ = 16000;
   float padding_value_ = 0.0f;
 };
