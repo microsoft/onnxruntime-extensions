@@ -344,4 +344,79 @@ class Gemma4LogMel {
   std::vector<float> mel_filters_;  // (n_freq x feature_size), row-major
 };
 
+// Gemma 4 *unified* (encoder-free, gemma-4-12B) audio feature extraction.
+//
+// Unlike Gemma4LogMel (128-dim USM log-mel), the unified model has no audio
+// encoder: each audio soft token is simply a fixed-length chunk of the raw
+// 16 kHz waveform. This op reproduces HuggingFace
+// ``Gemma4UnifiedAudioFeatureExtractor._extract_waveform_features`` exactly:
+// zero-pad the waveform to a multiple of ``audio_samples_per_token`` and
+// reshape it into ``(num_tokens, audio_samples_per_token)`` frames.
+//
+// Pipeline:  AudioDecoder  ->  Gemma4UnifiedAudioFrames
+//
+// Inputs:   float (1, num_samples) — mono PCM at `sampling_rate` Hz
+// Outputs:  float (num_tokens, audio_samples_per_token) — raw waveform frames
+//
+// The frame-level mask is intentionally not emitted here: for the single-clip
+// inference path the downstream processor fills an all-true mask, and the
+// batch framework zero-pads ragged clips when stacking.
+class Gemma4UnifiedAudioFrames {
+ public:
+  Gemma4UnifiedAudioFrames() = default;
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm_input,
+                     ortc::Tensor<float>& frames_out) {
+    const auto& pcm_shape = pcm_input.Shape();
+    if (pcm_shape.size() != 2 || pcm_shape[0] != 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: expected (1, num_samples) float input"};
+    }
+
+    const int64_t num_samples = pcm_shape[1];
+    const int64_t spt = audio_samples_per_token_;
+    // Zero-pad to a whole number of frames (ceil division), matching HF's
+    // ``pad_len = (-len(waveform)) % audio_samples_per_token``.
+    const int64_t num_tokens = (num_samples + spt - 1) / spt;
+
+    float* out = frames_out.Allocate({num_tokens, spt});
+    if (num_tokens == 0) {
+      return {};
+    }
+    // Fill the (possibly padded) tail of the last frame with the padding value,
+    // then copy the real samples over the front.
+    std::fill(out, out + static_cast<size_t>(num_tokens) * spt, padding_value_);
+    std::copy(pcm_input.Data(), pcm_input.Data() + num_samples, out);
+    return {};
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "audio_samples_per_token" || key == "feature_size") {
+        // ``feature_size`` is accepted as an alias: HF sets feature_size ==
+        // audio_samples_per_token (both default to 640).
+        audio_samples_per_token_ = std::get<int64_t>(value);
+      } else if (key == "sampling_rate") {
+        sampling_rate_ = std::get<int64_t>(value);
+      } else if (key == "padding_value") {
+        padding_value_ = static_cast<float>(std::get<double>(value));
+      } else {
+        return {kOrtxErrorInvalidArgument,
+                "[Gemma4UnifiedAudioFrames]: unknown attribute '" + key + "'"};
+      }
+    }
+    if (audio_samples_per_token_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: audio_samples_per_token must be positive"};
+    }
+    return {};
+  }
+
+ private:
+  int64_t audio_samples_per_token_ = 640;  // 640 samples = 40 ms @ 16 kHz
+  int64_t sampling_rate_ = 16000;
+  float padding_value_ = 0.0f;
+};
+
 }  // namespace ort_extensions

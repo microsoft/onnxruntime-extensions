@@ -447,3 +447,39 @@ TEST(ExtractorTest, TestGemma4AudioFeatureExtractionMultiFile) {
   ASSERT_EQ(mask_dims, 2ULL);
   ASSERT_EQ(mask_shape[0], 2);
 }
+
+TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
+  // gemma-4-12B "unified" (encoder-free) audio: raw 16 kHz waveform chunked
+  // into fixed 640-sample frames.  Pipeline: AudioDecoder -> Gemma4UnifiedAudioFrames
+  const char* audio_path[] = {"data/jfk.flac"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: raw waveform frames — float (batch, num_tokens, 640)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);  // (batch, num_tokens, samples_per_token)
+  ASSERT_EQ(shape[0], 1);     // single audio
+  ASSERT_EQ(shape[2], 640);   // 640 raw samples per token
+  EXPECT_GT(shape[1], 0);     // at least one frame
+
+  // All values finite and within the normalized PCM range.
+  for (int64_t i = 0; i < std::min<int64_t>(shape[1] * 640, 5000); ++i) {
+    ASSERT_TRUE(std::isfinite(data[i])) << "frame value at index " << i << " is not finite";
+    ASSERT_LE(std::abs(data[i]), 4.0f) << "frame value at index " << i << " out of range";
+  }
+}
