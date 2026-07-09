@@ -410,7 +410,9 @@ if(OCOS_ENABLE_MATH)
     file(GLOB TARGET_SRC_MATH_CUDA "operators/math/cuda/*.*")
     list(APPEND TARGET_SRC_MATH ${TARGET_SRC_MATH_CUDA})
   endif()
-
+  if(NOT OCOS_ENABLE_AUDIO)
+    list(APPEND TARGET_SRC ${dlib_SOURCE_DIR}/dlib/fft/fft.cpp) # For the OCOS_ENABLE_AUDIO=OFF so that unknown symbol error shouldn't come.
+  endif()
   list(APPEND TARGET_SRC ${TARGET_SRC_MATH} ${TARGET_SRC_DLIB} ${TARGET_SRC_INVERSE})
 endif()
 
@@ -509,6 +511,9 @@ if(MSVC)
   add_compile_options("$<$<COMPILE_LANGUAGE:CUDA>:SHELL:--compiler-options /utf-8>" "$<$<COMPILE_LANGUAGE:CXX,C>:/utf-8>")
 endif()
 
+#Removing duplicate files added to the target sources.
+list(REMOVE_DUPLICATES TARGET_SRC_NOEXCEPTION)
+list(REMOVE_DUPLICATES TARGET_SRC)
 # Library will not be built if the target src for the lib does not contain any valid *.cc files.
 # Hence the placeholders `noexcep_operators_placeholder.cc` and `ocos_operators_placeholder.cc`
 # are added to the target sources for TARGET_SRC_NOEXCEPTION and TARGET_SRC respectively
@@ -629,7 +634,7 @@ if(OCOS_ENABLE_VISION)
     if (NOT OCOS_ENABLE_DLIB)
       message(FATAL_ERROR "Vision operators require DLIB to be enabled.") # for now, we need dlib for image processing
     endif()
-    include(ext_imgcodecs)  
+    include(ext_imgcodecs)
     target_include_directories(ocos_operators PUBLIC ${libPNG_SOURCE_DIR} ${libJPEG_SOURCE_DIR})
     target_link_libraries(ocos_operators PUBLIC ${PNG_LIBRARY} ${JPEG_LIBRARY})
   endif()
