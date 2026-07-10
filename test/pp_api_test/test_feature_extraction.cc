@@ -501,3 +501,70 @@ TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
   }
 }
 
+TEST(ExtractorTest, TestGemma4UnifiedAudioFramesMultiFile) {
+  // Two clips of different lengths: verify batch stacking pads the shorter clip's
+  // frames and that the frame mask marks the padded tail invalid (false), while
+  // the real frames of each clip are valid (true). Locks in the unified batch +
+  // mask behavior, mirroring the log-mel multi-file coverage.
+  const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 2);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: frames — float (2, max_tokens, 640)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);
+  ASSERT_EQ(shape[0], 2);    // batch of 2 clips
+  ASSERT_EQ(shape[2], 640);  // raw samples per token
+  const int64_t max_tokens = shape[1];
+
+  // Output 1: mask — bool (2, max_tokens)
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);
+  ASSERT_EQ(mask_shape[0], 2);
+  ASSERT_EQ(mask_shape[1], max_tokens);
+
+  // Each row's mask must be a contiguous true-prefix (real frames) followed by a
+  // false-suffix (batch padding). Count valid frames per clip.
+  int64_t valid_counts[2] = {0, 0};
+  for (int64_t b = 0; b < 2; ++b) {
+    const bool* row = mask_data + b * max_tokens;
+    bool seen_false = false;
+    for (int64_t i = 0; i < max_tokens; ++i) {
+      if (row[i]) {
+        ASSERT_FALSE(seen_false) << "clip " << b << " mask must not have a true frame after padding";
+        ++valid_counts[b];
+      } else {
+        seen_false = true;
+      }
+    }
+    EXPECT_GT(valid_counts[b], 0) << "clip " << b << " should have at least one valid frame";
+  }
+
+  // The two clips have different lengths, so exactly one clip fills all max_tokens
+  // and the shorter clip has a padded (false) tail.
+  EXPECT_NE(valid_counts[0], valid_counts[1]) << "test clips should differ in length";
+  EXPECT_EQ(std::max(valid_counts[0], valid_counts[1]), max_tokens);
+  const int64_t shorter = std::min(valid_counts[0], valid_counts[1]);
+  EXPECT_LT(shorter, max_tokens) << "shorter clip should be zero-padded in the batch";
+}
+
