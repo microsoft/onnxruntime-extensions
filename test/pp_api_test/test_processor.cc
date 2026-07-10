@@ -458,6 +458,11 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   const int64_t* pos_data{};
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pos_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
+  // Guard the raw pos_data indexing below against an unexpected layout.
+  ASSERT_EQ(num_dims, 3ULL);              // (batch, max_soft_tokens, 2)
+  ASSERT_EQ(shape[0], 1);
+  ASSERT_EQ(shape[1], kMaxSoftTokens);
+  ASSERT_EQ(shape[2], 2);
   EXPECT_EQ(pos_data[0], 0);  // patch 0 x
   EXPECT_EQ(pos_data[1], 0);  // patch 0 y
 
@@ -472,8 +477,13 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   size_t nst_dims{};
   err = OrtxGetTensorData(nst_tensor.get(), reinterpret_cast<const void**>(&nst), &nst_shape, &nst_dims);
   ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(nst_dims, 2ULL);   // (batch, 1)
+  ASSERT_EQ(nst_shape[0], 1);
   EXPECT_EQ(nst[0], 260) << "merged soft-token count for australia.jpg (HF reference)";
   const int64_t num_merged = nst[0];
+  // Value must be within the padded grid before it indexes pos_data below.
+  ASSERT_GT(num_merged, 0);
+  ASSERT_LE(num_merged, kMaxSoftTokens);
   // Last real merged patch position: (20-1, 13-1) = (19, 12).
   EXPECT_EQ(pos_data[(num_merged - 1) * 2], 19);
   EXPECT_EQ(pos_data[(num_merged - 1) * 2 + 1], 12);

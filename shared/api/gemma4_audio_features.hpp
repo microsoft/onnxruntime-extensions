@@ -39,7 +39,11 @@ OrtxStatus GetTypedAttr(const VariantT& value, const char* op_name, const std::s
 // Gemma 4 audio feature extraction: USM-style log-mel spectrogram that matches
 // the HuggingFace Gemma4AudioFeatureExtractor exactly.
 //
-// Pipeline:  AudioDecoder  ->  Gemma4Audio (type="log_mel")
+// This is the log-mel implementation. It stays registered under its own
+// "Gemma4LogMel" name (backward compatibility) and is also used internally by
+// the generic Gemma4Audio op with type="log_mel".
+//
+// Pipeline:  AudioDecoder  ->  Gemma4LogMel  (or Gemma4Audio type="log_mel")
 //
 // Inputs:   float (1, num_samples)  — mono PCM at `sampling_rate` Hz
 // Outputs:  float (num_frames, feature_size) — log-mel features

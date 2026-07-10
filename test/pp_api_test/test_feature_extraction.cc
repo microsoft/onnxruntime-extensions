@@ -479,10 +479,11 @@ TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
   EXPECT_GT(shape[1], 0);     // at least one frame
   const int64_t num_tokens = shape[1];
 
-  // All values finite and within the normalized PCM range.
+  // Raw waveform frames are the decoded PCM samples, which the AudioDecoder
+  // normalizes to [-1, 1]; a small epsilon covers float rounding at full scale.
   for (int64_t i = 0; i < std::min<int64_t>(num_tokens * 640, 5000); ++i) {
     ASSERT_TRUE(std::isfinite(data[i])) << "frame value at index " << i << " is not finite";
-    ASSERT_LE(std::abs(data[i]), 4.0f) << "frame value at index " << i << " out of range";
+    ASSERT_LE(std::abs(data[i]), 1.0001f) << "frame value at index " << i << " out of normalized PCM range";
   }
 
   // Output 1: frame mask — bool (batch, num_tokens), all true for a single clip.
