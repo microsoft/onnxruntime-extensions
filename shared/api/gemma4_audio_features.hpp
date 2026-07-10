@@ -18,10 +18,32 @@
 
 namespace ort_extensions {
 
+namespace gemma4_audio_detail {
+
+// Checked attribute extraction: returns kOrtxErrorInvalidArgument instead of
+// throwing std::bad_variant_access when a config value has an unexpected type
+// (e.g. a string where a number is required, or an int where a float is).
+template <typename T, typename VariantT>
+OrtxStatus GetTypedAttr(const VariantT& value, const char* op_name, const std::string& key, T& out) {
+  const T* ptr = std::get_if<T>(&value);
+  if (ptr == nullptr) {
+    return {kOrtxErrorInvalidArgument,
+            std::string("[") + op_name + "]: attribute '" + key + "' has an unexpected value type"};
+  }
+  out = *ptr;
+  return {};
+}
+
+}  // namespace gemma4_audio_detail
+
 // Gemma 4 audio feature extraction: USM-style log-mel spectrogram that matches
 // the HuggingFace Gemma4AudioFeatureExtractor exactly.
 //
-// Pipeline:  AudioDecoder  ->  Gemma4LogMel
+// This is the log-mel implementation. It stays registered under its own
+// "Gemma4LogMel" name (backward compatibility) and is also used internally by
+// the generic Gemma4Audio op with type="log_mel".
+//
+// Pipeline:  AudioDecoder  ->  Gemma4LogMel  (or Gemma4Audio type="log_mel")
 //
 // Inputs:   float (1, num_samples)  — mono PCM at `sampling_rate` Hz
 // Outputs:  float (num_frames, feature_size) — log-mel features
@@ -267,33 +289,48 @@ class Gemma4LogMel {
 
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
+    using gemma4_audio_detail::GetTypedAttr;
+    constexpr const char* kOp = "Gemma4LogMel";
     for (const auto& [key, value] : attrs) {
       if (key == "feature_size") {
-        feature_size_ = std::get<int64_t>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, feature_size_); !st.IsOk()) return st;
       } else if (key == "sampling_rate") {
-        sampling_rate_ = std::get<int64_t>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, sampling_rate_); !st.IsOk()) return st;
       } else if (key == "frame_length_ms") {
-        frame_length_ms_ = std::get<double>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, frame_length_ms_); !st.IsOk()) return st;
       } else if (key == "hop_length_ms") {
-        hop_length_ms_ = std::get<double>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, hop_length_ms_); !st.IsOk()) return st;
       } else if (key == "min_frequency") {
-        min_frequency_ = std::get<double>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, min_frequency_); !st.IsOk()) return st;
       } else if (key == "max_frequency") {
-        max_frequency_ = std::get<double>(value);
+        if (auto st = GetTypedAttr(value, kOp, key, max_frequency_); !st.IsOk()) return st;
       } else if (key == "preemphasis") {
-        preemphasis_ = static_cast<float>(std::get<double>(value));
+        double tmp = 0.0;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        preemphasis_ = static_cast<float>(tmp);
       } else if (key == "preemphasis_htk_flavor") {
-        preemphasis_htk_flavor_ = std::get<int64_t>(value) != 0;
+        int64_t tmp = 0;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        preemphasis_htk_flavor_ = tmp != 0;
       } else if (key == "fft_overdrive") {
-        fft_overdrive_ = std::get<int64_t>(value) != 0;
+        int64_t tmp = 0;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        fft_overdrive_ = tmp != 0;
       } else if (key == "mel_floor") {
-        mel_floor_ = static_cast<float>(std::get<double>(value));
+        double tmp = 0.0;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        mel_floor_ = static_cast<float>(tmp);
       } else if (key == "per_bin_mean") {
-        auto& v = std::get<std::vector<double>>(value);
-        per_bin_mean_.assign(v.begin(), v.end());
+        std::vector<double> tmp;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        per_bin_mean_.assign(tmp.begin(), tmp.end());
       } else if (key == "per_bin_stddev") {
-        auto& v = std::get<std::vector<double>>(value);
-        per_bin_stddev_.assign(v.begin(), v.end());
+        std::vector<double> tmp;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        per_bin_stddev_.assign(tmp.begin(), tmp.end());
+      } else if (key == "type") {
+        // Consumed by the Gemma4Audio dispatcher (selects this log-mel path);
+        // ignored here so a forwarded attribute dict does not error.
       } else {
         return {kOrtxErrorInvalidArgument,
                 "[Gemma4LogMel]: unknown attribute '" + key + "'"};
@@ -342,6 +379,184 @@ class Gemma4LogMel {
   int fft_length_ = 512;
   std::vector<float> window_;
   std::vector<float> mel_filters_;  // (n_freq x feature_size), row-major
+};
+
+// Gemma 4 *unified* (encoder-free, gemma-4-12B) audio feature extraction.
+//
+// Unlike Gemma4LogMel (128-dim USM log-mel), the unified model has no audio
+// encoder: each audio soft token is simply a fixed-length chunk of the raw
+// 16 kHz waveform. This op reproduces HuggingFace
+// ``Gemma4UnifiedAudioFeatureExtractor._extract_waveform_features`` exactly:
+// zero-pad the waveform to a multiple of ``audio_samples_per_token`` and
+// reshape it into ``(num_tokens, audio_samples_per_token)`` frames.
+//
+// Pipeline:  AudioDecoder  ->  Gemma4Audio (type="raw_frames")
+//
+// Inputs:   float (1, num_samples) — mono PCM at `sampling_rate` Hz
+// Outputs:  float (num_tokens, audio_samples_per_token) — raw waveform frames
+//           bool  (num_tokens,)                          — frame-level mask (all true)
+//
+// The mask is emitted (all-true) so that this path shares the (features, mask)
+// output signature of Gemma4LogMel, letting a single Gemma4Audio op cover both.
+// It matches HuggingFace ``Gemma4UnifiedAudioFeatureExtractor``, which returns
+// ``input_features`` and ``input_features_mask``; ragged clips are zero-padded
+// by the batch framework when stacking, so per-clip frames are all valid.
+class Gemma4UnifiedAudioFrames {
+ public:
+  Gemma4UnifiedAudioFrames() = default;
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm_input,
+                     ortc::Tensor<float>& frames_out,
+                     ortc::Tensor<bool>& mask_out) {
+    const auto& pcm_shape = pcm_input.Shape();
+    if (pcm_shape.size() != 2 || pcm_shape[0] != 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: expected (1, num_samples) float input"};
+    }
+
+    const int64_t num_samples = pcm_shape[1];
+    const int64_t spt = audio_samples_per_token_;
+    // Zero-pad to a whole number of frames (ceil division), matching HF's
+    // ``pad_len = (-len(waveform)) % audio_samples_per_token``.
+    const int64_t num_tokens = (num_samples + spt - 1) / spt;
+
+    float* out = frames_out.Allocate({num_tokens, spt});
+    bool* mask = mask_out.Allocate({num_tokens});
+    if (num_tokens == 0) {
+      return {};
+    }
+    // Fill the (possibly padded) tail of the last frame with the padding value,
+    // then copy the real samples over the front.
+    std::fill(out, out + static_cast<size_t>(num_tokens) * spt, padding_value_);
+    std::copy(pcm_input.Data(), pcm_input.Data() + num_samples, out);
+    // Every frame of a single clip is valid (padding lives within the last frame).
+    std::fill(mask, mask + num_tokens, true);
+    return {};
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    using gemma4_audio_detail::GetTypedAttr;
+    constexpr const char* kOp = "Gemma4UnifiedAudioFrames";
+    // Track the two aliases separately so conflicting values are rejected rather
+    // than silently taking whichever key appears last.
+    bool samples_set = false, feature_size_set = false;
+    int64_t samples_val = 0, feature_size_val = 0;
+    for (const auto& [key, value] : attrs) {
+      if (key == "audio_samples_per_token") {
+        if (auto st = GetTypedAttr(value, kOp, key, samples_val); !st.IsOk()) return st;
+        samples_set = true;
+      } else if (key == "feature_size") {
+        // ``feature_size`` is accepted as an alias: HF sets feature_size ==
+        // audio_samples_per_token (both default to 640).
+        if (auto st = GetTypedAttr(value, kOp, key, feature_size_val); !st.IsOk()) return st;
+        feature_size_set = true;
+      } else if (key == "sampling_rate") {
+        if (auto st = GetTypedAttr(value, kOp, key, sampling_rate_); !st.IsOk()) return st;
+      } else if (key == "padding_value") {
+        double tmp = 0.0;
+        if (auto st = GetTypedAttr(value, kOp, key, tmp); !st.IsOk()) return st;
+        padding_value_ = static_cast<float>(tmp);
+      } else if (key == "type") {
+        // Consumed by the Gemma4Audio dispatcher (selects this raw-frames path).
+      } else {
+        return {kOrtxErrorInvalidArgument,
+                "[Gemma4UnifiedAudioFrames]: unknown attribute '" + key + "'"};
+      }
+    }
+    if (samples_set && feature_size_set && samples_val != feature_size_val) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: conflicting 'audio_samples_per_token' (" +
+                  std::to_string(samples_val) + ") and 'feature_size' (" + std::to_string(feature_size_val) +
+                  "); they are aliases and must match"};
+    }
+    if (samples_set) {
+      audio_samples_per_token_ = samples_val;
+    } else if (feature_size_set) {
+      audio_samples_per_token_ = feature_size_val;
+    }
+    if (audio_samples_per_token_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: audio_samples_per_token must be positive"};
+    }
+    // The op frames whatever PCM the upstream AudioDecoder produces; the frame
+    // size is defined in samples, so this op is intrinsically sample-rate
+    // agnostic. ``sampling_rate`` therefore only documents the rate the decoder
+    // is expected to output (16 kHz for the gemma-4 contract, where 640 samples
+    // == 40 ms). Reject non-positive values so a misconfiguration is loud
+    // rather than silently producing frames at an unintended rate.
+    if (sampling_rate_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: sampling_rate must be positive"};
+    }
+    return {};
+  }
+
+ private:
+  int64_t audio_samples_per_token_ = 640;  // 640 samples = 40 ms @ 16 kHz
+  // Expected decoder output rate. Informational only: the op frames by sample
+  // count and does not resample (see the note in Init()).
+  int64_t sampling_rate_ = 16000;
+  float padding_value_ = 0.0f;
+};
+
+// Unified Gemma 4 audio feature extraction op.
+//
+// A single registered op that dispatches, via the ``type`` attribute, to one of
+// the gemma-4 audio front-ends rather than exposing a separate kernel per model
+// variant:
+//
+//   type = "log_mel"     (default) -> 128-dim USM log-mel spectrogram (E2B/E4B)
+//   type = "raw_frames"            -> raw 640-sample waveform frames  (12B unified)
+//
+// Both branches share the (features: float, mask: bool) output signature.
+//
+// Pipeline:  AudioDecoder  ->  Gemma4Audio
+class Gemma4Audio {
+ public:
+  Gemma4Audio() = default;
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm_input,
+                     ortc::Tensor<float>& features_out,
+                     ortc::Tensor<bool>& mask_out) {
+    if (mode_ == Mode::kRawFrames) {
+      return raw_frames_.Compute(pcm_input, features_out, mask_out);
+    }
+    return log_mel_.Compute(pcm_input, features_out, mask_out);
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    // Select the front-end from the ``type`` attribute, then forward the full
+    // attribute dict to the chosen implementation (each ignores the ``type``
+    // key). Defaults to log-mel for backward compatibility.
+    for (const auto& [key, value] : attrs) {
+      if (key == "type") {
+        std::string type;
+        if (auto st = gemma4_audio_detail::GetTypedAttr(value, "Gemma4Audio", key, type); !st.IsOk()) {
+          return st;
+        }
+        if (type == "raw_frames") {
+          mode_ = Mode::kRawFrames;
+        } else if (type == "log_mel") {
+          mode_ = Mode::kLogMel;
+        } else {
+          return {kOrtxErrorInvalidArgument,
+                  "[Gemma4Audio]: unknown type '" + type + "' (expected 'log_mel' or 'raw_frames')"};
+        }
+      }
+    }
+    if (mode_ == Mode::kRawFrames) {
+      return raw_frames_.Init(attrs);
+    }
+    return log_mel_.Init(attrs);
+  }
+
+ private:
+  enum class Mode { kLogMel, kRawFrames };
+  Mode mode_ = Mode::kLogMel;
+  Gemma4LogMel log_mel_;
+  Gemma4UnifiedAudioFrames raw_frames_;
 };
 
 }  // namespace ort_extensions

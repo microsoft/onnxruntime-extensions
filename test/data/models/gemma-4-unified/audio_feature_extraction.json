@@ -12,17 +12,10 @@
           "name": "gemma4_audio",
           "type": "Gemma4Audio",
           "attrs": {
-            "type": "log_mel",
-            "feature_size": 128,
+            "type": "raw_frames",
+            "audio_samples_per_token": 640,
             "sampling_rate": 16000,
-            "frame_length_ms": 20.0,
-            "hop_length_ms": 10.0,
-            "min_frequency": 0.0,
-            "max_frequency": 8000.0,
-            "preemphasis": 0.0,
-            "preemphasis_htk_flavor": 1,
-            "fft_overdrive": 0,
-            "mel_floor": 0.001
+            "padding_value": 0.0
           }
         }
       }

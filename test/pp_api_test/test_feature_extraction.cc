@@ -344,7 +344,7 @@ TEST(ExtractorTest, TestSplitSignalSegments) {
 
 TEST(ExtractorTest, TestGemma4AudioFeatureExtraction) {
   // Use existing test audio files to verify the Gemma 4 USM-style log-mel pipeline:
-  // AudioDecoder -> Gemma4LogMel
+  // AudioDecoder -> Gemma4Audio (type="log_mel")
   const char* audio_path[] = {"data/jfk.flac"};
   OrtxObjectPtr<OrtxRawAudios> raw_audios;
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
@@ -447,3 +447,125 @@ TEST(ExtractorTest, TestGemma4AudioFeatureExtractionMultiFile) {
   ASSERT_EQ(mask_dims, 2ULL);
   ASSERT_EQ(mask_shape[0], 2);
 }
+
+TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
+  // gemma-4-12B "unified" (encoder-free) audio: raw 16 kHz waveform chunked
+  // into fixed 640-sample frames via the generic Gemma4Audio op with
+  // type="raw_frames".  Pipeline: AudioDecoder -> Gemma4Audio
+  const char* audio_path[] = {"data/jfk.flac"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: raw waveform frames — float (batch, num_tokens, 640)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);  // (batch, num_tokens, samples_per_token)
+  ASSERT_EQ(shape[0], 1);     // single audio
+  ASSERT_EQ(shape[2], 640);   // 640 raw samples per token
+  EXPECT_GT(shape[1], 0);     // at least one frame
+  const int64_t num_tokens = shape[1];
+
+  // Raw waveform frames are the decoded PCM samples, which the AudioDecoder
+  // normalizes to [-1, 1]; a small epsilon covers float rounding at full scale.
+  for (int64_t i = 0; i < std::min<int64_t>(num_tokens * 640, 5000); ++i) {
+    ASSERT_TRUE(std::isfinite(data[i])) << "frame value at index " << i << " is not finite";
+    ASSERT_LE(std::abs(data[i]), 1.0001f) << "frame value at index " << i << " out of normalized PCM range";
+  }
+
+  // Output 1: frame mask — bool (batch, num_tokens), all true for a single clip.
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);            // (batch, num_tokens)
+  ASSERT_EQ(mask_shape[0], 1);
+  ASSERT_EQ(mask_shape[1], num_tokens);  // same frame count as features
+  for (int64_t i = 0; i < num_tokens; ++i) {
+    EXPECT_TRUE(mask_data[i]) << "single-clip frame " << i << " should be valid";
+  }
+}
+
+TEST(ExtractorTest, TestGemma4UnifiedAudioFramesMultiFile) {
+  // Two clips of different lengths: verify batch stacking pads the shorter clip's
+  // frames and that the frame mask marks the padded tail invalid (false), while
+  // the real frames of each clip are valid (true). Locks in the unified batch +
+  // mask behavior, mirroring the log-mel multi-file coverage.
+  const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav"};
+  OrtxObjectPtr<OrtxRawAudios> raw_audios;
+  extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 2);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxFeatureExtractor> feature_extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  OrtxObjectPtr<OrtxTensorResult> result;
+  err = OrtxFeatureExtraction(feature_extractor.get(), raw_audios.get(), result.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+
+  // Output 0: frames — float (2, max_tokens, 640)
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const float* data{};
+  const int64_t* shape{};
+  size_t num_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&data), &shape, &num_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(num_dims, 3ULL);
+  ASSERT_EQ(shape[0], 2);    // batch of 2 clips
+  ASSERT_EQ(shape[2], 640);  // raw samples per token
+  const int64_t max_tokens = shape[1];
+
+  // Output 1: mask — bool (2, max_tokens)
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);
+  ASSERT_EQ(mask_shape[0], 2);
+  ASSERT_EQ(mask_shape[1], max_tokens);
+
+  // Each row's mask must be a contiguous true-prefix (real frames) followed by a
+  // false-suffix (batch padding). Count valid frames per clip.
+  int64_t valid_counts[2] = {0, 0};
+  for (int64_t b = 0; b < 2; ++b) {
+    const bool* row = mask_data + b * max_tokens;
+    bool seen_false = false;
+    for (int64_t i = 0; i < max_tokens; ++i) {
+      if (row[i]) {
+        ASSERT_FALSE(seen_false) << "clip " << b << " mask must not have a true frame after padding";
+        ++valid_counts[b];
+      } else {
+        seen_false = true;
+      }
+    }
+    EXPECT_GT(valid_counts[b], 0) << "clip " << b << " should have at least one valid frame";
+  }
+
+  // The two clips have different lengths, so exactly one clip fills all max_tokens
+  // and the shorter clip has a padded (false) tail.
+  EXPECT_NE(valid_counts[0], valid_counts[1]) << "test clips should differ in length";
+  EXPECT_EQ(std::max(valid_counts[0], valid_counts[1]), max_tokens);
+  const int64_t shorter = std::min(valid_counts[0], valid_counts[1]);
+  EXPECT_LT(shorter, max_tokens) << "shorter clip should be zero-padded in the batch";
+}
+
