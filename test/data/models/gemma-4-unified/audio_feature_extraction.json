@@ -9,9 +9,10 @@
       },
       {
         "operation": {
-          "name": "gemma4_unified_audio_frames",
-          "type": "Gemma4UnifiedAudioFrames",
+          "name": "gemma4_audio",
+          "type": "Gemma4Audio",
           "attrs": {
+            "type": "raw_frames",
             "audio_samples_per_token": 640,
             "sampling_rate": 16000,
             "padding_value": 0.0

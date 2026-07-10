@@ -344,7 +344,7 @@ TEST(ExtractorTest, TestSplitSignalSegments) {
 
 TEST(ExtractorTest, TestGemma4AudioFeatureExtraction) {
   // Use existing test audio files to verify the Gemma 4 USM-style log-mel pipeline:
-  // AudioDecoder -> Gemma4LogMel
+  // AudioDecoder -> Gemma4Audio (type="log_mel")
   const char* audio_path[] = {"data/jfk.flac"};
   OrtxObjectPtr<OrtxRawAudios> raw_audios;
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
@@ -450,7 +450,8 @@ TEST(ExtractorTest, TestGemma4AudioFeatureExtractionMultiFile) {
 
 TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
   // gemma-4-12B "unified" (encoder-free) audio: raw 16 kHz waveform chunked
-  // into fixed 640-sample frames.  Pipeline: AudioDecoder -> Gemma4UnifiedAudioFrames
+  // into fixed 640-sample frames via the generic Gemma4Audio op with
+  // type="raw_frames".  Pipeline: AudioDecoder -> Gemma4Audio
   const char* audio_path[] = {"data/jfk.flac"};
   OrtxObjectPtr<OrtxRawAudios> raw_audios;
   extError_t err = OrtxLoadAudios(raw_audios.ToBeAssigned(), audio_path, 1);
@@ -476,10 +477,27 @@ TEST(ExtractorTest, TestGemma4UnifiedAudioFrames) {
   ASSERT_EQ(shape[0], 1);     // single audio
   ASSERT_EQ(shape[2], 640);   // 640 raw samples per token
   EXPECT_GT(shape[1], 0);     // at least one frame
+  const int64_t num_tokens = shape[1];
 
   // All values finite and within the normalized PCM range.
-  for (int64_t i = 0; i < std::min<int64_t>(shape[1] * 640, 5000); ++i) {
+  for (int64_t i = 0; i < std::min<int64_t>(num_tokens * 640, 5000); ++i) {
     ASSERT_TRUE(std::isfinite(data[i])) << "frame value at index " << i << " is not finite";
     ASSERT_LE(std::abs(data[i]), 4.0f) << "frame value at index " << i << " out of range";
   }
+
+  // Output 1: frame mask — bool (batch, num_tokens), all true for a single clip.
+  err = OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned());
+  ASSERT_EQ(err, kOrtxOK);
+  const bool* mask_data{};
+  const int64_t* mask_shape{};
+  size_t mask_dims;
+  err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&mask_data), &mask_shape, &mask_dims);
+  ASSERT_EQ(err, kOrtxOK);
+  ASSERT_EQ(mask_dims, 2ULL);            // (batch, num_tokens)
+  ASSERT_EQ(mask_shape[0], 1);
+  ASSERT_EQ(mask_shape[1], num_tokens);  // same frame count as features
+  for (int64_t i = 0; i < num_tokens; ++i) {
+    EXPECT_TRUE(mask_data[i]) << "single-clip frame " << i << " should be valid";
+  }
 }
+

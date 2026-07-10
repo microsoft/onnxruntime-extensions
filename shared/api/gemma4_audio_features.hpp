@@ -294,6 +294,9 @@ class Gemma4LogMel {
       } else if (key == "per_bin_stddev") {
         auto& v = std::get<std::vector<double>>(value);
         per_bin_stddev_.assign(v.begin(), v.end());
+      } else if (key == "type") {
+        // Consumed by the Gemma4Audio dispatcher (selects this log-mel path);
+        // ignored here so a forwarded attribute dict does not error.
       } else {
         return {kOrtxErrorInvalidArgument,
                 "[Gemma4LogMel]: unknown attribute '" + key + "'"};
@@ -353,20 +356,24 @@ class Gemma4LogMel {
 // zero-pad the waveform to a multiple of ``audio_samples_per_token`` and
 // reshape it into ``(num_tokens, audio_samples_per_token)`` frames.
 //
-// Pipeline:  AudioDecoder  ->  Gemma4UnifiedAudioFrames
+// Pipeline:  AudioDecoder  ->  Gemma4Audio (type="raw_frames")
 //
 // Inputs:   float (1, num_samples) — mono PCM at `sampling_rate` Hz
 // Outputs:  float (num_tokens, audio_samples_per_token) — raw waveform frames
+//           bool  (num_tokens,)                          — frame-level mask (all true)
 //
-// The frame-level mask is intentionally not emitted here: for the single-clip
-// inference path the downstream processor fills an all-true mask, and the
-// batch framework zero-pads ragged clips when stacking.
+// The mask is emitted (all-true) so that this path shares the (features, mask)
+// output signature of Gemma4LogMel, letting a single Gemma4Audio op cover both.
+// It matches HuggingFace ``Gemma4UnifiedAudioFeatureExtractor``, which returns
+// ``input_features`` and ``input_features_mask``; ragged clips are zero-padded
+// by the batch framework when stacking, so per-clip frames are all valid.
 class Gemma4UnifiedAudioFrames {
  public:
   Gemma4UnifiedAudioFrames() = default;
 
   OrtxStatus Compute(const ortc::Tensor<float>& pcm_input,
-                     ortc::Tensor<float>& frames_out) {
+                     ortc::Tensor<float>& frames_out,
+                     ortc::Tensor<bool>& mask_out) {
     const auto& pcm_shape = pcm_input.Shape();
     if (pcm_shape.size() != 2 || pcm_shape[0] != 1) {
       return {kOrtxErrorInvalidArgument,
@@ -380,6 +387,7 @@ class Gemma4UnifiedAudioFrames {
     const int64_t num_tokens = (num_samples + spt - 1) / spt;
 
     float* out = frames_out.Allocate({num_tokens, spt});
+    bool* mask = mask_out.Allocate({num_tokens});
     if (num_tokens == 0) {
       return {};
     }
@@ -387,6 +395,8 @@ class Gemma4UnifiedAudioFrames {
     // then copy the real samples over the front.
     std::fill(out, out + static_cast<size_t>(num_tokens) * spt, padding_value_);
     std::copy(pcm_input.Data(), pcm_input.Data() + num_samples, out);
+    // Every frame of a single clip is valid (padding lives within the last frame).
+    std::fill(mask, mask + num_tokens, true);
     return {};
   }
 
@@ -401,6 +411,8 @@ class Gemma4UnifiedAudioFrames {
         sampling_rate_ = std::get<int64_t>(value);
       } else if (key == "padding_value") {
         padding_value_ = static_cast<float>(std::get<double>(value));
+      } else if (key == "type") {
+        // Consumed by the Gemma4Audio dispatcher (selects this raw-frames path).
       } else {
         return {kOrtxErrorInvalidArgument,
                 "[Gemma4UnifiedAudioFrames]: unknown attribute '" + key + "'"};
@@ -429,6 +441,62 @@ class Gemma4UnifiedAudioFrames {
   // count and does not resample (see the note in Init()).
   int64_t sampling_rate_ = 16000;
   float padding_value_ = 0.0f;
+};
+
+// Unified Gemma 4 audio feature extraction op.
+//
+// A single registered op that dispatches, via the ``type`` attribute, to one of
+// the gemma-4 audio front-ends rather than exposing a separate kernel per model
+// variant:
+//
+//   type = "log_mel"     (default) -> 128-dim USM log-mel spectrogram (E2B/E4B)
+//   type = "raw_frames"            -> raw 640-sample waveform frames  (12B unified)
+//
+// Both branches share the (features: float, mask: bool) output signature.
+//
+// Pipeline:  AudioDecoder  ->  Gemma4Audio
+class Gemma4Audio {
+ public:
+  Gemma4Audio() = default;
+
+  OrtxStatus Compute(const ortc::Tensor<float>& pcm_input,
+                     ortc::Tensor<float>& features_out,
+                     ortc::Tensor<bool>& mask_out) {
+    if (mode_ == Mode::kRawFrames) {
+      return raw_frames_.Compute(pcm_input, features_out, mask_out);
+    }
+    return log_mel_.Compute(pcm_input, features_out, mask_out);
+  }
+
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    // Select the front-end from the ``type`` attribute, then forward the full
+    // attribute dict to the chosen implementation (each ignores the ``type``
+    // key). Defaults to log-mel for backward compatibility.
+    for (const auto& [key, value] : attrs) {
+      if (key == "type") {
+        const std::string& type = std::get<std::string>(value);
+        if (type == "raw_frames") {
+          mode_ = Mode::kRawFrames;
+        } else if (type == "log_mel") {
+          mode_ = Mode::kLogMel;
+        } else {
+          return {kOrtxErrorInvalidArgument,
+                  "[Gemma4Audio]: unknown type '" + type + "' (expected 'log_mel' or 'raw_frames')"};
+        }
+      }
+    }
+    if (mode_ == Mode::kRawFrames) {
+      return raw_frames_.Init(attrs);
+    }
+    return log_mel_.Init(attrs);
+  }
+
+ private:
+  enum class Mode { kLogMel, kRawFrames };
+  Mode mode_ = Mode::kLogMel;
+  Gemma4LogMel log_mel_;
+  Gemma4UnifiedAudioFrames raw_frames_;
 };
 
 }  // namespace ort_extensions
