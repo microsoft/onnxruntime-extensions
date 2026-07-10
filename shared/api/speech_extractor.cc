@@ -18,7 +18,7 @@ Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
     {"PerFeatureNormalize", []() { return CreateKernelInstance(&PerFeatureNormalize::Compute); }},
     {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }},
     {"Gemma4LogMel", []() { return CreateKernelInstance(&Gemma4LogMel::Compute); }},
-    {"Gemma4UnifiedAudioFrames", []() { return CreateKernelInstance(&Gemma4UnifiedAudioFrames::Compute); }}};
+    {"Gemma4Audio", []() { return CreateKernelInstance(&Gemma4Audio::Compute); }}};
 
 SpeechFeatureExtractor::SpeechFeatureExtractor() : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
 
