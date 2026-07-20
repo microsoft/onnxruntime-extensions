@@ -176,10 +176,10 @@
       "component": {
         "type": "git",
         "git": {
-          "commitHash": "3e9dfa2866941655c56877882565e7577de6fc7b",
-          "repositoryUrl": "https://github.com/pybind/pybind11.git"
+          "commitHash": "e2dc00f7a34f935c6cf91948776d59c4709e9fe6",
+          "repositoryUrl": "https://github.com/wjakob/nanobind.git"
         },
-        "comments": "v2.10.1"
+        "comments": "v2.13.0"
       }
     },
     {

@@ -17,9 +17,17 @@
 extern "C" {
 #endif
 
+#if defined(_WIN32)
+#define ORTX_EXPORT __declspec(dllexport)
+#else
+#define ORTX_EXPORT __attribute__((visibility("default")))
+#endif
+
+ORTX_EXPORT
 OrtStatus*
 ORT_API_CALL RegisterCustomOps(OrtSessionOptions* options, const OrtApiBase* api);
 
+ORTX_EXPORT
 int
 ORT_API_CALL GetActiveOrtAPIVersion();
 
