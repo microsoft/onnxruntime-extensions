@@ -159,6 +159,68 @@ TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
   ASSERT_NE(encodeOutputBuffer, nullptr);
 }
 
+TEST(ImageDecoderTest, InvalidJpegReturnsErrorWithoutTerminatingProcess) {
+  ort_extensions::DecodeImage image_decoder;
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
+
+  const std::vector<std::vector<uint8_t>> invalid_images = {
+      // Non-PNG bytes long enough to enter the JPEG path.
+      {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09},
+      // JPEG SOI followed by a truncated APP0 marker.
+      {0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46},
+      // Marker length requests a skip beyond the supplied buffer.
+      {0xFF, 0xD8, 0xFF, 0xE1, 0x7F, 0xFF, 0x00, 0x00, 0xFF, 0xD9},
+  };
+
+  for (auto encoded : invalid_images) {
+    ortc::Tensor<uint8_t> input(
+        {static_cast<int64_t>(encoded.size())},
+        encoded.data());
+    ortc::Tensor<uint8_t> output{&CppAllocator::Instance()};
+    auto status = image_decoder.Compute(input, output);
+
+    ASSERT_FALSE(status.IsOk());
+#if !OCOS_ENABLE_VENDOR_IMAGE_CODECS || (!defined(_WIN32) && !defined(__APPLE__))
+    EXPECT_EQ(status.Code(), kOrtxErrorCorruptData);
+    EXPECT_NE(status.ToString().find("JPEG"), std::string::npos);
+#endif
+  }
+}
+
+TEST(ImageDecoderTest, ValidJpegStillDecodesAfterInvalidInput) {
+  ort_extensions::DecodeImage image_decoder;
+  image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
+
+  std::ifstream jpeg_file("data/processor/australia.jpg", std::ios::binary);
+  ASSERT_TRUE(jpeg_file.is_open());
+  jpeg_file.seekg(0, std::ios::end);
+  std::vector<uint8_t> valid(static_cast<size_t>(jpeg_file.tellg()));
+  jpeg_file.seekg(0, std::ios::beg);
+  jpeg_file.read(reinterpret_cast<char*>(valid.data()), valid.size());
+
+  // Preserve the valid header and some entropy-coded scan data, then truncate.
+  // This exercises recovery after output allocation, not only header parsing.
+  std::vector<uint8_t> truncated(valid.begin(), valid.begin() + valid.size() / 2);
+  for (int attempt = 0; attempt < 3; ++attempt) {
+    ortc::Tensor<uint8_t> invalid_tensor(
+        {static_cast<int64_t>(truncated.size())}, truncated.data());
+    ortc::Tensor<uint8_t> invalid_output{&CppAllocator::Instance()};
+    auto invalid_status = image_decoder.Compute(invalid_tensor, invalid_output);
+    ASSERT_FALSE(invalid_status.IsOk());
+#if !OCOS_ENABLE_VENDOR_IMAGE_CODECS || (!defined(_WIN32) && !defined(__APPLE__))
+    EXPECT_EQ(invalid_status.Code(), kOrtxErrorCorruptData);
+    EXPECT_NE(invalid_status.ToString().find("JPEG"), std::string::npos);
+#endif
+  }
+
+  ortc::Tensor<uint8_t> valid_tensor(
+      {static_cast<int64_t>(valid.size())}, valid.data());
+  ortc::Tensor<uint8_t> valid_output{&CppAllocator::Instance()};
+  auto status = image_decoder.Compute(valid_tensor, valid_output);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  EXPECT_EQ(valid_output.Shape(), std::vector<int64_t>({876, 1300, 3}));
+}
+
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
 #if defined(_WIN32) || defined(__APPLE__)
 TEST(ImageDecoderTest, TestTiffDecoder) {
