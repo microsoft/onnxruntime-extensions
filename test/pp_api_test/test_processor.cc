@@ -125,13 +125,25 @@ TEST(ProcessorTest, TestMLlamaImageProcessing) {
   ASSERT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({4, 4, 1}));
 }
 
-// Regression test: Llama3ImageTransform must reject non-square tile sizes to prevent the
-// DoPad heap out-of-bounds write.
 TEST(ProcessorTest, TestMLlamaNonSquareTileSizeRejected) {
   OrtxObjectPtr<OrtxProcessor> processor;
   extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
                                        "data/processor/mllama/llama_3_image_nonsquare.json");
   ASSERT_NE(err, kOrtxOK) << "Non-square tile size must be rejected by Llama3ImageTransform::Init";
+}
+
+TEST(ProcessorTest, TestMLlamaMissingMaxImageTilesRejected) {
+  OrtxObjectPtr<OrtxProcessor> processor;
+  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
+                                       "data/processor/mllama/llama_3_image_missing_max_tiles.json");
+  ASSERT_NE(err, kOrtxOK) << "Missing 'max_image_tiles' must be rejected by Llama3ImageTransform::Init";
+}
+
+TEST(ProcessorTest, TestMLlamaMissingSizeRejected) {
+  OrtxObjectPtr<OrtxProcessor> processor;
+  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
+                                       "data/processor/mllama/llama_3_image_missing_size.json");
+  ASSERT_NE(err, kOrtxOK) << "Missing 'size' must be rejected by Llama3ImageTransform::Init";
 }
 
 TEST(ProcessorTest, TestPhi4VisionProcessor) {

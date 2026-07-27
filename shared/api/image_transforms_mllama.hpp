@@ -348,6 +348,15 @@ struct Llama3ImageTransform {
       }
     }
 
+    if (max_image_tiles_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: missing or non-positive 'max_image_tiles' attribute"};
+    }
+    if (tile_size_.first <= 0 || tile_size_.second <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: missing or non-positive 'size' attribute"};
+    }
+
     OrtxStatus status = normalize_.Init(normalizer_attrs);
     if (!status.IsOk()) {
       return status;
