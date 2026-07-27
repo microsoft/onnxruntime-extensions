@@ -272,6 +272,12 @@ struct Llama3ImageTransform {
     auto [num_tiles_height, num_tiles_width] = aspect_ratio;
     auto padded_height = num_tiles_height * tile_size_.first;
     auto padded_width = num_tiles_width * tile_size_.second;
+    // Defense-in-depth: refuse to run if the resized image does not fit inside the padded canvas.
+    // Prevents the per-row memcpy below from overrunning the padded_image heap allocation.
+    if (image_height > padded_height || image_width > padded_width) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: resized image does not fit within padded canvas"};
+    }
     auto pad_size = std::make_pair(padded_height - image_height, padded_width - image_width);
     auto channels = dimensions[2];
     auto* padded_image_data = padded_image.Allocate({padded_height, padded_width, channels});
@@ -326,6 +332,13 @@ struct Llama3ImageTransform {
         auto tile_size = std::get<std::vector<int64_t>>(value);
         if (tile_size.size() != 2) {
           return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid tile size"};
+        }
+        // DoResize uses only tile_size_.first for both axes while DoPad sizes the destination row
+        // stride from tile_size_.second. A non-square size therefore lets the row memcpy in DoPad
+        // overrun the padded_image heap allocation. Enforce squareness here.
+        if (tile_size[0] <= 0 || tile_size[1] <= 0 || tile_size[0] != tile_size[1]) {
+          return {kOrtxErrorInvalidArgument,
+                  "[Llama3ImageTransform]: tile size must be positive and square (tile_h == tile_w)"};
         }
         tile_size_ = std::make_pair(tile_size[0], tile_size[1]);
       } else if (key == "interpolation") {
