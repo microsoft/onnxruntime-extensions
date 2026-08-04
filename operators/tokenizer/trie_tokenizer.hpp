@@ -165,7 +165,7 @@ struct KernelTrieDetokenizer {
     const int64_t* p_ids = tokens.Data();
     const auto& ids_dim = tokens.Shape();
     if (ids_dim.size() < 1 || ids_dim.size() > 2) {
-      return {kOrtxErrorInvalidArgument, "[TrieDetokenizer]: ids tensor must be rank 1 or 2"};
+      ORTX_CXX_API_THROW("[TrieDetokenizer]: ids tensor must be rank 1 or 2", ORT_INVALID_ARGUMENT);
     }
     // Treat rank-1 [N] as [1, N]
     int64_t seq_len = ids_dim.size() == 2 ? ids_dim[1] : ids_dim[0];
