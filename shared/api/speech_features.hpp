@@ -46,6 +46,13 @@ class SpeechFeatures {
         fft_win_ = hann_window(frame_length_);
       }
     }
+
+    if (static_cast<int64_t>(fft_win_.size()) < frame_length_) {
+      return {kOrtxErrorInvalidArgument,
+              "[AudioFeatures]: hann_win size (" + std::to_string(fft_win_.size()) +
+              ") is smaller than frame_length (" + std::to_string(frame_length_) + ")"};
+    }
+
     return {};
   }
 

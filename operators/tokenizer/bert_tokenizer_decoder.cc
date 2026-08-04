@@ -165,9 +165,15 @@ void KernelBertTokenizerDecoder::Compute(const ortc::Tensor<int64_t>& ids,
     output_dim[0] = 1;
   } else {
     if (p_positions != nullptr) {
+      const int64_t n_ids = ids.NumberOfElement();
       for (int i = 0; i < positions_dim[0]; i++) {
         int64_t start = p_positions[2 * i];
         int64_t end = p_positions[2 * i + 1];
+        if (start < 0 || end < start || end > n_ids) {
+          ORTX_CXX_API_THROW(MakeString("[BertTokenizerDecoder]: positions[", i, "] = [", start, ", ", end,
+                                        "] is out of range for ids of size ", n_ids, "."),
+                             ORT_INVALID_ARGUMENT);
+        }
 
         result.push_back(decoder_->Decode(std::vector<int64_t>(p_ids + start, p_ids + end),
                                           skip_special_tokens_, clean_up_tokenization_spaces_));

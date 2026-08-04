@@ -945,3 +945,22 @@ TEST(OrtxTokenizerProfileTest, DISABLED_MemoryUsage) {
   fprintf(stderr, "Allocated once at model load, freed when tokenizer is destroyed.\n");
   fprintf(stderr, "================================================================\n\n");
 }
+
+// Regression test: batched detokenization with batch >= 2 must not read past the
+// token ID buffer. Previously the inner loop used the total tensor element count
+// instead of the per-row sequence length as its bound.
+TEST(OrtxTokenizerTest, BpeDecoderBatchedDetokenize) {
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-2");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  // Two identical rows of token IDs — batch=2, seq_len=5
+  std::vector<extTokenId_t> row = {1212, 318, 257, 1332, 13};  // "This is a test."
+  std::vector<ort_extensions::span<extTokenId_t const>> batch = {row, row};
+
+  std::vector<std::string> out_text;
+  status = tokenizer->Detokenize(batch, out_text);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  ASSERT_EQ(out_text.size(), 2u);
+  EXPECT_EQ(out_text[0], out_text[1]);
+}
