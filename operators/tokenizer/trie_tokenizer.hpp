@@ -164,17 +164,13 @@ struct KernelTrieDetokenizer {
   OrtStatusPtr Compute(const ortc::Tensor<int64_t>& tokens, ortc::Tensor<std::string>& text) const {
     const int64_t* p_ids = tokens.Data();
     const auto& ids_dim = tokens.Shape();
-    std::vector<int64_t> output_dim = {1};
-    if (ids_dim.size() < 1) {
-      return {};
+    if (ids_dim.size() < 1 || ids_dim.size() > 2) {
+      return {kOrtxErrorInvalidArgument, "[TrieDetokenizer]: ids tensor must be rank 1 or 2"};
     }
     // Treat rank-1 [N] as [1, N]
-    int64_t seq_len = ids_dim.size() >= 2 ? ids_dim[1] : ids_dim[0];
-    int64_t batch = ids_dim.size() >= 2 ? ids_dim[0] : 1;
-    if (ids_dim.size() > 1) {
-      output_dim.resize(ids_dim.size() - 1);
-      std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
-    }
+    int64_t seq_len = ids_dim.size() == 2 ? ids_dim[1] : ids_dim[0];
+    int64_t batch = ids_dim.size() == 2 ? ids_dim[0] : 1;
+    std::vector<int64_t> output_dim = {batch};
 
     std::vector<std::string> output(output_dim[0]);
     bool failed = false;

@@ -340,7 +340,8 @@ struct Normalize {
     if (C != static_cast<int64_t>(mean_.size()) || C != static_cast<int64_t>(std_.size())) {
       return {kOrtxErrorInvalidArgument,
               "[Normalize]: channel count " + std::to_string(C) +
-              " does not match mean/std size " + std::to_string(mean_.size())};
+              " does not match mean/std size (mean=" + std::to_string(mean_.size()) +
+              ", std=" + std::to_string(std_.size()) + ")"};
     }
 
     float* out = output.Allocate({H, W, C});
@@ -479,7 +480,8 @@ struct Permute3D {
     }
 
     if (dims_.size() != 3 || dims_[0] < 0 || dims_[0] > 2 ||
-        dims_[1] < 0 || dims_[1] > 2 || dims_[2] < 0 || dims_[2] > 2) {
+        dims_[1] < 0 || dims_[1] > 2 || dims_[2] < 0 || dims_[2] > 2 ||
+        dims_[0] == dims_[1] || dims_[0] == dims_[2] || dims_[1] == dims_[2]) {
       return {kOrtxErrorInvalidArgument, "[Permute]: dims must be a permutation of {0, 1, 2}"};
     }
 
