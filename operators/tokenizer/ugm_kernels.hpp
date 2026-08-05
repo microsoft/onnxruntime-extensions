@@ -96,17 +96,19 @@ struct SpmUgmTokenizer {
 
       // First four bytes of precompiled_charsmap contains length of binary
       // blob containing XOR-compressed compact double array (XCDA) entries
-      // The data is stored in little-endian format, so we need to convert on big-endian systems
+      if (charsmap_data_.size() < sizeof(uint32_t)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Invalid charsmap header size");
+      }
       uint32_t xcda_blob_size;
-      std::memcpy(&xcda_blob_size, &charsmap_data_[0], sizeof(xcda_blob_size));
-
-      // Convert from little-endian to host byte order
+      memcpy(&xcda_blob_size, charsmap_data_.data(), sizeof(uint32_t));
+      
+        // Convert from little-endian to host byte order
       #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
       xcda_blob_size = __builtin_bswap32(xcda_blob_size);
       #endif
 
       charsmap_offset += sizeof(xcda_blob_size);
-      if (xcda_blob_size + charsmap_offset >= charsmap_data_.size()) {
+      if (xcda_blob_size > charsmap_data_.size() - charsmap_offset) {
         return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
       }
 

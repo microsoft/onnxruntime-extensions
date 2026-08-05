@@ -2463,7 +2463,16 @@ namespace minja
       {
         auto str = parseString();
         if (str)
+        {
+          // Jinja2 (like Python) implicitly concatenates adjacent string
+          // literals, e.g. {{ "foo" "bar" }} -> "foobar". parseString()
+          // skips leading whitespace and returns nullptr when the next
+          // token is not a string literal, so loop to merge any run of
+          // consecutive literals into a single constant.
+          for (auto next = parseString(); next; next = parseString())
+            *str += *next;
           return std::make_shared<Value>(*str);
+        }
       }
       static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|None\b)");
       auto token = consumeToken(prim_tok);

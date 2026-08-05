@@ -447,3 +447,100 @@ TEST(ExtractorTest, TestGemma4AudioFeatureExtractionMultiFile) {
   ASSERT_EQ(mask_dims, 2ULL);
   ASSERT_EQ(mask_shape[0], 2);
 }
+
+// Regression test: a Gemma4LogMel config whose per_bin_mean / per_bin_stddev
+// length does not match feature_size must be rejected at Init time. Previously
+// Compute() indexed these vectors by m in [0, feature_size_) guarded only by
+// !empty(), causing an out-of-bounds heap read (and heap disclosure through the
+// output tensor) for every audio frame.
+TEST(ExtractorTest, TestGemma4LogMelRejectsMismatchedNormalizationLength) {
+  // feature_size = 128 but per_bin_mean has a single element.
+  const char* mismatched_mean_def = R"({
+    "feature_extraction": {
+      "sequence": [
+        {
+          "operation": {
+            "name": "gemma4_log_mel",
+            "type": "Gemma4LogMel",
+            "attrs": {
+              "feature_size": 128,
+              "sampling_rate": 16000,
+              "frame_length_ms": 20.0,
+              "hop_length_ms": 10.0,
+              "per_bin_mean": [0.0],
+              "per_bin_stddev": [1.0]
+            }
+          }
+        }
+      ]
+    }
+  })";
+
+  OrtxFeatureExtractor* extractor = nullptr;
+  extError_t err = OrtxCreateSpeechFeatureExtractor(&extractor, mismatched_mean_def);
+  EXPECT_NE(err, kOrtxOK) << "Init should reject per_bin_mean length != feature_size";
+  EXPECT_EQ(extractor, nullptr);
+  if (extractor != nullptr) {
+    OrtxDisposeOnly(extractor);
+  }
+
+  // feature_size = 128, per_bin_mean matches but per_bin_stddev is too short.
+  const char* mismatched_stddev_def = R"({
+    "feature_extraction": {
+      "sequence": [
+        {
+          "operation": {
+            "name": "gemma4_log_mel",
+            "type": "Gemma4LogMel",
+            "attrs": {
+              "feature_size": 3,
+              "sampling_rate": 16000,
+              "frame_length_ms": 20.0,
+              "hop_length_ms": 10.0,
+              "per_bin_mean": [0.0, 0.0, 0.0],
+              "per_bin_stddev": [1.0]
+            }
+          }
+        }
+      ]
+    }
+  })";
+
+  extractor = nullptr;
+  err = OrtxCreateSpeechFeatureExtractor(&extractor, mismatched_stddev_def);
+  EXPECT_NE(err, kOrtxOK) << "Init should reject per_bin_stddev length != feature_size";
+  EXPECT_EQ(extractor, nullptr);
+  if (extractor != nullptr) {
+    OrtxDisposeOnly(extractor);
+  }
+
+  // Sanity check: a correctly-sized config is accepted.
+  const char* matched_def = R"({
+    "feature_extraction": {
+      "sequence": [
+        {
+          "operation": {
+            "name": "gemma4_log_mel",
+            "type": "Gemma4LogMel",
+            "attrs": {
+              "feature_size": 3,
+              "sampling_rate": 16000,
+              "frame_length_ms": 20.0,
+              "hop_length_ms": 10.0,
+              "per_bin_mean": [0.0, 0.0, 0.0],
+              "per_bin_stddev": [1.0, 1.0, 1.0]
+            }
+          }
+        }
+      ]
+    }
+  })";
+
+  extractor = nullptr;
+  err = OrtxCreateSpeechFeatureExtractor(&extractor, matched_def);
+  EXPECT_EQ(err, kOrtxOK) << "Init should accept matching normalization lengths";
+  EXPECT_NE(extractor, nullptr);
+  if (extractor != nullptr) {
+    OrtxDisposeOnly(extractor);
+  }
+}
