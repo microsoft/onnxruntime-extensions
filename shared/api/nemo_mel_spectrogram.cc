@@ -222,7 +222,9 @@ int NemoStreamingMelExtractor::Process(
   int num_frames = static_cast<int>((padded.size() - win_offset - cfg_.win_length) / cfg_.hop_length) + 1;
 
   int num_bins = cfg_.fft_size / 2 + 1;
-  assert(mel_capacity >= static_cast<size_t>(cfg_.num_mels) * num_frames && "mel buffer too small");
+  if (mel_capacity < static_cast<size_t>(cfg_.num_mels) * num_frames) {
+    return 0;
+  }
   std::vector<float> magnitudes;
 
   for (int t = 0; t < num_frames; ++t) {

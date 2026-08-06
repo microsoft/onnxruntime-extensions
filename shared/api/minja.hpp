@@ -681,14 +681,24 @@ namespace minja
     }
     Value operator/(const Value &rhs) const
     {
-      if (is_number_integer() && rhs.is_number_integer())
-        return get<int64_t>() / rhs.get<int64_t>();
-      else
-        return get<double>() / rhs.get<double>();
+      if (is_number_integer() && rhs.is_number_integer()) {
+        const auto denom = rhs.get<int64_t>();
+        if (denom == 0)
+          throw std::runtime_error("Division by zero");
+        return get<int64_t>() / denom;
+      } else {
+        const auto denom = rhs.get<double>();
+        if (denom == 0.0)
+          throw std::runtime_error("Division by zero");
+        return get<double>() / denom;
+      }
     }
     Value operator%(const Value &rhs) const
     {
-      return get<int64_t>() % rhs.get<int64_t>();
+      const auto denom = rhs.get<int64_t>();
+      if (denom == 0)
+        throw std::runtime_error("Modulo by zero");
+      return get<int64_t>() % denom;
     }
   };
 
@@ -1900,9 +1910,14 @@ namespace minja
         case Op::MulMul:
           return std::pow(l.get<double>(), r.get<double>());
         case Op::DivDiv:
-          return l.get<int64_t>() / r.get<int64_t>();
+        {
+          const auto denom = r.get<int64_t>();
+          if (denom == 0)
+            throw std::runtime_error("Division by zero");
+          return l.get<int64_t>() / denom;
+        }
         case Op::Mod:
-          return l.get<int64_t>() % r.get<int64_t>();
+          return l % r;
         case Op::Eq:
           return l == r;
         case Op::Ne:
@@ -2448,7 +2463,16 @@ namespace minja
       {
         auto str = parseString();
         if (str)
+        {
+          // Jinja2 (like Python) implicitly concatenates adjacent string
+          // literals, e.g. {{ "foo" "bar" }} -> "foobar". parseString()
+          // skips leading whitespace and returns nullptr when the next
+          // token is not a string literal, so loop to merge any run of
+          // consecutive literals into a single constant.
+          for (auto next = parseString(); next; next = parseString())
+            *str += *next;
           return std::make_shared<Value>(*str);
+        }
       }
       static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|None\b)");
       auto token = consumeToken(prim_tok);

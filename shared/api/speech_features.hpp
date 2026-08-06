@@ -194,13 +194,21 @@ class LogMel {
   }
 
   OrtxStatus Compute(const ortc::Tensor<float>& stft_norm, ortc::Tensor<float>& logmel) {
-    assert(stft_norm.Shape().size() == 3 && stft_norm.Shape()[0] == 1);
+    if (stft_norm.Shape().size() != 3 || stft_norm.Shape()[0] != 1) {
+      return {kOrtxErrorInvalidArgument, "[LogMel]: Input STFT tensor must have shape [1, freq, time]."};
+    }
 
     const std::vector<int64_t>& stft_shape = stft_norm.Shape();
     const int64_t stft_freq = stft_shape[1];    // freq bins (e.g., 257)
     const int64_t stft_time = stft_shape[2];    // time steps (e.g., ~300)
     const int64_t mel_freq = mel_filters_.nr(); // n_mel
     const int64_t mel_input_freq = mel_filters_.nc(); // expected input freq bins
+
+    if (stft_time < 2 || stft_freq < 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[LogMel]: STFT output is degenerate (too few time steps or frequency bins). "
+              "The input audio data may be too short or malformed."};
+    }
 
     // Remove last frequency bin from STFT (to mimic Python stft[:, :, :-1])
     const int64_t mag_time = stft_time - 1;
@@ -271,10 +279,12 @@ class LogMel {
       float pad_val = (log_spec_min + 4.0f) / 4.0f;
       std::fill(buff, buff + logmel.NumberOfElement(), pad_val);
 
+      // Copy at most expected_time frames per row (truncate if input is longer).
+      const int64_t copy_time = std::min<int64_t>(mag_time, expected_time);
       for (int m = 0; m < mel_freq; ++m) {
         std::copy(
           log_spec.begin() + m * mag_time,
-          log_spec.begin() + m * mag_time + mag_time,
+          log_spec.begin() + m * mag_time + copy_time,
           buff + m * expected_time
         );
       }
@@ -428,10 +438,10 @@ class SpeechLibLogMel {
 
     dlib::matrix<float> log_spec = dlib::log(mel_spec);
     float* buff = log_fbank.Allocate({log_spec.nc(), log_spec.nr()});
-    std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
     if (buff == nullptr) {
       return {kOrtxErrorOutOfMemory, "Failed to allocate memory for logmel tensor."};
     }
+    std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
 
     for (int i = 0; i < log_spec.nc(); ++i) {
       for (int j = 0; j < log_spec.nr(); ++j) {

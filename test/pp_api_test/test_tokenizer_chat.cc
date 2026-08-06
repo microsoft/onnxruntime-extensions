@@ -1829,6 +1829,40 @@ TEST(OrtxTokenizerTest, ToolsNormalizedWhenNoToolDotFunction) {
       << "Normalized tools should NOT have 'function' key. Output: " << output;
 }
 
+/*
+  Verify that minja supports Jinja2 implicit concatenation of adjacent string
+  literals, e.g. {{ "foo" "bar" }} -> "foobar". This mirrors Python/Jinja2
+  semantics and is used by real templates (e.g. google/gemma-4-E2B-it's
+  chat_template.jinja splits a long raise_exception() message across adjacent
+  string literals). Without this support, minja::Parser::parse() throws and the
+  whole template becomes unusable.
+*/
+TEST(OrtxTokenizerTest, AdjacentStringLiteralConcatenation) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Adjacent literals on one line, across a newline, and with mixed quotes.
+  std::string tmpl = "{{ \"Hello, \" \"world\" '!' }}"
+                     "{{ \"a\"\n\"b\"\n\"c\" }}";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), tmpl.c_str(),
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Adjacent string literals should parse. Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  ASSERT_EQ(std::string(text_ptr), "Hello, world!abc");
+}
+
 // ============================================================================
 // Transformers v5 format tests
 // ============================================================================
@@ -2196,4 +2230,29 @@ TEST(OrtxTokenizerTest, MinjaParserRecursionDepthLimit) {
       messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
   // Should fail gracefully with an error, not crash with a stack overflow.
   EXPECT_NE(err, kOrtxOK);
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Division by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 1/0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected division by zero to return an error.";
+  }
+
+  // Modulo by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 2%0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
+  }
 }

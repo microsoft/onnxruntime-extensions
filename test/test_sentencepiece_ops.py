@@ -102,6 +102,30 @@ def _create_test_model_sentencepiece(
     return model
 
 
+def _create_test_model_ragged_to_sparse_standalone():
+    """Create a minimal ONNX model with just the RaggedTensorToSparse node."""
+    mkv = helper.make_tensor_value_info
+    nodes = [
+        helper.make_node(
+            'RaggedTensorToSparse',
+            inputs=['row_splits'],
+            outputs=['out0', 'out1'],
+            name='RaggedTensorToSparse',
+            domain='ai.onnx.contrib',
+        )
+    ]
+    graph = helper.make_graph(
+        nodes,
+        'test_ragged_validation',
+        [mkv('row_splits', onnx_proto.TensorProto.INT64, [None])],
+        [
+            mkv('out0', onnx_proto.TensorProto.INT64, [None]),
+            mkv('out1', onnx_proto.TensorProto.INT64, [None]),
+        ],
+    )
+    return make_onnx_model(graph)
+
+
 def _create_test_model_ragged_to_sparse(
         prefix, model_b64, domain='ai.onnx.contrib'):
     nodes = []
@@ -406,6 +430,54 @@ class TestPythonOpSentencePiece(unittest.TestCase):
         assert_almost_equal(exp[0], txout[0])
         assert_almost_equal(exp[1], txout[1])
         assert_almost_equal(exp[2], txout[2])
+
+    def test_ragged_to_sparse_valid_input(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse_standalone()
+        sess = _ort.InferenceSession(
+            onnx_model.SerializeToString(), so,
+            providers=['CPUExecutionProvider'])
+        row_splits = np.array([0, 2, 5], dtype=np.int64)
+        out0, out1 = sess.run(None, {'row_splits': row_splits})
+        np.testing.assert_array_equal(out1, [2, 3])
+        self.assertEqual(out0.shape[0], 5)
+
+    def test_ragged_to_sparse_empty_row_splits(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse_standalone()
+        sess = _ort.InferenceSession(
+            onnx_model.SerializeToString(), so,
+            providers=['CPUExecutionProvider'])
+        row_splits = np.array([], dtype=np.int64)
+        with self.assertRaises(Exception) as ctx:
+            sess.run(None, {'row_splits': row_splits})
+        self.assertIn("must not be empty", str(ctx.exception))
+
+    def test_ragged_to_sparse_not_starting_at_zero(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse_standalone()
+        sess = _ort.InferenceSession(
+            onnx_model.SerializeToString(), so,
+            providers=['CPUExecutionProvider'])
+        row_splits = np.array([1, 3, 5], dtype=np.int64)
+        with self.assertRaises(Exception) as ctx:
+            sess.run(None, {'row_splits': row_splits})
+        self.assertIn("must start at zero", str(ctx.exception))
+
+    def test_ragged_to_sparse_not_monotonic(self):
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        onnx_model = _create_test_model_ragged_to_sparse_standalone()
+        sess = _ort.InferenceSession(
+            onnx_model.SerializeToString(), so,
+            providers=['CPUExecutionProvider'])
+        row_splits = np.array([0, 5, 3], dtype=np.int64)
+        with self.assertRaises(Exception) as ctx:
+            sess.run(None, {'row_splits': row_splits})
+        self.assertIn("must be monotonic non-decreasing", str(ctx.exception))
 
     def test_string_ragged_string_to_dense_cc(self):
         so = _ort.SessionOptions()
