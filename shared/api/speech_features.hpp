@@ -279,10 +279,12 @@ class LogMel {
       float pad_val = (log_spec_min + 4.0f) / 4.0f;
       std::fill(buff, buff + logmel.NumberOfElement(), pad_val);
 
+      // Copy at most expected_time frames per row (truncate if input is longer).
+      const int64_t copy_time = std::min<int64_t>(mag_time, expected_time);
       for (int m = 0; m < mel_freq; ++m) {
         std::copy(
           log_spec.begin() + m * mag_time,
-          log_spec.begin() + m * mag_time + mag_time,
+          log_spec.begin() + m * mag_time + copy_time,
           buff + m * expected_time
         );
       }
@@ -436,10 +438,10 @@ class SpeechLibLogMel {
 
     dlib::matrix<float> log_spec = dlib::log(mel_spec);
     float* buff = log_fbank.Allocate({log_spec.nc(), log_spec.nr()});
-    std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
     if (buff == nullptr) {
       return {kOrtxErrorOutOfMemory, "Failed to allocate memory for logmel tensor."};
     }
+    std::memcpy(buff, log_spec.begin(), log_spec.size() * sizeof(float));
 
     for (int i = 0; i < log_spec.nc(); ++i) {
       for (int j = 0; j < log_spec.nr(); ++j) {

@@ -189,6 +189,9 @@ struct Resize {
 
     auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
     ImagingDelete(rgb_image);
+    if (output_image == nullptr) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
+    }
 
     auto* p_output_image = output.Allocate({height, width, c});
     for (auto i = height - height; i < height; ++i) {
@@ -402,6 +405,10 @@ struct CenterCrop {
     auto h = dimensions[0];
     auto w = dimensions[1];
     auto c = dimensions[2];
+
+    if (target_h_ > h || target_w_ > w) {
+      return {kOrtxErrorInvalidArgument, "[CenterCrop]: target dimensions exceed input image size"};
+    }
 
     auto* p_output_image = output.Allocate({target_h_, target_w_, c});
     auto s_h = (h - target_h_) / 2;

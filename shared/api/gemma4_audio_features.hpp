@@ -8,6 +8,7 @@
 #include <complex>
 #include <algorithm>
 #include <numeric>
+#include <string>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
@@ -298,6 +299,26 @@ class Gemma4LogMel {
         return {kOrtxErrorInvalidArgument,
                 "[Gemma4LogMel]: unknown attribute '" + key + "'"};
       }
+    }
+
+    // Validate that optional per-bin normalization vectors match feature_size_.
+    // Compute() indexes these by m in [0, feature_size_) guarded only by
+    // !empty(), so a shorter vector would cause an out-of-bounds heap read.
+    if (!per_bin_mean_.empty() &&
+        per_bin_mean_.size() != static_cast<size_t>(feature_size_)) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4LogMel]: per_bin_mean length (" +
+              std::to_string(per_bin_mean_.size()) +
+              ") must equal feature_size (" +
+              std::to_string(feature_size_) + ")"};
+    }
+    if (!per_bin_stddev_.empty() &&
+        per_bin_stddev_.size() != static_cast<size_t>(feature_size_)) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4LogMel]: per_bin_stddev length (" +
+              std::to_string(per_bin_stddev_.size()) +
+              ") must equal feature_size (" +
+              std::to_string(feature_size_) + ")"};
     }
 
     // Derive sample-domain lengths from millisecond config.

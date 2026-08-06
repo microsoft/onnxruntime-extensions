@@ -93,9 +93,13 @@ struct SpmUgmTokenizer {
 
       // First four bytes of precompiled_charsmap contains length of binary
       // blob containing XOR-compressed compact double array (XCDA) entries
-      uint32_t xcda_blob_size = *(const uint32_t*)&charsmap_data_[0];
+      if (charsmap_data_.size() < sizeof(uint32_t)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Invalid charsmap header size");
+      }
+      uint32_t xcda_blob_size;
+      memcpy(&xcda_blob_size, charsmap_data_.data(), sizeof(uint32_t));
       charsmap_offset += sizeof(xcda_blob_size);
-      if (xcda_blob_size + charsmap_offset >= charsmap_data_.size()) {
+      if (xcda_blob_size > charsmap_data_.size() - charsmap_offset) {
         return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
       }
 
