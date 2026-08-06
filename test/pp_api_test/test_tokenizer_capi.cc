@@ -4,7 +4,7 @@
 #include <memory>
 #include <string>
 #include <fstream>
-#include <locale>
+#include <locale.h>
 #include <algorithm>
 #include "gtest/gtest.h"
 
@@ -302,6 +302,64 @@ TEST(OrtxTokenizerTest, MarianTokenizer2) {
 // Marian Id2Token bug-fix regression tests
 // ============================================================================
 
+class ScopedCTypeCLocale {
+ public:
+  ScopedCTypeCLocale() {
+#ifdef _WIN32
+    previous_thread_locale_mode_ = _configthreadlocale(_ENABLE_PER_THREAD_LOCALE);
+    if (previous_thread_locale_mode_ == -1) {
+      return;
+    }
+    const char* previous_locale = ::setlocale(LC_CTYPE, nullptr);
+    if (previous_locale == nullptr) {
+      return;
+    }
+    previous_locale_ = previous_locale;
+    valid_ = ::setlocale(LC_CTYPE, "C") != nullptr;
+#else
+    c_locale_ = newlocale(LC_CTYPE_MASK, "C", nullptr);
+    if (c_locale_ == static_cast<locale_t>(0)) {
+      return;
+    }
+    previous_locale_ = uselocale(c_locale_);
+    valid_ = previous_locale_ != static_cast<locale_t>(0);
+#endif
+  }
+
+  ~ScopedCTypeCLocale() {
+#ifdef _WIN32
+    if (!previous_locale_.empty()) {
+      ::setlocale(LC_CTYPE, previous_locale_.c_str());
+    }
+    if (previous_thread_locale_mode_ != -1) {
+      _configthreadlocale(previous_thread_locale_mode_);
+    }
+#else
+    if (previous_locale_ != static_cast<locale_t>(0)) {
+      uselocale(previous_locale_);
+    }
+    if (c_locale_ != static_cast<locale_t>(0)) {
+      freelocale(c_locale_);
+    }
+#endif
+  }
+
+  ScopedCTypeCLocale(const ScopedCTypeCLocale&) = delete;
+  ScopedCTypeCLocale& operator=(const ScopedCTypeCLocale&) = delete;
+
+  bool IsValid() const { return valid_; }
+
+ private:
+  bool valid_ = false;
+#ifdef _WIN32
+  int previous_thread_locale_mode_ = -1;
+  std::string previous_locale_;
+#else
+  locale_t c_locale_ = static_cast<locale_t>(0);
+  locale_t previous_locale_ = static_cast<locale_t>(0);
+#endif
+};
+
 // Fixture: shares a single NMT tokenizer instance and provides a helper
 // that tokenizes + detokenizes a string, returning the round-tripped text.
 class MarianId2TokenTest : public ::testing::Test {
@@ -378,6 +436,8 @@ TEST_F(MarianId2TokenTest, CombinedBugs) {
 // towupper only handle ASCII reliably.
 TEST_F(MarianId2TokenTest, UnicodeCaseRestoration) {
   ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  ScopedCTypeCLocale locale;
+  ASSERT_TRUE(locale.IsValid()) << "Failed to activate the per-thread C locale.";
   EXPECT_EQ(RoundTrip(u8"Башҡортостан Республикаһы"),
             u8"Башҡортостан Республикаһы");
   EXPECT_EQ(RoundTrip(u8"École Über"), u8"École Über");
@@ -385,6 +445,8 @@ TEST_F(MarianId2TokenTest, UnicodeCaseRestoration) {
 
 TEST_F(MarianId2TokenTest, UnicodeCasePreservesUnmarkedText) {
   ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  ScopedCTypeCLocale locale;
+  ASSERT_TRUE(locale.IsValid()) << "Failed to activate the per-thread C locale.";
   EXPECT_EQ(RoundTrip(u8"башҡорт теле; école über; 中文 123"),
             u8"башҡорт теле; école über; 中文 123");
 }
