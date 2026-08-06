@@ -313,9 +313,15 @@ struct Normalize {
     for (const auto& [key, value] : attrs) {
       if (key == "mean") {
         auto mean = std::get<std::vector<double>>(value);
+        if (mean.size() < 3) {
+          return {kOrtxErrorInvalidArgument, "[Normalize]: mean must have at least 3 values"};
+        }
         mean_ = {static_cast<float>(mean[0]), static_cast<float>(mean[1]), static_cast<float>(mean[2])};
       } else if (key == "std") {
         auto std = std::get<std::vector<double>>(value);
+        if (std.size() < 3) {
+          return {kOrtxErrorInvalidArgument, "[Normalize]: std must have at least 3 values"};
+        }
         std_ = {static_cast<float>(std[0]), static_cast<float>(std[1]), static_cast<float>(std[2])};
       } else if (key == "qwen2_5_vl" || key == "qwen3_vl") {
         qwen2_5_vl_ = std::get<int64_t>(value) != 0;

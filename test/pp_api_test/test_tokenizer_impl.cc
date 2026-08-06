@@ -954,13 +954,15 @@ TEST(OrtxTokenizerTest, BpeDecoderBatchedDetokenize) {
   auto status = tokenizer->Load("data/phi-2");
   ASSERT_TRUE(status.IsOk()) << status.ToString();
 
-  // Two identical rows of token IDs — batch=2, seq_len=5
-  std::vector<extTokenId_t> row = {1212, 318, 257, 1332, 13};  // "This is a test."
-  std::vector<ort_extensions::span<extTokenId_t const>> batch = {row, row};
+  // Two different rows of token IDs to verify row boundaries are respected.
+  std::vector<extTokenId_t> row1 = {1212, 318, 257, 1332, 13};   // "This is a test."
+  std::vector<extTokenId_t> row2 = {15496, 995, 0};               // "Hello world!"
+  std::vector<ort_extensions::span<extTokenId_t const>> batch = {row1, row2};
 
   std::vector<std::string> out_text;
   status = tokenizer->Detokenize(batch, out_text);
   ASSERT_TRUE(status.IsOk()) << status.ToString();
   ASSERT_EQ(out_text.size(), 2u);
-  EXPECT_EQ(out_text[0], out_text[1]);
+  EXPECT_EQ(out_text[0], "This is a test.");
+  EXPECT_NE(out_text[0], out_text[1]);
 }

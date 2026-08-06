@@ -47,6 +47,11 @@ class SpeechFeatures {
       }
     }
 
+    if (frame_length_ < 2 || hop_length_ < 1 || n_fft_ < 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[AudioFeatures]: Invalid config: frame_length must be >= 2, hop_length and n_fft must be >= 1"};
+    }
+
     if (static_cast<int64_t>(fft_win_.size()) < frame_length_) {
       return {kOrtxErrorInvalidArgument,
               "[AudioFeatures]: hann_win size (" + std::to_string(fft_win_.size()) +
