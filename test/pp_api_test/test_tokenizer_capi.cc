@@ -373,6 +373,22 @@ TEST_F(MarianId2TokenTest, CombinedBugs) {
             "THIS iPhone costs PPV-mp only");
 }
 
+// Non-ASCII letters must not depend on the process locale. Hosted Linux and
+// Windows test environments commonly use the C locale, where iswalpha and
+// towupper only handle ASCII reliably.
+TEST_F(MarianId2TokenTest, UnicodeCaseRestoration) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip(u8"Башҡортостан Республикаһы"),
+            u8"Башҡортостан Республикаһы");
+  EXPECT_EQ(RoundTrip(u8"École Über"), u8"École Über");
+}
+
+TEST_F(MarianId2TokenTest, UnicodeCasePreservesUnmarkedText) {
+  ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
+  EXPECT_EQ(RoundTrip(u8"башҡорт теле; école über; 中文 123"),
+            u8"башҡорт теле; école über; 中文 123");
+}
+
 // ============================================================================
 // Transformers v5 format tests
 // ============================================================================
