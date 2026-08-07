@@ -39,6 +39,11 @@ class SpeechFeatures {
       }
     }
 
+    if (frame_length_ < 2 || hop_length_ < 1 || n_fft_ < 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[AudioFeatures]: Invalid config: frame_length must be >= 2, hop_length and n_fft must be >= 1"};
+    }
+
     if (fft_win_.empty()) {
       if (win_fn_ == "hamming") {
         fft_win_ = hamming_window(frame_length_);
@@ -46,6 +51,13 @@ class SpeechFeatures {
         fft_win_ = hann_window(frame_length_);
       }
     }
+
+    if (static_cast<int64_t>(fft_win_.size()) < frame_length_) {
+      return {kOrtxErrorInvalidArgument,
+              "[AudioFeatures]: hann_win size (" + std::to_string(fft_win_.size()) +
+              ") is smaller than frame_length (" + std::to_string(frame_length_) + ")"};
+    }
+
     return {};
   }
 
