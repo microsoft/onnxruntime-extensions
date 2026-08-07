@@ -39,17 +39,17 @@ class SpeechFeatures {
       }
     }
 
+    if (frame_length_ < 2 || hop_length_ < 1 || n_fft_ < 1) {
+      return {kOrtxErrorInvalidArgument,
+              "[AudioFeatures]: Invalid config: frame_length must be >= 2, hop_length and n_fft must be >= 1"};
+    }
+
     if (fft_win_.empty()) {
       if (win_fn_ == "hamming") {
         fft_win_ = hamming_window(frame_length_);
       } else {  // default to hann
         fft_win_ = hann_window(frame_length_);
       }
-    }
-
-    if (frame_length_ < 2 || hop_length_ < 1 || n_fft_ < 1) {
-      return {kOrtxErrorInvalidArgument,
-              "[AudioFeatures]: Invalid config: frame_length must be >= 2, hop_length and n_fft must be >= 1"};
     }
 
     if (static_cast<int64_t>(fft_win_.size()) < frame_length_) {
