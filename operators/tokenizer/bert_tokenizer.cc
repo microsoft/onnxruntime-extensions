@@ -374,11 +374,18 @@ void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   auto* p_out2 = output2.Allocate(output_dim);
   std::copy(attention_mask.begin(), attention_mask.end(), p_out2);
 
-  std::vector<int64_t> offset_dim{static_cast<int64_t>(input_ids.size()), 2};  // tuple of offsets for each input id
-
   if (offset_mapping.has_value()) {
+    // Size the output from the same source that drives the write loop below. The
+    // number of offset pairs produced by tokenization does not necessarily equal
+    // input_ids.size() (e.g. truncation shrinks input_ids but not offset_map), so
+    // sizing from input_ids would under-allocate and overflow the buffer.
+    size_t offset_rows = 0;
+    for (auto& res : offset_map) {
+      offset_rows += res.size();
+    }
+    std::vector<int64_t> offset_dim{static_cast<int64_t>(offset_rows), 2};  // tuple of offsets for each input id
     auto* offset = (*offset_mapping)->Allocate(offset_dim);
-    int idx2 = 0;
+    size_t idx2 = 0;
     for (auto& res : offset_map) {
       for (auto& mapping : res) {
         offset[idx2] = mapping.first;
@@ -436,10 +443,17 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
     std::copy(token_type_ids.begin(), token_type_ids.end(), p_out2);
   }
 
-  std::vector<int64_t> offset_dim{static_cast<int64_t>(input_ids.size()), 2};  // tuple of offsets for each input id
   if (compute_offset_mapping) {
+    // Size the output from the same source that drives the write loop below,
+    // not from input_ids.size(); the two counts diverge and sizing from
+    // input_ids would under-allocate and overflow the buffer.
+    size_t offset_rows = 0;
+    for (auto& res : offset_map) {
+      offset_rows += res.size();
+    }
+    std::vector<int64_t> offset_dim{static_cast<int64_t>(offset_rows), 2};  // tuple of offsets for each input id
     auto* offset = (*offset_mapping)->Allocate(offset_dim);
-    int idx2 = 0;
+    size_t idx2 = 0;
     for (auto& res : offset_map) {
       for (auto& mapping : res) {
         offset[idx2] = mapping.first;

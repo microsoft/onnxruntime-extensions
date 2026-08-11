@@ -34,6 +34,27 @@ def _run_combined_case(input, vocab_path):
     np.testing.assert_array_equal(result[1], expect_result["token_type_ids"])
     np.testing.assert_array_equal(result[2], expect_result["attention_mask"])
 
+def _run_truncated_offset_bounds_check(input, vocab_path):
+    # Truncation shortens input_ids after offset_map has been generated. The
+    # output tensor must be allocated from offset_map so its write loop cannot
+    # run past a buffer sized from the truncated IDs.
+    t2stc = PyOrtFunction.from_customop(
+        BertTokenizer,
+        vocab_file=vocab_path,
+        do_lower_case=0,
+        strip_accents=1,
+        max_length=5,
+    )
+    result = t2stc([input])
+    offset_mapping = np.asarray(result[3])
+    input_ids = np.asarray(result[0])
+    assert offset_mapping.shape[1] == 2, offset_mapping.shape
+    assert offset_mapping.shape[0] > input_ids.shape[0], (
+        offset_mapping.shape,
+        input_ids.shape,
+    )
+
+
 def _run_basic_with_offset_check(input, vocab_path):
     t2stc = PyOrtFunction.from_customop(
         BertTokenizer, vocab_file=vocab_path, do_lower_case=0, strip_accents=1
@@ -78,6 +99,10 @@ class TestBertTokenizer(unittest.TestCase):
         )
         _run_combined_case(
             ["网 易 云 音 乐", "cat isnot playing toyssss"],
+            vocab_path=util.get_test_data_file("data", "bert_basic_cased_vocab.txt"),
+        )
+        _run_truncated_offset_bounds_check(
+            "cat isnot playing toyssss",
             vocab_path=util.get_test_data_file("data", "bert_basic_cased_vocab.txt"),
         )
         print("\n****** Input ids, token type ids, and attention mask tests complete. ******\n\n\n")
