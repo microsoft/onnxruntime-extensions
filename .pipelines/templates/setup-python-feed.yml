@@ -38,7 +38,6 @@ steps:
       $nugetConfigDir = Join-Path $env:APPDATA 'NuGet'
       New-Item -ItemType Directory -Force -Path $nugetConfigDir | Out-Null
       $nugetConfig = @"
-      <?xml version="1.0" encoding="utf-8"?>
       <configuration>
         <packageSources>
           <clear />
@@ -49,4 +48,4 @@ steps:
         </disabledPackageSources>
       </configuration>
       "@
-      Set-Content -Path (Join-Path $nugetConfigDir 'NuGet.Config') -Value $nugetConfig
+      Set-Content -Path (Join-Path $nugetConfigDir 'NuGet.Config') -Value $nugetConfig -Encoding utf8
