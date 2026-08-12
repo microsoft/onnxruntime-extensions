@@ -49,6 +49,9 @@ stages:
       displayName: 'locate vsdevcmd via vswhere'
 
     - task: UsePythonVersion@0
+
+    - template: setup-python-feed.yml
+
     - script: |
         call $(vsdevcmd) -arch=amd64
         set PYTHONPATH=

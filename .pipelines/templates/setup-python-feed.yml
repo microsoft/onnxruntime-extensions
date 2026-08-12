@@ -1,0 +1,52 @@
+parameters:
+- name: artifactFeed
+  type: string
+  default: 'Lotus'
+
+- name: nugetFeedUrl
+  type: string
+  default: 'https://pkgs.dev.azure.com/aiinfra/_packaging/Lotus/nuget/v3/index.json'
+
+steps:
+- task: PipAuthenticate@1
+  displayName: 'Authenticate Python package feed'
+  inputs:
+    artifactFeeds: ${{ parameters.artifactFeed }}
+    onlyAddExtraIndex: false
+
+- task: NuGetAuthenticate@1
+  displayName: 'Authenticate NuGet package feed'
+
+- task: PowerShell@2
+  displayName: 'Configure cibuildwheel package isolation'
+  env:
+    ORT_EXTENSIONS_NUGET_FEED_URL: ${{ parameters.nugetFeedUrl }}
+  inputs:
+    targetType: 'inline'
+    script: |
+      $ErrorActionPreference = 'Stop'
+      if (-not $env:PIP_INDEX_URL) {
+        throw 'PIP_INDEX_URL is not configured by PipAuthenticate.'
+      }
+
+      $nuget = Get-Command nuget.exe -ErrorAction Stop
+      $cibwCache = Join-Path '$(Agent.TempDirectory)' 'cibuildwheel-cache'
+      New-Item -ItemType Directory -Force -Path $cibwCache | Out-Null
+      Copy-Item -Force -Path $nuget.Source -Destination (Join-Path $cibwCache 'nuget.exe')
+      Write-Host "##vso[task.setvariable variable=CIBW_CACHE_PATH]$cibwCache"
+
+      $nugetConfigDir = Join-Path $env:APPDATA 'NuGet'
+      New-Item -ItemType Directory -Force -Path $nugetConfigDir | Out-Null
+      $nugetConfig = @"
+      <?xml version="1.0" encoding="utf-8"?>
+      <configuration>
+        <packageSources>
+          <clear />
+          <add key="Package Feed" value="$env:ORT_EXTENSIONS_NUGET_FEED_URL" />
+        </packageSources>
+        <disabledPackageSources>
+          <clear />
+        </disabledPackageSources>
+      </configuration>
+      "@
+      Set-Content -Path (Join-Path $nugetConfigDir 'NuGet.Config') -Value $nugetConfig
