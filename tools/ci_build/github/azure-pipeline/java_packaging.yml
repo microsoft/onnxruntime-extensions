@@ -40,6 +40,8 @@ extends:
             artifact: WindowsBinaries
 
         steps:
+        - template: /.pipelines/templates/setup-maven-feed.yml@self
+
         - task: PowerShell@2
           displayName: 'Set version'
           inputs:
@@ -92,6 +94,8 @@ extends:
             artifact: LinuxBinaries
 
         steps:
+        - template: /.pipelines/templates/setup-maven-feed.yml@self
+
         - task: PowerShell@2
           displayName: 'Set version'
           inputs:
@@ -150,6 +154,8 @@ extends:
             artifact: drop-onnxruntime-extensions-java-cpu
 
         steps:
+        - template: /.pipelines/templates/setup-maven-feed.yml@self
+
         - task: PowerShell@2
           displayName: 'Set version'
           inputs:
