@@ -100,13 +100,13 @@ pipelines:
         credscan:
           lastModifiedDate: 2024-11-18
         eslint:
-          lastModifiedDate: 2024-11-18
+          lastModifiedDate: 2026-08-14
         psscriptanalyzer:
-          lastModifiedDate: 2024-11-18
+          lastModifiedDate: 2026-08-14
         armory:
-          lastModifiedDate: 2024-11-18
+          lastModifiedDate: 2026-08-14
         policheck:
-          lastModifiedDate: 2025-05-07
+          lastModifiedDate: 2026-08-14
   1662:
     retail:
       source:
