@@ -14,8 +14,6 @@
 #include <cstring>
 #include <functional>
 #include <unordered_map>
-#include <cwctype>
-#include <locale>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -27,6 +25,7 @@
 #include "trietree.hpp"
 #include "tokenizer_jsconfig.hpp"
 #include "case_encoder.h"
+#include "unicode.h"
 
 namespace ort_extensions {
 
@@ -807,7 +806,7 @@ class SpmUgmDecoder {
   }
 
   // Helper: Decode first UTF-8 codepoint
-  bool DecodeFirstUTF8Codepoint(const std::string& utf8, wchar_t& codepoint, size_t& char_len) const {
+  bool DecodeFirstUTF8Codepoint(const std::string& utf8, char32_t& codepoint, size_t& char_len) const {
     unsigned char lead = static_cast<unsigned char>(utf8[0]);
     if (lead < 0x80) {
       codepoint = lead;
@@ -835,12 +834,11 @@ class SpmUgmDecoder {
     return true;
   }
 
-  // Helper: Encode a wchar_t as UTF-8
-  std::string EncodeUTF8(wchar_t wc) const {
+  // Helper: Encode a Unicode codepoint as UTF-8
+  std::string EncodeUTF8(char32_t codepoint) const {
     std::string out;
 
-    // Promote wchar_t to uint32_t to avoid data loss from shift operations and silence warning C4333
-    uint32_t u = static_cast<uint32_t>(wc);
+    uint32_t u = static_cast<uint32_t>(codepoint);
 
     if (u < 0x80) {
       out += static_cast<char>(u);
@@ -865,19 +863,12 @@ class SpmUgmDecoder {
   void TitlecaseFirstCharacter(std::string& token) const {
     if (token.empty()) return;
 
-    wchar_t codepoint;
+    char32_t codepoint;
     size_t char_len = 0;
 
     if (!DecodeFirstUTF8Codepoint(token, codepoint, char_len)) return;
 
-    // Unicode-aware titlecasing for Cyrillic
-    if (codepoint >= L'а' && codepoint <= L'я') {
-      codepoint = codepoint - (L'а' - L'А');  // Convert to uppercase
-    } else if (codepoint == L'ё') {
-      codepoint = L'Ё';  // Special case
-    } else {
-      codepoint = std::towupper(codepoint);  // Fallback (Latin, etc.)
-    }
+    codepoint = ufal::unilib::unicode::titlecase(codepoint);
 
     std::string prefix = EncodeUTF8(codepoint);
     std::string suffix = token.substr(char_len);
@@ -940,19 +931,11 @@ class SpmUgmDecoder {
 
     auto uppercase_codepoint = [this](std::string& cp_utf8) {
       if (cp_utf8.empty()) return;
-      wchar_t codepoint = 0;
+      char32_t codepoint = 0;
       size_t char_len = 0;
       if (!DecodeFirstUTF8Codepoint(cp_utf8, codepoint, char_len)) return;
       (void)char_len;
-      // Match TitlecaseFirstCharacter's special-cases.
-      if (codepoint >= L'\u0430' && codepoint <= L'\u044f') {
-        codepoint = codepoint - (L'\u0430' - L'\u0410');
-      } else if (codepoint == L'\u0451') {
-        codepoint = L'\u0401';
-      } else {
-        codepoint = static_cast<wchar_t>(
-            std::towupper(static_cast<wint_t>(codepoint)));
-      }
+      codepoint = ufal::unilib::unicode::uppercase(codepoint);
       cp_utf8 = EncodeUTF8(codepoint);
     };
 
@@ -1005,7 +988,7 @@ class SpmUgmDecoder {
 
       // Real codepoint: use DecodeFirstUTF8Codepoint for robust byte-
       // length detection (handles malformed / truncated sequences).
-      wchar_t codepoint = 0;
+      char32_t codepoint = 0;
       size_t cp_len = 0;
       std::string remaining = piece.substr(i);
       if (!DecodeFirstUTF8Codepoint(remaining, codepoint, cp_len) || cp_len == 0) {
@@ -1015,7 +998,9 @@ class SpmUgmDecoder {
         continue;
       }
 
-      const bool is_letter = std::iswalpha(static_cast<wint_t>(codepoint)) != 0;
+      const bool is_letter =
+          (ufal::unilib::unicode::category(codepoint) &
+           ufal::unilib::unicode::L) != 0;
 
       if (is_letter && (mode == normalizer::cTitlecase ||
                         mode == normalizer::cUppercase ||

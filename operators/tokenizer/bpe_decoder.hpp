@@ -155,7 +155,7 @@ struct KernelBpeDecoder {
       std::string text;
       bool f_special_last = false;
       bool f_special = false;
-      auto count = static_cast<size_t>(ids.NumberOfElement());
+      auto count = static_cast<size_t>(seq_len);
 
       for (size_t tok_idx = 0; tok_idx < count; ++tok_idx) {
         const auto token = *(p_ids + tok_idx);
