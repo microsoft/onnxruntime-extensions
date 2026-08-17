@@ -2262,7 +2262,7 @@ TEST(OrtxTokenizerTest, ChatTemplateAcceptsTypedTemplateKwargs) {
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
 
   const std::string template_str =
-      R"({% if enable_thinking is defined and enable_thinking is false %}NO_THINK{% else %}THINK{% endif %}|{{ reasoning_effort }}|{{ level }})";
+      R"({% if enable_thinking is defined and not enable_thinking %}NO_THINK{% else %}THINK{% endif %}|{{ reasoning_effort }}|{{ level }})";
   const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
   const std::string template_kwargs =
       R"({"enable_thinking":false,"reasoning_effort":"low","level":2})";
