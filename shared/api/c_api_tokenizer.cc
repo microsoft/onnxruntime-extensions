@@ -475,8 +475,8 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* t
                                                           const char* input, const char* tools,
                                                           const char* template_kwargs, OrtxTensorResult** output,
                                                           bool add_generation_prompt, bool tokenize) {
-  if (tokenizer == nullptr && template_str == nullptr) {
-    ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "tokenizer is null";
     return kOrtxErrorInvalidArgument;
   }
 

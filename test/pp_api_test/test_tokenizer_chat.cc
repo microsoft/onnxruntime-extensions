@@ -2323,6 +2323,17 @@ TEST(OrtxTokenizerTest, ChatTemplateRejectsInvalidTemplateKwargs) {
   EXPECT_STREQ(OrtxGetLastErrorMessage(), "template_kwargs must be a JSON object.");
 }
 
+TEST(OrtxTokenizerTest, ChatTemplateRejectsNullTokenizerWithExplicitTemplate) {
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplateWithOptions(
+      nullptr, "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      nullptr, result.ToBeAssigned(), true, false);
+  EXPECT_EQ(err, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "tokenizer is null");
+}
+
 TEST(OrtxTokenizerTest, LegacyChatTemplateApiMatchesNullTemplateKwargs) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
