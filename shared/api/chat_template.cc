@@ -410,7 +410,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     }
 
     json context_values = json::object();
-    if (template_kwargs && *template_kwargs) {
+    if (template_kwargs) {
+      if (*template_kwargs == '\0') {
+        throw std::runtime_error("template_kwargs must be a JSON object or null.");
+      }
       auto parsed_kwargs = json::parse(minja::normalize_newlines(template_kwargs), nullptr,
                                        /*allow_exceptions=*/false);
       if (parsed_kwargs.is_discarded()) {

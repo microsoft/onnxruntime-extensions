@@ -2310,6 +2310,12 @@ TEST(OrtxTokenizerTest, ChatTemplateRejectsInvalidTemplateKwargs) {
   const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
   OrtxObjectPtr<OrtxTensorResult> result;
 
+  auto empty_string = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      "", result.ToBeAssigned(), true, false);
+  EXPECT_EQ(empty_string, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "template_kwargs must be a JSON object or null.");
+
   auto invalid_json = OrtxApplyChatTemplateWithOptions(
       tokenizer.get(), "{{ messages[0].content }}", messages_json.c_str(), nullptr,
       "{", result.ToBeAssigned(), true, false);
