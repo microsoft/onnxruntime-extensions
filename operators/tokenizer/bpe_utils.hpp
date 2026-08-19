@@ -858,7 +858,7 @@ class PreTokenizerWithRegEx {
 
     if (regex_compound.size() > 0) {
       try {
-        fallback_patterns_ = std::make_unique<std::regex>(regex_compound);
+        fallback_patterns_ = std::make_shared<std::regex>(regex_compound);
       } catch (const std::regex_error& e) {
         return {kOrtxErrorInvalidArgument, "Invalid regex: " + regex_compound + "\n" + e.what()};
       }
@@ -1044,12 +1044,23 @@ class PreTokenizerWithRegEx {
     return true;
   }
 
+ public:
+  // Create a lightweight per-call cursor that shares compiled patterns (thread-safe).
+  // The compiled matchers and regex are shared read-only; only the mutable cursor state
+  // (m_text, m_last_char, m_utf8_text) is fresh per instance.
+  PreTokenizerWithRegEx CreateCursor() const {
+    PreTokenizerWithRegEx cursor;
+    cursor.activated_matchers_ = activated_matchers_;  // copy small vector of function ptrs
+    cursor.fallback_patterns_ = fallback_patterns_;    // share compiled regex (read-only)
+    return cursor;
+  }
+
  private:
   std::u32string_view m_text;
   char32_t m_last_char = 0;
 
   std::vector<RegexMatchFunc> activated_matchers_;
-  std::unique_ptr<std::regex> fallback_patterns_;
+  std::shared_ptr<std::regex> fallback_patterns_;
   std::string m_utf8_text;
 };
 

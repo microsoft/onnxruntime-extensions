@@ -542,11 +542,10 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   };
 
   // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
-  // Thread safety: ORT guarantees sequential execution per kernel instance;
-  // concurrent calls on the same instance do not occur.
-  if (!cached_splitters_) {
+  // Thread-safe: std::call_once ensures exactly one compilation even under concurrent access.
+  std::call_once(compile_pretokenizer_flag_, [this]() {
     const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
-  }
+  });
   const bool use_sequence = cached_splitters_->is_sequence;
 
   for (auto& seg_id : special_token_split_res) {
@@ -572,7 +571,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       std::vector<std::u32string> chunks = {std::u32string(seg_id.first)};
       {
         PROFILE_SCOPE(pretokenize_ns);
-        for (auto& splitter : cached_splitters_->seq_splitters) {
+        for (auto& cached_splitter : cached_splitters_->seq_splitters) {
+          auto splitter = cached_splitter.CreateCursor();
           std::vector<std::u32string> new_chunks;
           for (auto& chunk : chunks) {
             auto sub = splitter.SplitIsolated(chunk);
@@ -591,14 +591,15 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
         process_bpe_chunk(utf8_token, offset, offset_mapping);
       }
     } else {
-      // Single-regex pre-tokenization using cached splitter (no recompilation)
-      cached_splitters_->reg_splitter.Set(seg_id.first);
+      // Single-regex pre-tokenization: create a local cursor (thread-safe, no shared mutable state)
+      auto splitter = cached_splitters_->reg_splitter.CreateCursor();
+      splitter.Set(seg_id.first);
       std::string utf8_token;
       while (static_cast<int64_t>(res.size()) < max_length) {
         std::u32string_view tok;
         {
           PROFILE_SCOPE(pretokenize_ns);
-          tok = cached_splitters_->reg_splitter.GetNextToken();
+          tok = splitter.GetNextToken();
         }
         if (tok.empty()) break;
         ustring::ToUTF8Into(tok, utf8_token);
@@ -649,10 +650,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
   }
 
   // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
-  // Thread safety: ORT guarantees sequential execution per kernel instance.
-  if (!cached_splitters_) {
+  // Thread-safe: std::call_once ensures exactly one compilation even under concurrent access.
+  std::call_once(compile_pretokenizer_flag_, [this]() {
     const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
-  }
+  });
 
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
 
@@ -678,7 +679,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       ustr.insert(ustr.begin(), 0x2581);  // U+2581 = '▁'
     }
 
-    cached_splitters_->reg_splitter.Set(std::u32string_view(ustr));
+    // Create a local cursor for thread-safe pre-tokenization (no shared mutable state)
+    auto spm_splitter = cached_splitters_->reg_splitter.CreateCursor();
+    spm_splitter.Set(std::u32string_view(ustr));
 
     size_t offset = 0;
     OffsetMappingType offset_mapping;
@@ -758,7 +761,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
         std::u32string_view tok;
         {
           PROFILE_SCOPE(pretokenize_ns);
-          tok = cached_splitters_->reg_splitter.GetNextToken();
+          tok = spm_splitter.GetNextToken();
         }
         if (tok.empty()) break;
         PROFILE_INCREMENT(pretokens_count, 1);
