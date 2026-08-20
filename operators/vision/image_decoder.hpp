@@ -5,6 +5,7 @@
 
 #include <csetjmp>
 #include <cstdint>
+#include <new>
 #include <string>
 
 #include "png.h"
@@ -26,13 +27,12 @@ static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
 struct DecodeImage {
   OrtxStatus OnInit() { return {}; }
 
-  struct JpegErrorManager {
-    jpeg_error_mgr base;
+  struct JpegErrorManager : jpeg_error_mgr {
     jmp_buf jump_buffer;
     char message[JMSG_LENGTH_MAX]{};
 
     static void ErrorExit(j_common_ptr cinfo) {
-      auto* error = reinterpret_cast<JpegErrorManager*>(cinfo->err);
+      auto* error = static_cast<JpegErrorManager*>(cinfo->err);
       (*cinfo->err->format_message)(cinfo, error->message);
       longjmp(error->jump_buffer, 1);
     }
@@ -219,10 +219,13 @@ struct DecodeImage {
     if (png_sig_cmp(encoded_image_data, 0, 8) == 0) {
       return DecodePNG(encoded_image_data, encoded_image_data_len, output);
     } else {
-      auto* const state =
-          new JpegDecodeState(encoded_image_data, encoded_image_data_len);
-      state->cinfo.err = jpeg_std_error(&state->error.base);
-      state->error.base.error_exit = &JpegErrorManager::ErrorExit;
+      auto* const state = new (std::nothrow) JpegDecodeState(encoded_image_data, encoded_image_data_len);
+      if (state == nullptr) {
+        return {kOrtxErrorOutOfMemory, "[ImageDecoder]: Failed to allocate JPEG decoder state."};
+      }
+
+      state->cinfo.err = jpeg_std_error(&state->error);
+      state->error.error_exit = &JpegErrorManager::ErrorExit;
 
       if (setjmp(state->error.jump_buffer)) {
         const char* diagnostic =

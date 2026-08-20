@@ -163,7 +163,7 @@ TEST(ImageDecoderTest, InvalidJpegReturnsErrorWithoutTerminatingProcess) {
   ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
 
-  const std::vector<std::vector<uint8_t>> invalid_images = {
+  std::vector<std::vector<uint8_t>> invalid_images = {
       // Non-PNG bytes long enough to enter the JPEG path.
       {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09},
       // JPEG SOI followed by a truncated APP0 marker.
@@ -172,7 +172,7 @@ TEST(ImageDecoderTest, InvalidJpegReturnsErrorWithoutTerminatingProcess) {
       {0xFF, 0xD8, 0xFF, 0xE1, 0x7F, 0xFF, 0x00, 0x00, 0xFF, 0xD9},
   };
 
-  for (auto encoded : invalid_images) {
+  for (auto& encoded : invalid_images) {
     ortc::Tensor<uint8_t> input(
         {static_cast<int64_t>(encoded.size())},
         encoded.data());
@@ -187,6 +187,9 @@ TEST(ImageDecoderTest, InvalidJpegReturnsErrorWithoutTerminatingProcess) {
   }
 }
 
+// Windows and macOS vendor codecs may accept truncated JPEGs. This test
+// specifically verifies recovery from libjpeg's fatal error callback.
+#if !OCOS_ENABLE_VENDOR_IMAGE_CODECS || (!defined(_WIN32) && !defined(__APPLE__))
 TEST(ImageDecoderTest, ValidJpegStillDecodesAfterInvalidInput) {
   ort_extensions::DecodeImage image_decoder;
   image_decoder.Init(std::unordered_map<std::string, std::variant<std::string>>());
@@ -207,10 +210,8 @@ TEST(ImageDecoderTest, ValidJpegStillDecodesAfterInvalidInput) {
     ortc::Tensor<uint8_t> invalid_output{&CppAllocator::Instance()};
     auto invalid_status = image_decoder.Compute(invalid_tensor, invalid_output);
     ASSERT_FALSE(invalid_status.IsOk());
-#if !OCOS_ENABLE_VENDOR_IMAGE_CODECS || (!defined(_WIN32) && !defined(__APPLE__))
     EXPECT_EQ(invalid_status.Code(), kOrtxErrorCorruptData);
     EXPECT_NE(invalid_status.ToString().find("JPEG"), std::string::npos);
-#endif
   }
 
   ortc::Tensor<uint8_t> valid_tensor(
@@ -220,6 +221,7 @@ TEST(ImageDecoderTest, ValidJpegStillDecodesAfterInvalidInput) {
   ASSERT_TRUE(status.IsOk()) << status.ToString();
   EXPECT_EQ(valid_output.Shape(), std::vector<int64_t>({876, 1300, 3}));
 }
+#endif
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
 #if defined(_WIN32) || defined(__APPLE__)
