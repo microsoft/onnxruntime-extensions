@@ -852,13 +852,15 @@ class PreTokenizerWithRegEx {
         regex_compound = regex_prefix + regex_compound.substr(pos + pattern_size);
       }
     }
+    auto matchers = std::make_shared<std::vector<RegexMatchFunc>>();
     for (const auto& [_, func] : patterns_map) {
-      activated_matchers_.push_back(func);
+      matchers->push_back(func);
     }
+    activated_matchers_ = std::move(matchers);
 
     if (regex_compound.size() > 0) {
       try {
-        fallback_patterns_ = std::make_shared<std::regex>(regex_compound);
+        fallback_patterns_ = std::make_shared<const std::regex>(regex_compound);
       } catch (const std::regex_error& e) {
         return {kOrtxErrorInvalidArgument, "Invalid regex: " + regex_compound + "\n" + e.what()};
       }
@@ -869,10 +871,12 @@ class PreTokenizerWithRegEx {
 
   std::u32string_view TryMatch() {
     std::u32string_view res;
-    for (auto& matcher : activated_matchers_) {
-      res = (this->*matcher)();
-      if (!res.empty()) {
-        break;
+    if (activated_matchers_) {
+      for (auto& matcher : *activated_matchers_) {
+        res = (this->*matcher)();
+        if (!res.empty()) {
+          break;
+        }
       }
     }
 
@@ -1050,7 +1054,7 @@ class PreTokenizerWithRegEx {
   // (m_text, m_last_char, m_utf8_text) is fresh per instance.
   PreTokenizerWithRegEx CreateCursor() const {
     PreTokenizerWithRegEx cursor;
-    cursor.activated_matchers_ = activated_matchers_;  // copy small vector of function ptrs
+    cursor.activated_matchers_ = activated_matchers_;  // share compiled matchers (read-only)
     cursor.fallback_patterns_ = fallback_patterns_;    // share compiled regex (read-only)
     return cursor;
   }
@@ -1059,8 +1063,8 @@ class PreTokenizerWithRegEx {
   std::u32string_view m_text;
   char32_t m_last_char = 0;
 
-  std::vector<RegexMatchFunc> activated_matchers_;
-  std::shared_ptr<std::regex> fallback_patterns_;
+  std::shared_ptr<std::vector<RegexMatchFunc>> activated_matchers_;
+  std::shared_ptr<const std::regex> fallback_patterns_;
   std::string m_utf8_text;
 };
 

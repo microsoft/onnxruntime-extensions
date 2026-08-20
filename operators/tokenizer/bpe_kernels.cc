@@ -544,7 +544,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
   // Thread-safe: std::call_once ensures exactly one compilation even under concurrent access.
   std::call_once(compile_pretokenizer_flag_, [this]() {
-    const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
+    if (!cached_splitters_) {
+      const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
+    }
   });
   const bool use_sequence = cached_splitters_->is_sequence;
 
@@ -652,7 +654,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
   // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
   // Thread-safe: std::call_once ensures exactly one compilation even under concurrent access.
   std::call_once(compile_pretokenizer_flag_, [this]() {
-    const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
+    if (!cached_splitters_) {
+      const_cast<KernelBpeTokenizer*>(this)->CompilePreTokenizer();
+    }
   });
 
   bool add_dummy_prefix = bpe_conf_.get().add_dummy_prefix_;
