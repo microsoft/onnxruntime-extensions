@@ -2256,3 +2256,117 @@ TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
     EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
   }
 }
+
+TEST(OrtxTokenizerTest, ChatTemplateAcceptsTypedTemplateKwargs) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      R"({% if enable_thinking is defined and not enable_thinking %}NO_THINK{% else %}THINK{% endif %}|{{ reasoning_effort }}|{{ level }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  const std::string template_kwargs =
+      R"({"enable_thinking":false,"reasoning_effort":"low","level":2})";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+      template_kwargs.c_str(), result.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+  const char* text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr), kOrtxOK);
+  EXPECT_STREQ(text, "NO_THINK|low|2");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateKwargsCannotOverrideCoreContext) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      R"({{ messages[0].content }}|{% if add_generation_prompt %}GEN{% else %}NO_GEN{% endif %}|{% if tools is defined %}TOOLS{% else %}NO_TOOLS{% endif %})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  const std::string template_kwargs =
+      R"({"messages":[{"role":"user","content":"Override"}],"add_generation_prompt":false,"tools":[{"name":"override"}]})";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+      template_kwargs.c_str(), result.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+  const char* text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr), kOrtxOK);
+  EXPECT_STREQ(text, "Hello|GEN|NO_TOOLS");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateRejectsInvalidTemplateKwargs) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto empty_string = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      "", result.ToBeAssigned(), true, false);
+  EXPECT_EQ(empty_string, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "template_kwargs must be a JSON object or null.");
+
+  auto invalid_json = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      "{", result.ToBeAssigned(), true, false);
+  EXPECT_EQ(invalid_json, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Invalid template_kwargs JSON.");
+
+  auto non_object = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      "[]", result.ToBeAssigned(), true, false);
+  EXPECT_EQ(non_object, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "template_kwargs must be a JSON object.");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateRejectsNullTokenizerWithExplicitTemplate) {
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplateWithOptions(
+      nullptr, "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      nullptr, result.ToBeAssigned(), true, false);
+  EXPECT_EQ(err, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "tokenizer is null");
+}
+
+TEST(OrtxTokenizerTest, LegacyChatTemplateApiMatchesNullTemplateKwargs) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str = R"({{ messages[0].content }}|{{ add_generation_prompt }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> legacy_result;
+  OrtxObjectPtr<OrtxTensorResult> options_result;
+
+  ASSERT_EQ(OrtxApplyChatTemplate(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                legacy_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+  ASSERT_EQ(OrtxApplyChatTemplateWithOptions(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr, nullptr,
+                options_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> legacy_tensor;
+  OrtxObjectPtr<OrtxTensor> options_tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(legacy_result.get(), 0, legacy_tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxTensorResultGetAt(options_result.get(), 0, options_tensor.ToBeAssigned()), kOrtxOK);
+  const char* legacy_text = nullptr;
+  const char* options_text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(legacy_tensor.get(), reinterpret_cast<const void**>(&legacy_text), nullptr, nullptr),
+            kOrtxOK);
+  ASSERT_EQ(OrtxGetTensorData(options_tensor.get(), reinterpret_cast<const void**>(&options_text), nullptr, nullptr),
+            kOrtxOK);
+  EXPECT_STREQ(legacy_text, options_text);
+}
