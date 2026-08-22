@@ -90,8 +90,8 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
   OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
-                               const char* template_kwargs, std::string& output,
-                               std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt, bool tokenize) const;
+                               std::string& output, std::vector<extTokenId_t>& ids_vec,
+                               bool add_generation_prompt, bool tokenize) const;
 
  private:
   OrtxStatus LoadTokenizer(const OrtxTokenizerBlob* blob = nullptr);

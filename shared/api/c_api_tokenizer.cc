@@ -4,6 +4,8 @@
 #include <regex>
 #include <algorithm>
 
+#include "nlohmann/json.hpp"
+
 #include "c_api_utils.hpp"
 #include "tokenizer_impl.h"
 
@@ -52,7 +54,8 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
   // Define the set of valid option keys - may be added to in the future
   static const std::unordered_set<std::string> valid_keys = {
       "add_special_tokens",
-      "skip_special_tokens"
+      "skip_special_tokens",
+      "chat_template_kwargs"
   };
 
   std::unordered_map<std::string, std::string> options;
@@ -66,6 +69,18 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
             "Invalid tokenizer option key: " + key;
         // Return empty map — caller should handle this as an error
         return {};
+      }
+
+      if (key == "chat_template_kwargs") {
+        auto parsed_kwargs = nlohmann::json::parse(values[i], nullptr, /*allow_exceptions=*/false);
+        if (parsed_kwargs.is_discarded()) {
+          ReturnableStatus::last_error_message_ = "Invalid chat_template_kwargs JSON.";
+          return {};
+        }
+        if (!parsed_kwargs.is_object()) {
+          ReturnableStatus::last_error_message_ = "chat_template_kwargs must be a JSON object.";
+          return {};
+        }
       }
 
       options[key] = values[i];
@@ -467,14 +482,6 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
                                                const char* input, const char* tools,
                                                OrtxTensorResult** output, bool add_generation_prompt,
                                                bool tokenize) {
-  return OrtxApplyChatTemplateWithOptions(tokenizer, template_str, input, tools, nullptr, output,
-                                          add_generation_prompt, tokenize);
-}
-
-extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
-                                                          const char* input, const char* tools,
-                                                          const char* template_kwargs, OrtxTensorResult** output,
-                                                          bool add_generation_prompt, bool tokenize) {
   if (tokenizer == nullptr) {
     ReturnableStatus::last_error_message_ = "tokenizer is null";
     return kOrtxErrorInvalidArgument;
@@ -493,7 +500,7 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* t
 
   std::string text;
   std::vector<extTokenId_t> ids_vec;
-  status = token_ptr->ApplyChatTemplate(template_str, input, tools, template_kwargs, text, ids_vec,
+  status = token_ptr->ApplyChatTemplate(template_str, input, tools, text, ids_vec,
                                         add_generation_prompt, tokenize);
   if (status.IsOk()) {
     auto result = std::make_unique<ort_extensions::TensorResult>();

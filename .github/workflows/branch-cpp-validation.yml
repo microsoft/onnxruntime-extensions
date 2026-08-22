@@ -1,0 +1,16 @@
+name: Branch C++ validation
+
+on:
+  push:
+    branches:
+      - feature/chat-template-kwargs-update-options
+
+jobs:
+  c-api-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build C API and C++ tests
+        run: ./build.sh -DOCOS_ENABLE_C_API=ON
+      - name: Run C++ tests
+        run: ctest --test-dir out/Linux/RelWithDebInfo -C RelWithDebInfo --output-on-failure
