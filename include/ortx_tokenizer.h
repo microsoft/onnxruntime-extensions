@@ -276,6 +276,30 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
                                                const char* input, const char* tools, OrtxTensorResult** output,
                                                bool add_generation_prompt, bool tokenize);
 
+/**
+ * @brief Applies a chat template with additional template context values.
+ *
+ * Behaves like OrtxApplyChatTemplate, while also adding the properties from
+ * template_kwargs to the chat template context. template_kwargs must be a
+ * null-terminated JSON object or null. Core context properties such as messages,
+ * tools, and add_generation_prompt cannot be overridden.
+ *
+ * @param tokenizer Pointer to an OrtxTokenizer used for template processing.
+ * @param template_str Null-terminated string representing the chat template; can be null if tokenizer.json has one.
+ * @param input Null-terminated string containing the input to be processed.
+ * @param tools Null-terminated string containing the function tools.
+ * @param template_kwargs Null-terminated JSON object containing additional template context values; can be null.
+ * @param output Pointer to an OrtxTensorResult that will be populated with the output strings,
+ *        if tokenize is true, the ids will be in the output as indexed 1.
+ * @param add_generation_prompt Indicates whether to add a generation prompt to the output.
+ * @param tokenize Indicates whether to tokenize the templated text to IDs.
+ * @return extError_t Returns an error code indicating success or the type of failure.
+ */
+extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
+                                                          const char* input, const char* tools,
+                                                          const char* template_kwargs, OrtxTensorResult** output,
+                                                          bool add_generation_prompt, bool tokenize);
+
 #ifdef __cplusplus
 }
 #endif
