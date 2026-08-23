@@ -2344,23 +2344,23 @@ TEST(OrtxTokenizerTest, ChatTemplateRejectsNullTokenizer) {
 }
 
 TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionCanBeCleared) {
-  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* populated_values[] = {R"({"enable_thinking":false})"};
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(
+      OrtxCreateTokenizerWithOptions, "data/phi-4-base", keys, populated_values, 1);
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
 
-  const std::string template_str = R"({{ messages[0].content }}|{{ add_generation_prompt }})";
+  const std::string template_str =
+      R"({% if enable_thinking is defined %}SET{% else %}UNSET{% endif %}|{{ messages[0].content }})";
   const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
-  OrtxObjectPtr<OrtxTensorResult> default_result;
+  OrtxObjectPtr<OrtxTensorResult> configured_result;
   OrtxObjectPtr<OrtxTensorResult> empty_options_result;
 
   ASSERT_EQ(OrtxApplyChatTemplate(
                 tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
-                default_result.ToBeAssigned(), true, false),
+                configured_result.ToBeAssigned(), true, false),
             kOrtxOK);
 
-  const char* keys[] = {"chat_template_kwargs"};
-  const char* populated_values[] = {R"({"enable_thinking":false})"};
-  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, populated_values, 1), kOrtxOK)
-      << OrtxGetLastErrorMessage();
   const char* cleared_values[] = {"{}"};
   ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, cleared_values, 1), kOrtxOK)
       << OrtxGetLastErrorMessage();
@@ -2369,16 +2369,18 @@ TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionCanBeCleared) {
                 empty_options_result.ToBeAssigned(), true, false),
             kOrtxOK);
 
-  OrtxObjectPtr<OrtxTensor> default_tensor;
+  OrtxObjectPtr<OrtxTensor> configured_tensor;
   OrtxObjectPtr<OrtxTensor> empty_options_tensor;
-  ASSERT_EQ(OrtxTensorResultGetAt(default_result.get(), 0, default_tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxTensorResultGetAt(configured_result.get(), 0, configured_tensor.ToBeAssigned()), kOrtxOK);
   ASSERT_EQ(OrtxTensorResultGetAt(empty_options_result.get(), 0, empty_options_tensor.ToBeAssigned()), kOrtxOK);
-  const char* default_text = nullptr;
+  const char* configured_text = nullptr;
   const char* empty_options_text = nullptr;
-  ASSERT_EQ(OrtxGetTensorData(default_tensor.get(), reinterpret_cast<const void**>(&default_text), nullptr, nullptr),
+  ASSERT_EQ(OrtxGetTensorData(configured_tensor.get(),
+                              reinterpret_cast<const void**>(&configured_text), nullptr, nullptr),
             kOrtxOK);
   ASSERT_EQ(OrtxGetTensorData(empty_options_tensor.get(),
                               reinterpret_cast<const void**>(&empty_options_text), nullptr, nullptr),
             kOrtxOK);
-  EXPECT_STREQ(default_text, empty_options_text);
+  EXPECT_STREQ(configured_text, "SET|Hello");
+  EXPECT_STREQ(empty_options_text, "UNSET|Hello");
 }
