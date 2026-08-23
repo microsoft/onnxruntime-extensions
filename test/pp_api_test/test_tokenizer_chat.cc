@@ -2384,3 +2384,42 @@ TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionCanBeCleared) {
   EXPECT_STREQ(configured_text, "SET|Hello");
   EXPECT_STREQ(empty_options_text, "UNSET|Hello");
 }
+
+TEST(OrtxTokenizerTest, ChatTemplateWithOptionsRemainsPerCall) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* persistent_values[] = {R"({"mode":"persistent"})"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, persistent_values, 1), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+
+  const std::string template_str = R"({{ mode }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> per_call_result;
+  ASSERT_EQ(OrtxApplyChatTemplateWithOptions(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                R"({"mode":"per-call"})", per_call_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> persistent_result;
+  ASSERT_EQ(OrtxApplyChatTemplate(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                persistent_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> per_call_tensor;
+  OrtxObjectPtr<OrtxTensor> persistent_tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(per_call_result.get(), 0, per_call_tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxTensorResultGetAt(persistent_result.get(), 0, persistent_tensor.ToBeAssigned()), kOrtxOK);
+  const char* per_call_text = nullptr;
+  const char* persistent_text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(per_call_tensor.get(),
+                              reinterpret_cast<const void**>(&per_call_text), nullptr, nullptr),
+            kOrtxOK);
+  ASSERT_EQ(OrtxGetTensorData(persistent_tensor.get(),
+                              reinterpret_cast<const void**>(&persistent_text), nullptr, nullptr),
+            kOrtxOK);
+  EXPECT_STREQ(per_call_text, "per-call");
+  EXPECT_STREQ(persistent_text, "persistent");
+}

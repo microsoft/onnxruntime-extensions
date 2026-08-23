@@ -376,8 +376,9 @@ std::string normalize_tool_quotes(const std::string& input) {
 }
 
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
-                                            std::string& output, std::vector<extTokenId_t>& ids_vec,
-                                            bool add_generation_prompt, bool tokenize) const {
+                                            const char* template_kwargs, std::string& output,
+                                            std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt,
+                                            bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
 
@@ -409,15 +410,17 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     }
 
     json context_values = json::object();
-    const auto template_kwargs = options_map.find("chat_template_kwargs");
-    if (template_kwargs != options_map.end()) {
-      auto parsed_kwargs = json::parse(minja::normalize_newlines(template_kwargs->second), nullptr,
+    if (template_kwargs) {
+      if (*template_kwargs == '\0') {
+        throw std::runtime_error("template_kwargs must be a JSON object or null.");
+      }
+      auto parsed_kwargs = json::parse(minja::normalize_newlines(template_kwargs), nullptr,
                                        /*allow_exceptions=*/false);
       if (parsed_kwargs.is_discarded()) {
-        throw std::runtime_error("Invalid chat_template_kwargs JSON.");
+        throw std::runtime_error("Invalid template_kwargs JSON.");
       }
       if (!parsed_kwargs.is_object()) {
-        throw std::runtime_error("chat_template_kwargs must be a JSON object.");
+        throw std::runtime_error("template_kwargs must be a JSON object.");
       }
       context_values = std::move(parsed_kwargs);
     }
