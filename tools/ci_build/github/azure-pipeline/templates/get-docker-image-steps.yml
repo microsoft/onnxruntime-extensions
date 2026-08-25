@@ -44,5 +44,5 @@ steps:
           --container-registry onnxruntimebuildcache \
           --repository "${{ parameters.Repository }}"
       displayName: "Get ${{ parameters.Repository }} image for ${{ parameters.Dockerfile }}"
-    ContainerRegistry: onnxruntimebuildcache
+    ContainerRegistry: onnxruntimebuildcache_newtoken
 
