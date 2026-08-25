@@ -285,6 +285,10 @@ static json NormalizeTools(const char* tools_str) {
   }
 
   json raw_tools = json::parse(tools_str);
+  if (raw_tools.is_null()) {
+    return raw_tools;
+  }
+
   json normalized = json::array();
 
   for (auto& tool : raw_tools) {
@@ -376,8 +380,9 @@ std::string normalize_tool_quotes(const std::string& input) {
 }
 
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
-                                            std::string& output, std::vector<extTokenId_t>& ids_vec,
-                                            bool add_generation_prompt, bool tokenize) const {
+                                            const char* template_kwargs, std::string& output,
+                                            std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt,
+                                            bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
 
@@ -408,7 +413,21 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       throw std::runtime_error("Invalid or unsupported chat template.");
     }
 
-    std::shared_ptr<minja::Context> context;
+    json context_values = json::object();
+    if (template_kwargs) {
+      if (*template_kwargs == '\0') {
+        throw std::runtime_error("template_kwargs must be a JSON object or null.");
+      }
+      auto parsed_kwargs = json::parse(minja::normalize_newlines(template_kwargs), nullptr,
+                                       /*allow_exceptions=*/false);
+      if (parsed_kwargs.is_discarded()) {
+        throw std::runtime_error("Invalid template_kwargs JSON.");
+      }
+      if (!parsed_kwargs.is_object()) {
+        throw std::runtime_error("template_kwargs must be a JSON object.");
+      }
+      context_values = std::move(parsed_kwargs);
+    }
 
     // Check Phi-4-mini tool call case for quote normalization
     bool phi_4_mini = false;
@@ -462,19 +481,15 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
         tools_json = NormalizeTools(tools_str.c_str());
       }
 
-      // Add tools to the context
-      context = minja::Context::make(json({
-          {"messages", actual_messages},
-          {"tools", tools_json},
-          {"add_generation_prompt", add_generation_prompt},
-      }));
+      context_values["tools"] = std::move(tools_json);
     } else {
-      // No tools input, just use the messages
-      context = minja::Context::make(json({
-          {"messages", actual_messages},
-          {"add_generation_prompt", add_generation_prompt},
-      }));
+      context_values.erase("tools");
     }
+
+    // Core request values take precedence over additional template kwargs.
+    context_values["messages"] = std::move(actual_messages);
+    context_values["add_generation_prompt"] = add_generation_prompt;
+    auto context = minja::Context::make(std::move(context_values));
 
     // Set required context values
     context->set("strftime_now", minja::Value::callable(strftime_function));

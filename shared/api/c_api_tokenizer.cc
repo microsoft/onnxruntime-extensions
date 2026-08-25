@@ -467,8 +467,16 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
                                                const char* input, const char* tools,
                                                OrtxTensorResult** output, bool add_generation_prompt,
                                                bool tokenize) {
-  if (tokenizer == nullptr && template_str == nullptr) {
-    ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
+  return OrtxApplyChatTemplateWithOptions(tokenizer, template_str, input, tools, nullptr, output,
+                                          add_generation_prompt, tokenize);
+}
+
+extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
+                                                          const char* input, const char* tools,
+                                                          const char* template_kwargs, OrtxTensorResult** output,
+                                                          bool add_generation_prompt, bool tokenize) {
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "tokenizer is null";
     return kOrtxErrorInvalidArgument;
   }
 
@@ -485,7 +493,8 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
 
   std::string text;
   std::vector<extTokenId_t> ids_vec;
-  status = token_ptr->ApplyChatTemplate(template_str, input, tools, text, ids_vec, add_generation_prompt, tokenize);
+  status = token_ptr->ApplyChatTemplate(template_str, input, tools, template_kwargs, text, ids_vec,
+                                        add_generation_prompt, tokenize);
   if (status.IsOk()) {
     auto result = std::make_unique<ort_extensions::TensorResult>();
     std::vector<std::unique_ptr<ortc::TensorBase>> tensors;

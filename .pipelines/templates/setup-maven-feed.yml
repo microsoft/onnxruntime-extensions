@@ -1,0 +1,79 @@
+parameters:
+- name: artifactFeed
+  type: string
+  default: 'Lotus'
+
+- name: feedUrl
+  type: string
+  default: 'https://pkgs.dev.azure.com/aiinfra/_packaging/Lotus/maven/v1'
+
+steps:
+- task: MavenAuthenticate@0
+  displayName: 'Authenticate Maven feed'
+  inputs:
+    artifactsFeeds: ${{ parameters.artifactFeed }}
+
+- task: PowerShell@2
+  displayName: 'Configure Gradle feed isolation'
+  env:
+    ORT_EXTENSIONS_MAVEN_FEED_NAME: ${{ parameters.artifactFeed }}
+    ORT_EXTENSIONS_MAVEN_FEED_URL: ${{ parameters.feedUrl }}
+  inputs:
+    targetType: 'inline'
+    script: |
+      $gradleInitDir = Join-Path $HOME '.gradle/init.d'
+      New-Item -ItemType Directory -Force -Path $gradleInitDir | Out-Null
+
+      $initScript = @'
+      import groovy.xml.XmlSlurper
+      import org.gradle.api.GradleException
+      import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
+      def feedName = System.getenv('ORT_EXTENSIONS_MAVEN_FEED_NAME')
+      def feedUrl = System.getenv('ORT_EXTENSIONS_MAVEN_FEED_URL')
+      def settingsFile = new File(System.getProperty('user.home'), '.m2/settings.xml')
+      if (!settingsFile.exists()) {
+          throw new GradleException("Maven settings file was not created: ${settingsFile}")
+      }
+
+      def server = new XmlSlurper().parse(settingsFile).servers.server.find {
+          it.id.text() == feedName
+      }
+      if (!server) {
+          throw new GradleException("Credentials for Maven feed '${feedName}' were not found")
+      }
+
+      def feedUsername = server.username.text()
+      def feedPassword = server.password.text()
+      def configureRepository = { repository ->
+          if (repository instanceof MavenArtifactRepository) {
+              repository.setUrl(feedUrl)
+              repository.credentials {
+                  username = feedUsername
+                  password = feedPassword
+              }
+          }
+      }
+
+      gradle.settingsEvaluated { settings ->
+          settings.pluginManagement.repositories.clear()
+          settings.pluginManagement.repositories.maven {
+              name = feedName
+              url = uri(feedUrl)
+              credentials {
+                  username = feedUsername
+                  password = feedPassword
+              }
+          }
+      }
+
+      gradle.beforeProject { project ->
+          [project.buildscript.repositories, project.repositories].each { repositories ->
+              repositories.all(configureRepository)
+              repositories.whenObjectAdded(configureRepository)
+          }
+      }
+      '@
+
+      Set-Content -Path (Join-Path $gradleInitDir 'package-feed.init.gradle') `
+        -Value $initScript -Encoding utf8
