@@ -167,6 +167,8 @@ namespace minja
         {
           if (it != begin)
             print_sub_sep();
+          if (to_json && it->first == undefined_object_key())
+            throw std::runtime_error("Undefined values cannot be serialized as object keys");
           if (it->first.is_string())
           {
             dump_string(it->first, out, string_quote);
@@ -2132,7 +2134,7 @@ namespace minja
         {
           vargs.expectArgs("append method", {1, 1}, {0, 0});
           obj.push_back(vargs.args[0]);
-          return Value();
+          return Value(nullptr);
         }
         else if (method->get_name() == "pop")
         {
@@ -2146,7 +2148,7 @@ namespace minja
           if (index < 0 || index > (int64_t)obj.size())
             throw std::runtime_error("Index out of range for insert method");
           obj.insert(index, vargs.args[1]);
-          return Value();
+          return Value(nullptr);
         }
       }
       else if (obj.is_object())

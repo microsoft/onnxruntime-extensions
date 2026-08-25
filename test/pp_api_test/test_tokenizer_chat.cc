@@ -2373,11 +2373,11 @@ TEST(OrtxTokenizerTest, LegacyChatTemplateApiMatchesNullTemplateKwargs) {
 
 namespace {
 std::string RenderMinjaExpr(OrtxTokenizer* tokenizer, const std::string& template_str,
-                            const char* template_kwargs = nullptr) {
+                            const char* template_kwargs = nullptr, const char* tools = nullptr) {
   const std::string messages_json = R"([{"role":"user","content":"hi"}])";
   OrtxObjectPtr<OrtxTensorResult> result;
   auto err = OrtxApplyChatTemplateWithOptions(
-      tokenizer, template_str.c_str(), messages_json.c_str(), nullptr, template_kwargs, result.ToBeAssigned(), false,
+      tokenizer, template_str.c_str(), messages_json.c_str(), tools, template_kwargs, result.ToBeAssigned(), false,
       false);
   EXPECT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
   if (err != kOrtxOK) {
@@ -2447,6 +2447,15 @@ TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedKwargs) {
             "False|True");
 }
 
+TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string expression = "{{ tools is defined }}|{{ tools is undefined }}|{{ tools is none }}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), expression), "False|True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), expression, nullptr, "null"), "True|False|True");
+}
+
 TEST(OrtxTokenizerTest, MinjaUndefinedWorksInControlFlow) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
@@ -2456,6 +2465,22 @@ TEST(OrtxTokenizerTest, MinjaUndefinedWorksInControlFlow) {
   EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value is undefined %}missing{% else %}present{% endif %}",
                             R"({"value":null})"),
             "present");
+}
+
+TEST(OrtxTokenizerTest, MinjaMutatorsReturnDefinedNone) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(
+                tokenizer.get(),
+                "{% set values = [] %}{% set result = values.append(1) %}"
+                "{{ result is defined }}|{{ result is undefined }}|{{ result is none }}"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(
+                tokenizer.get(),
+                "{% set values = [] %}{% set result = values.insert(0, 1) %}"
+                "{{ result is defined }}|{{ result is undefined }}|{{ result is none }}"),
+            "True|False|True");
 }
 
 TEST(OrtxTokenizerTest, MinjaNoneAndNullLiteralsAreDefinedNullValues) {
@@ -2546,4 +2571,19 @@ TEST(OrtxTokenizerTest, MinjaUndefinedObjectKeysSurviveEnumeration) {
                             "{% for pair in {missing: 1} | dictsort %}"
                             "{{ pair[0] is undefined }}={{ pair[1] }}{% endfor %}"),
             "True=1");
+}
+
+TEST(OrtxTokenizerTest, MinjaToJsonRejectsUndefinedObjectKeys) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ {missing: 1} | tojson }}", messages_json.c_str(), nullptr, nullptr, result.ToBeAssigned(),
+      false, false);
+
+  EXPECT_NE(err, kOrtxOK);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("Undefined values cannot be serialized as object keys"),
+            std::string::npos);
 }
