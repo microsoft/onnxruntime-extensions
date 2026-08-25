@@ -58,17 +58,38 @@ namespace minja
     using FilterType = std::function<Value(const std::shared_ptr<Context> &, ArgumentsValue &)>;
 
   private:
-    using ObjectType = nlohmann::ordered_map<json, Value>; // Only contains primitive keys
+    // Contains hashable Minja keys. Undefined uses an internal object-shaped sentinel that is converted at the
+    // Value boundary and cannot be constructed as a user key.
+    using ObjectType = nlohmann::ordered_map<json, Value>;
     using ArrayType = std::vector<Value>;
 
     std::shared_ptr<ArrayType> array_;
     std::shared_ptr<ObjectType> object_;
     std::shared_ptr<CallableType> callable_;
     json primitive_;
+    bool undefined_ = true;
 
-    Value(const std::shared_ptr<ArrayType> &array) : array_(array) {}
-    Value(const std::shared_ptr<ObjectType> &object) : object_(object) {}
-    Value(const std::shared_ptr<CallableType> &callable) : object_(std::make_shared<ObjectType>()), callable_(callable) {}
+    Value(const std::shared_ptr<ArrayType> &array) : array_(array), undefined_(false) {}
+    Value(const std::shared_ptr<ObjectType> &object) : object_(object), undefined_(false) {}
+    Value(const std::shared_ptr<CallableType> &callable) : object_(std::make_shared<ObjectType>()), callable_(callable), undefined_(false) {}
+
+    static const json &undefined_object_key()
+    {
+      // Objects and arrays are not hashable Minja values, so this object-shaped sentinel cannot collide with a
+      // valid user key while keeping the existing JSON-backed ordered map representation.
+      static const json undefined_key = json::object({{"__minja_undefined_key__", true}});
+      return undefined_key;
+    }
+
+    const json &object_key() const
+    {
+      return undefined_ ? undefined_object_key() : primitive_;
+    }
+
+    static Value from_object_key(const json &key)
+    {
+      return key == undefined_object_key() ? Value() : Value(key);
+    }
 
     /* Python-style string repr */
     static void dump_string(const json &primitive, std::ostringstream &out, char string_quote = '\'')
@@ -180,14 +201,14 @@ namespace minja
 
   public:
     Value() {}
-    Value(const bool &v) : primitive_(v) {}
-    Value(const int64_t &v) : primitive_(v) {}
-    Value(const double &v) : primitive_(v) {}
-    Value(const std::nullptr_t &) {}
-    Value(const std::string &v) : primitive_(v) {}
-    Value(const char *v) : primitive_(std::string(v)) {}
+    Value(const bool &v) : primitive_(v), undefined_(false) {}
+    Value(const int64_t &v) : primitive_(v), undefined_(false) {}
+    Value(const double &v) : primitive_(v), undefined_(false) {}
+    Value(const std::nullptr_t &) : undefined_(false) {}
+    Value(const std::string &v) : primitive_(v), undefined_(false) {}
+    Value(const char *v) : primitive_(std::string(v)), undefined_(false) {}
 
-    Value(const json &v)
+    Value(const json &v) : undefined_(false)
     {
       if (v.is_object())
       {
@@ -220,7 +241,7 @@ namespace minja
       std::vector<Value> res;
       for (const auto &item : *object_)
       {
-        res.push_back(item.first);
+        res.push_back(from_object_key(item.first));
       }
       return res;
     }
@@ -297,7 +318,7 @@ namespace minja
       {
         if (!index.is_hashable())
           throw std::runtime_error("Unashable type: " + index.dump());
-        auto it = object_->find(index.primitive_);
+        auto it = object_->find(index.object_key());
         if (it == object_->end())
           throw std::runtime_error("Key not found: " + index.dump());
         auto ret = it->second;
@@ -317,14 +338,19 @@ namespace minja
         {
           return Value();
         }
-        auto index = key.get<int>();
-        return array_->at(index < 0 ? array_->size() + index : index);
+        auto index = key.get<int64_t>();
+        const auto array_size = static_cast<int64_t>(array_->size());
+        if (index < 0)
+          index += array_size;
+        if (index < 0 || index >= array_size)
+          return Value();
+        return array_->at(static_cast<size_t>(index));
       }
       else if (object_)
       {
         if (!key.is_hashable())
           throw std::runtime_error("Unashable type: " + dump());
-        auto it = object_->find(key.primitive_);
+        auto it = object_->find(key.object_key());
         if (it == object_->end())
           return Value();
         return it->second;
@@ -337,7 +363,7 @@ namespace minja
         throw std::runtime_error("Value is not an object: " + dump());
       if (!key.is_hashable())
         throw std::runtime_error("Unashable type: " + dump());
-      (*object_)[key.primitive_] = value;
+      (*object_)[key.object_key()] = value;
     }
     Value call(const std::shared_ptr<Context> &context, ArgumentsValue &args) const
     {
@@ -350,6 +376,7 @@ namespace minja
     bool is_array() const { return !!array_; }
     bool is_callable() const { return !!callable_; }
     bool is_null() const { return !object_ && !array_ && primitive_.is_null() && !callable_; }
+    bool is_undefined() const { return undefined_; }
     bool is_boolean() const { return primitive_.is_boolean(); }
     bool is_number_integer() const { return primitive_.is_number_integer(); }
     bool is_number_float() const { return primitive_.is_number_float(); }
@@ -388,7 +415,7 @@ namespace minja
       {
         for (auto &item : *object_)
         {
-          Value key(item.first);
+          Value key = from_object_key(item.first);
           callback(key);
         }
       }
@@ -469,6 +496,8 @@ namespace minja
 
     bool operator==(const Value &other) const
     {
+      if (undefined_ || other.undefined_)
+        return undefined_ && other.undefined_;
       if (callable_ || other.callable_)
       {
         if (callable_.get() != other.callable_.get())
@@ -482,7 +511,7 @@ namespace minja
           return false;
         for (size_t i = 0; i < array_->size(); ++i)
         {
-          if (!(*array_)[i].to_bool() || !(*other.array_)[i].to_bool() || (*array_)[i] != (*other.array_)[i])
+          if ((*array_)[i] != (*other.array_)[i])
             return false;
         }
         return true;
@@ -495,7 +524,8 @@ namespace minja
           return false;
         for (const auto &item : *object_)
         {
-          if (!item.second.to_bool() || !other.object_->count(item.first) || item.second != other.object_->at(item.first))
+          auto other_item = other.object_->find(item.first);
+          if (other_item == other.object_->end() || item.second != other_item->second)
             return false;
         }
         return true;
@@ -531,7 +561,7 @@ namespace minja
       {
         for (const auto &item : *array_)
         {
-          if (item.to_bool() && item == value)
+          if (item == value)
             return true;
         }
         return false;
@@ -540,7 +570,7 @@ namespace minja
       {
         if (!value.is_hashable())
           throw std::runtime_error("Unashable type: " + value.dump());
-        return object_->find(value.primitive_) != object_->end();
+        return object_->find(value.object_key()) != object_->end();
       }
       else
       {
@@ -568,9 +598,17 @@ namespace minja
       if (!index.is_hashable())
         throw std::runtime_error("Unashable type: " + dump());
       if (is_array())
-        return array_->at(index.get<int>());
+      {
+        auto array_index = index.get<int64_t>();
+        const auto array_size = static_cast<int64_t>(array_->size());
+        if (array_index < 0)
+          array_index += array_size;
+        if (array_index < 0 || array_index >= array_size)
+          throw std::out_of_range("Array index out of range: " + index.dump());
+        return array_->at(static_cast<size_t>(array_index));
+      }
       if (is_object())
-        return object_->at(index.primitive_);
+        return object_->at(index.object_key());
       throw std::runtime_error("Value is not an array or object: " + dump());
     }
     const Value &at(size_t index) const
@@ -1856,7 +1894,7 @@ namespace minja
           {
             const auto &name = t->get_name();
             if (name == "none")
-              return l.is_null();
+              return l.is_null() && !l.is_undefined();
             if (name == "boolean")
               return l.is_boolean();
             if (name == "integer")
@@ -1874,7 +1912,9 @@ namespace minja
             if (name == "sequence")
               return l.is_array();
             if (name == "defined")
-              return !l.is_null();
+              return !l.is_undefined();
+            if (name == "undefined")
+              return l.is_undefined();
             throw std::runtime_error("Unknown type for 'is' operator: " + name);
           };
           auto value = eval();
@@ -1933,7 +1973,7 @@ namespace minja
         case Op::In:
           return (r.is_array() || r.is_object()) && r.contains(l);
         case Op::NotIn:
-          return !(r.is_array() && r.contains(l));
+          return !((r.is_array() || r.is_object()) && r.contains(l));
         default:
           break;
         }
@@ -2474,7 +2514,7 @@ namespace minja
           return std::make_shared<Value>(*str);
         }
       }
-      static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|None\b)");
+      static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|none\b|None\b)");
       auto token = consumeToken(prim_tok);
       if (!token.empty())
       {
@@ -2482,7 +2522,7 @@ namespace minja
           return std::make_shared<Value>(true);
         if (token == "false" || token == "False")
           return std::make_shared<Value>(false);
-        if (token == "None")
+        if (token == "none" || token == "None")
           return std::make_shared<Value>(nullptr);
         throw std::runtime_error("Unknown constant token: " + token);
       }
@@ -2953,7 +2993,7 @@ namespace minja
 
         static std::regex null_regex(R"(null\b)");
         if (!consumeToken(null_regex).empty())
-          return std::make_shared<LiteralExpr>(location, Value());
+          return std::make_shared<LiteralExpr>(location, Value(nullptr));
 
         auto identifier = parseIdentifier();
         if (identifier)
@@ -3705,7 +3745,7 @@ namespace minja
         boolean = bv.get<bool>();
       }
     }
-    return boolean ? (value.to_bool() ? value : default_value) : value.is_null() ? default_value : value; }));
+    return boolean ? (value.to_bool() ? value : default_value) : value.is_undefined() ? default_value : value; }));
     auto escape = simple_function("escape", {"text"}, [](const std::shared_ptr<Context> &, Value &args)
                                   { return Value(html_escape(args.at("text").get<std::string>())); });
     globals.set("e", escape);
@@ -3855,7 +3895,7 @@ namespace minja
       for (size_t i = 0, n = items.size(); i < n; i++) {
         auto & item = items.at(i);
         auto attr = item.get(attr_name);
-        res.push_back(attr.is_null() ? default_value : attr);
+        res.push_back(attr.is_undefined() ? default_value : attr);
       }
     } else if (args.kwargs.empty() && args.args.size() >= 2) {
       auto fn = context->get(args.args[1]);
