@@ -28,6 +28,27 @@ TEST(CApiTest, ApiTest) {
   free(decoded_text);
 }
 
+TEST(OrtxTokenizerTest, TokenizerOptionsRejectNullArguments) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* keys[] = {"add_special_tokens"};
+  const char* values[] = {"false"};
+  EXPECT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), nullptr, values, 1), kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Tokenizer option keys array is null.");
+
+  EXPECT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, nullptr, 1), kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Tokenizer option values array is null.");
+
+  const char* null_keys[] = {nullptr};
+  EXPECT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), null_keys, values, 1), kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Tokenizer option key at index 0 is null.");
+
+  const char* null_values[] = {nullptr};
+  EXPECT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, null_values, 1), kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Tokenizer option value at index 0 is null.");
+}
+
 TEST(CApiTest, StreamApiTest) {
   OrtxTokenizer* tokenizer = NULL;
   extError_t err = OrtxCreate(kOrtxKindTokenizer, &tokenizer, "data/llama2");
