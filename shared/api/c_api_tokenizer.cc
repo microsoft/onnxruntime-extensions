@@ -4,6 +4,8 @@
 #include <regex>
 #include <algorithm>
 
+#include "nlohmann/json.hpp"
+
 #include "c_api_utils.hpp"
 #include "tokenizer_impl.h"
 
@@ -52,24 +54,52 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
   // Define the set of valid option keys - may be added to in the future
   static const std::unordered_set<std::string> valid_keys = {
       "add_special_tokens",
-      "skip_special_tokens"
+      "skip_special_tokens",
+      "chat_template_kwargs"
   };
 
   std::unordered_map<std::string, std::string> options;
 
-  for (size_t i = 0; i < num_options; ++i) {
-    if (keys[i] && values[i]) {
-      std::string key = keys[i];
+  if (num_options > 0 && keys == nullptr) {
+    ReturnableStatus::last_error_message_ = "Tokenizer option keys array is null.";
+    return {};
+  }
+  if (num_options > 0 && values == nullptr) {
+    ReturnableStatus::last_error_message_ = "Tokenizer option values array is null.";
+    return {};
+  }
 
-      if (valid_keys.find(key) == valid_keys.end()) {
-        ReturnableStatus::last_error_message_ =
-            "Invalid tokenizer option key: " + key;
-        // Return empty map — caller should handle this as an error
+  for (size_t i = 0; i < num_options; ++i) {
+    if (keys[i] == nullptr) {
+      ReturnableStatus::last_error_message_ = "Tokenizer option key at index " + std::to_string(i) + " is null.";
+      return {};
+    }
+    if (values[i] == nullptr) {
+      ReturnableStatus::last_error_message_ = "Tokenizer option value at index " + std::to_string(i) + " is null.";
+      return {};
+    }
+
+    std::string key = keys[i];
+
+    if (valid_keys.find(key) == valid_keys.end()) {
+      ReturnableStatus::last_error_message_ =
+          "Invalid tokenizer option key: " + key;
+      return {};
+    }
+
+    if (key == "chat_template_kwargs") {
+      auto parsed_kwargs = nlohmann::json::parse(values[i], nullptr, /*allow_exceptions=*/false);
+      if (parsed_kwargs.is_discarded()) {
+        ReturnableStatus::last_error_message_ = "Invalid chat_template_kwargs JSON.";
         return {};
       }
-
-      options[key] = values[i];
+      if (!parsed_kwargs.is_object()) {
+        ReturnableStatus::last_error_message_ = "chat_template_kwargs must be a JSON object.";
+        return {};
+      }
     }
+
+    options[key] = values[i];
   }
 
   return options;
@@ -77,16 +107,14 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
 
 // Helper function to parse boolean tokenizer options
 static bool ParseBoolOption(
-    const std::unordered_map<std::string, std::string>& options_map,
-    const std::string& option_name,
+    const std::optional<std::string>& option,
     bool default_value = true)
 {
-  auto it = options_map.find(option_name);
-  if (it == options_map.end()) {
+  if (!option.has_value()) {
     return default_value;
   }
 
-  std::string val = it->second;
+  std::string val = *option;
   std::transform(val.begin(), val.end(), val.begin(), ::tolower);
 
   if (val == "false" || val == "0") {
@@ -125,8 +153,12 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
 
   auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
 
-  // Initialize tokenizer options
-  ptr->options_map = std::move(options);
+  if (!options.empty()) {
+    status = ptr->UpdateOptions(options);
+    if (!status.IsOk()) {
+      return status.Code();
+    }
+  }
 
   status = ptr->Load(tokenizer_path);
 
@@ -207,7 +239,7 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
                  [](const char* str) { return std::string_view(str); });
 
   // If add_special_tokens option exists, use its value, otherwise use default (true)
-  bool add_special_tokens = ParseBoolOption(token_ptr->options_map, "add_special_tokens", true);
+  bool add_special_tokens = ParseBoolOption(token_ptr->GetOption("add_special_tokens"), true);
   status = token_ptr->Tokenize(input_view, t_ids, add_special_tokens);
 
   if (!status.IsOk()) {
@@ -288,7 +320,7 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
   std::vector<std::string> output_text;
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
   status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
 
   if (!status.IsOk()) {
@@ -319,7 +351,7 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
   std::vector<std::string> output_text;
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
   status = token_ptr->Detokenize(t_ids, output_text, skip_special_tokens);
 
   if (!status.IsOk()) {
@@ -452,7 +484,7 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   cache_ptr->last_text_.clear();
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
-  bool skip_special_tokens = ParseBoolOption(token_ptr->options_map, "skip_special_tokens", true);
+  bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
   status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
                                                   cache_ptr->decoder_state_, skip_special_tokens));
 
@@ -463,29 +495,13 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   return status.Code();
 }
 
-extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, const char* tools,
-                                               OrtxTensorResult** output, bool add_generation_prompt,
-                                               bool tokenize) {
-  if (tokenizer == nullptr && template_str == nullptr) {
-    ReturnableStatus::last_error_message_ = "both tokenizer and template_str are null, no template to apply";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  if (input == nullptr || output == nullptr) {
-    ReturnableStatus::last_error_message_ = "Invalid argument";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
-  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
-  if (!status.IsOk()) {
-    return status.Code();
-  }
-
+static extError_t ApplyChatTemplateImpl(const TokenizerImpl* token_ptr, const char* template_str,
+                                        const char* input, const char* tools, const char* template_kwargs,
+                                        OrtxTensorResult** output, bool add_generation_prompt, bool tokenize) {
   std::string text;
   std::vector<extTokenId_t> ids_vec;
-  status = token_ptr->ApplyChatTemplate(template_str, input, tools, text, ids_vec, add_generation_prompt, tokenize);
+  ReturnableStatus status = token_ptr->ApplyChatTemplate(template_str, input, tools, template_kwargs, text, ids_vec,
+                                                         add_generation_prompt, tokenize);
   if (status.IsOk()) {
     auto result = std::make_unique<ort_extensions::TensorResult>();
     std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
@@ -501,4 +517,59 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
   }
 
   return status.Code();
+}
+
+static const TokenizerImpl* ValidateChatTemplateArguments(const OrtxTokenizer* tokenizer, const char* input,
+                                                          OrtxTensorResult** output, extError_t& error) {
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "tokenizer is null";
+    error = kOrtxErrorInvalidArgument;
+    return nullptr;
+  }
+
+  if (input == nullptr || output == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    error = kOrtxErrorInvalidArgument;
+    return nullptr;
+  }
+
+  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
+  if (!status.IsOk()) {
+    error = status.Code();
+    return nullptr;
+  }
+
+  error = kOrtxOK;
+  return token_ptr;
+}
+
+extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
+                                               const char* input, const char* tools,
+                                               OrtxTensorResult** output, bool add_generation_prompt,
+                                               bool tokenize) {
+  extError_t error;
+  const auto token_ptr = ValidateChatTemplateArguments(tokenizer, input, output, error);
+  if (!token_ptr) {
+    return error;
+  }
+
+  const auto template_kwargs = token_ptr->GetOption("chat_template_kwargs");
+  return ApplyChatTemplateImpl(token_ptr, template_str, input, tools,
+                               template_kwargs ? template_kwargs->c_str() : nullptr, output,
+                               add_generation_prompt, tokenize);
+}
+
+extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
+                                                          const char* input, const char* tools,
+                                                          const char* template_kwargs, OrtxTensorResult** output,
+                                                          bool add_generation_prompt, bool tokenize) {
+  extError_t error;
+  const auto token_ptr = ValidateChatTemplateArguments(tokenizer, input, output, error);
+  if (!token_ptr) {
+    return error;
+  }
+
+  return ApplyChatTemplateImpl(token_ptr, template_str, input, tools, template_kwargs, output,
+                               add_generation_prompt, tokenize);
 }
