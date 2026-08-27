@@ -1,0 +1,840 @@
+diff --git a/blingfireclient.library/inc/BFendian.h b/blingfireclient.library/inc/BFendian.h
+new file mode 100644
+index 0000000..d1208d9
+--- /dev/null
++++ b/blingfireclient.library/inc/BFendian.h
+@@ -0,0 +1,86 @@
++/**
++ * Copyright (c) Microsoft Corporation. All rights reserved.
++ * Licensed under the MIT License.
++ */
++
++
++#ifndef _BF_ENDIAN_H_
++#define _BF_ENDIAN_H_
++
++#include <stdint.h>
++
++#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++#include <byteswap.h>
++#define from_le16(x) bswap_16(x)
++#define from_le32(x) bswap_32(x)
++#define from_le64(x) bswap_64(x)
++#else  // __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++#define from_le16(x) (x)
++#define from_le32(x) (x)
++#define from_le64(x) (x)
++#endif // __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++
++template <typename T>
++struct byteswap_helper
++{
++	static inline T from_le(T value)
++	{
++		return value;
++	}
++};
++
++template <>
++struct byteswap_helper<uint16_t>
++{
++	static inline uint16_t from_le(uint16_t value)
++	{
++		return from_le16(value);
++	}
++};
++
++template <>
++struct byteswap_helper<int16_t>
++{
++	static inline int16_t from_le(int16_t value)
++	{
++		return from_le16(value);
++	}
++};
++
++template <>
++struct byteswap_helper<uint32_t>
++{
++	static inline uint32_t from_le(uint32_t value)
++	{
++		return from_le32(value);
++	}
++};
++
++template <>
++struct byteswap_helper<int32_t>
++{
++	static inline int32_t from_le(int32_t value)
++	{
++		return from_le32(value);
++	}
++};
++
++template <>
++struct byteswap_helper<uint64_t>
++{
++	static inline uint64_t from_le(uint64_t value)
++	{
++		return from_le64(value);
++	}
++};
++
++template <>
++struct byteswap_helper<int64_t>
++{
++	static inline int64_t from_le(int64_t value)
++	{
++		return from_le64(value);
++	}
++};
++
++#endif
+diff --git a/blingfireclient.library/inc/FAChains_pack_triv.h b/blingfireclient.library/inc/FAChains_pack_triv.h
+index 34d9335..4af4287 100644
+--- a/blingfireclient.library/inc/FAChains_pack_triv.h
++++ b/blingfireclient.library/inc/FAChains_pack_triv.h
+@@ -11,6 +11,7 @@
+ #include "FASetImageA.h"
+ #include "FAUtils_cl.h"
+ #include "FASecurity.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -111,7 +112,7 @@ inline const int FAChains_pack_triv::
+     } else if (sizeof (short) == m_SizeOfValue) {
+ 
+         // get the number of elements
+-        Count = *(const short *)(m_pImage + Offset);
++        Count = from_le16(*(const short *)(m_pImage + Offset));
+ 
+         if (NULL != pValues && MaxCount >= Count) {
+             // get the pointer to the encoded elements
+@@ -119,21 +120,29 @@ inline const int FAChains_pack_triv::
+                 (const short *)(m_pImage + Offset + sizeof (short));
+             // copy elements
+             for (int i = 0; i < Count; ++i) {
+-                const int Val = pEncodedVals [i];
++                const int Val = from_le16(pEncodedVals [i]);
+                 pValues [i] = Val;
+             }
+         }
+     } else {
+ 
+         // get the number of elements
+-        Count = *(const int *)(m_pImage + Offset);
++        Count = from_le32(*(const int *)(m_pImage + Offset));
+ 
+         if (NULL != pValues && MaxCount >= Count) {
+             // get the pointer to the encoded elements
+             const int * pEncodedVals = 
+                 (const int *)(m_pImage + Offset + sizeof (int));
++
+             // copy elements
++#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
++            for (int i = 0; i < Count; ++i) {
++                const int Val = from_le32(pEncodedVals [i]);
++                pValues [i] = Val;
++            }
++#else  // __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+             memcpy (pValues, pEncodedVals, sizeof (int) * Count);
++#endif // __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+         }
+     }
+ 
+@@ -153,7 +162,7 @@ inline const int FAChains_pack_triv::
+     }
+ 
+     // get the number of elements
+-    const int Count = *(const int *)(m_pImage + Offset);
++    const int Count = from_le32(*(const int *)(m_pImage + Offset));
+     // get the pointer to the encoded elements
+     const int * pEncodedVals = 
+         (const int *)(m_pImage + Offset + sizeof (int));
+@@ -194,27 +203,27 @@ inline const int FAChains_pack_triv::
+     } else if (sizeof (short) == m_SizeOfValue) {
+ 
+         // get the number of elements
+-        Count = *(const short *)(m_pImage + Offset);
++        Count = from_le16(*(const short *)(m_pImage + Offset));
+ 
+         if (Idx < Count) {
+             // get the pointer to the encoded elements
+             const short * pEncodedVals = 
+                 (const short *)(m_pImage + Offset + sizeof (short));
+             // return the value
+-            const int Value = pEncodedVals [Idx];
++            const int Value = from_le16(pEncodedVals [Idx]);
+             return Value;
+         }
+     } else {
+ 
+         // get the number of elements
+-        Count = *(const int *)(m_pImage + Offset);
++        Count = from_le32(*(const int *)(m_pImage + Offset));
+ 
+         if (Idx < Count) {
+             // get the pointer to the encoded elements
+             const int * pEncodedVals = 
+                 (const int *)(m_pImage + Offset + sizeof (int));
+             // return the value
+-            const int Value = pEncodedVals [Idx];
++            const int Value = from_le32(pEncodedVals [Idx]);
+             return Value;
+         }
+     }
+@@ -266,7 +275,7 @@ inline const int FAChains_pack_triv::
+     } else if (sizeof (short) == m_SizeOfValue) {
+ 
+         // get the number of elements
+-        Count = *(const short *)(m_pImage + Offset);
++        Count = from_le16(*(const short *)(m_pImage + Offset));
+ 
+         // get the pointer to the encoded elements
+         const short * pEncodedVals = \
+@@ -285,12 +294,12 @@ inline const int FAChains_pack_triv::
+         if (0 > Idx)
+             return -1;
+ 
+-        const int FoundValue = pEncodedVals [Idx];
++        const int FoundValue = from_le16(pEncodedVals [Idx]);
+         return FoundValue;
+ 
+     } else {
+         // get the number of elements
+-        Count = *(const int *)(m_pImage + Offset);
++        Count = from_le32(*(const int *)(m_pImage + Offset));
+ 
+         // get the pointer to the encoded elements
+         const int * pEncodedVals = \
+@@ -302,7 +311,7 @@ inline const int FAChains_pack_triv::
+         if (0 > Idx)
+             return -1;
+ 
+-        const int FoundValue = pEncodedVals [Idx];
++        const int FoundValue = from_le32(pEncodedVals [Idx]);
+         return FoundValue;
+     }
+ }
+diff --git a/blingfireclient.library/inc/FAEncodeUtils.h b/blingfireclient.library/inc/FAEncodeUtils.h
+index 24bd962..a86e581 100644
+--- a/blingfireclient.library/inc/FAEncodeUtils.h
++++ b/blingfireclient.library/inc/FAEncodeUtils.h
+@@ -9,6 +9,7 @@
+ 
+ #include "FAConfig.h"
+ #include "FAFsmConst.h"
++#include "BFendian.h"
+ 
+ 
+ // Encodes int with variable-length prefix code
+@@ -299,13 +300,13 @@
+                                                              \
+     } else if (sizeof (short) == SizeOfValue) {              \
+                                                              \
+-        Value = *(const unsigned short *)(pDump + Offset);   \
++        Value = from_le16(*(const unsigned short *)(pDump + Offset));   \
+                                                              \
+     } else {                                                 \
+                                                              \
+         DebugLogAssert (sizeof (int) == SizeOfValue);                \
+                                                              \
+-        Value = *(const unsigned int *)(pDump + Offset);     \
++        Value = from_le32(*(const unsigned int *)(pDump + Offset));     \
+     }                                                        \
+ }
+ 
+diff --git a/blingfireclient.library/inc/FAIwMap_pack.h b/blingfireclient.library/inc/FAIwMap_pack.h
+index f34f506..97a45ba 100644
+--- a/blingfireclient.library/inc/FAIwMap_pack.h
++++ b/blingfireclient.library/inc/FAIwMap_pack.h
+@@ -11,6 +11,7 @@
+ #include "FASetImageA.h"
+ #include "FAEncodeUtils.h"
+ #include "FAUtils_cl.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -76,16 +77,16 @@ inline const int FAIwMap_pack::GetNewIw (const int OldIw) const
+     }
+ 
+     // get beginning of the interval
+-    const int FromIw = m_pArrFromIw [IntervalIdx];
++    const int FromIw = from_le32(m_pArrFromIw [IntervalIdx]);
+     DebugLogAssert (FromIw <= OldIw);
+ 
+     // get pair temporary pointer
+     const int * pPair = m_pArrToIwOffset + (IntervalIdx << 1);
+     // get ending of the interval
+-    const int EndIw = *pPair;
++    const int EndIw = from_le32(*pPair);
+     pPair++;
+     // get encoded NewIws' offset for this interval
+-    const int IntervalOffset = *pPair;
++    const int IntervalOffset = from_le32(*pPair);
+     DebugLogAssert (0 <= IntervalOffset);
+ 
+     // bigger than the biggest value in this interval
+diff --git a/blingfireclient.library/inc/FALexTools_t.h b/blingfireclient.library/inc/FALexTools_t.h
+index 19274da..a9109a8 100644
+--- a/blingfireclient.library/inc/FALexTools_t.h
++++ b/blingfireclient.library/inc/FALexTools_t.h
+@@ -16,6 +16,7 @@
+ #include "FAWbdConfKeeper.h"
+ #include "FALimits.h"
+ #include "FASecurity.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -168,21 +169,21 @@ inline void FALexTools_t< Ty >::Validate () const
+             // invalid action
+             LogAssert (pAct && MinActSize <= ActSize);
+ 
+-            const int LeftCx = pAct [0];
+-            const int RightCx = pAct [1];
++            const int LeftCx = from_le32(pAct [0]);
++            const int RightCx = from_le32(pAct [1]);
+             LogAssert (-FALimits::MaxTag <= LeftCx && LeftCx <= FALimits::MaxTag);
+             LogAssert (-FALimits::MaxTag <= RightCx && RightCx <= FALimits::MaxTag);
+ 
+             int i = ActSize;
+ 
+             // just one tag
+-            if (MinActSize == ActSize && 0 != pAct [MinActSize - 1]) {
++            if (MinActSize == ActSize && 0 != from_le32(pAct [MinActSize - 1])) {
+                 continue;
+             // delimiter and fn(s), but no tag
+-            } else if (MinActSize < ActSize && 0 == pAct [MinActSize - 1]) {
++            } else if (MinActSize < ActSize && 0 == from_le32(pAct [MinActSize - 1])) {
+                 i = MinActSize;
+             // tag, delimiter and fn(s)
+-            } else if (MinActSize + 1 < ActSize && 0 == pAct [MinActSize]) {
++            } else if (MinActSize + 1 < ActSize && 0 == from_le32(pAct [MinActSize])) {
+                 i = MinActSize + 1;
+             } else {
+                 // invalid action
+@@ -191,7 +192,7 @@ inline void FALexTools_t< Ty >::Validate () const
+ 
+             // validate the function id
+             for (; i < ActSize; ++i) {
+-                const int FnId = pAct [i];
++                const int FnId = from_le32(pAct [i]);
+                 // bad function id
+                 LogAssert (0 <= FnId && (unsigned) FnId < m_Fn2IniSize);
+                 LogAssert (m_pFn2Ini && 0 <= m_pFn2Ini [FnId]);
+@@ -300,9 +301,9 @@ const int FALexTools_t< Ty >::
+             const int ActSize = m_pActs->Get (Ow, &pAct);
+             DebugLogAssert (MinActSize <= ActSize && pAct);
+ 
+-            const int LeftCx = pAct [0];
+-            const int RightCx = pAct [1];
+-            const int Tag = pAct [2];
++            const int LeftCx = from_le32(pAct [0]);
++            const int RightCx = from_le32(pAct [1]);
++            const int Tag = from_le32(pAct [2]);
+ 
+             // From position in the data 
+             int FromPos2 = FromPos + LeftCx;
+@@ -349,7 +350,7 @@ const int FALexTools_t< Ty >::
+             // apply functions, if any
+             for (; FnIdx < ActSize; ++FnIdx) {
+ 
+-                const int FnId = pAct [FnIdx];
++                const int FnId = from_le32(pAct [FnIdx]);
+                 DebugLogAssert (0 <= FnId && (unsigned) FnId < m_Fn2IniSize);
+ 
+                 const int FnIni = m_pFn2Ini [FnId];
+diff --git a/blingfireclient.library/inc/FAUtils_cl.h b/blingfireclient.library/inc/FAUtils_cl.h
+index 435888d..c155873 100644
+--- a/blingfireclient.library/inc/FAUtils_cl.h
++++ b/blingfireclient.library/inc/FAUtils_cl.h
+@@ -13,6 +13,7 @@
+ #include "FAMultiMapCA.h"
+ #include "FASecurity.h"
+ #include "FALimits.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -36,7 +37,7 @@ inline const bool FAIsSorted (const Ty * pArray, const int Size)
+ 
+     DebugLogAssert (pArray);
+ 
+-    if (pArray [i - 1] > pArray [i]) {
++    if (byteswap_helper<Ty>::from_le(pArray [i - 1]) > byteswap_helper<Ty>::from_le(pArray [i])) {
+       return false;
+     }
+   }
+@@ -52,7 +53,7 @@ inline const bool FAIsSortUniqed (const Ty * pArray, const int Size)
+ 
+     DebugLogAssert (pArray);
+ 
+-    if (pArray [i - 1] >= pArray [i]) {
++    if (byteswap_helper<Ty>::from_le(pArray [i - 1]) >= byteswap_helper<Ty>::from_le(pArray [i])) {
+       return false;
+     }
+   }
+@@ -71,7 +72,7 @@ inline const int FAFind_linear (const Ty * pBegin, const int Size, const Ty Val)
+ 
+         DebugLogAssert (pBegin);
+ 
+-        if (Val == pBegin [i]) {
++        if (Val == byteswap_helper<Ty>::from_le(pBegin [i])) {
+             return i;
+         }
+     }
+@@ -88,7 +89,7 @@ inline const int FAFind_log (const Ty * pBegin, const int Size, const Ty Val)
+     DebugLogAssert (0 <= Size);
+ 
+     // this optimization is helpful for automata arc lookup.
+-    if (Val >= 0 && (int)Val < Size && pBegin[Val] == Val)
++    if (Val >= 0 && (int)Val < Size && byteswap_helper<Ty>::from_le(pBegin[Val]) == Val)
+     {
+         return Val;
+     }
+@@ -103,7 +104,7 @@ inline const int FAFind_log (const Ty * pBegin, const int Size, const Ty Val)
+         DebugLogAssert (pBegin);
+ 
+         const int Pos = ((unsigned int)(To + From)) >> 1;
+-        const Ty CurrVal = pBegin [Pos];
++        const Ty CurrVal = byteswap_helper<Ty>::from_le(pBegin [Pos]);
+ 
+         if (Val == CurrVal) {
+ 
+@@ -123,7 +124,7 @@ inline const int FAFind_log (const Ty * pBegin, const int Size, const Ty Val)
+ 
+         DebugLogAssert (pBegin);
+ 
+-        const Ty CurrVal = pBegin [From];
++        const Ty CurrVal = byteswap_helper<Ty>::from_le(pBegin [From]);
+ 
+         if (Val > CurrVal)
+             From++;
+@@ -151,7 +152,7 @@ inline const int FAFindEqualOrLess_log (
+ 
+     // this optimization is helpful for automata arc lookup.
+ 
+-    if (Val >= 0 && (int)Val < Size && pBegin[Val] == Val)
++    if (Val >= 0 && (int)Val < Size && byteswap_helper<Ty>::from_le(pBegin[Val]) == Val)
+     {
+         return Val;
+     }
+@@ -166,7 +167,7 @@ inline const int FAFindEqualOrLess_log (
+         DebugLogAssert (pBegin);
+ 
+         const int Pos = ((unsigned int)(To + From)) >> 1;
+-        const Ty CurrVal = pBegin [Pos];
++        const Ty CurrVal = byteswap_helper<Ty>::from_le(pBegin [Pos]);
+ 
+         if (Val == CurrVal) {
+ 
+@@ -186,7 +187,7 @@ inline const int FAFindEqualOrLess_log (
+ 
+         DebugLogAssert (pBegin);
+ 
+-        const Ty CurrVal = pBegin [From];
++        const Ty CurrVal = byteswap_helper<Ty>::from_le(pBegin [From]);
+ 
+         if (Val == CurrVal)
+             return From;
+diff --git a/blingfireclient.library/src/FAChains_pack_triv.cpp b/blingfireclient.library/src/FAChains_pack_triv.cpp
+index f3d3597..80e89e9 100644
+--- a/blingfireclient.library/src/FAChains_pack_triv.cpp
++++ b/blingfireclient.library/src/FAChains_pack_triv.cpp
+@@ -7,6 +7,7 @@
+ #include "blingfire-client_src_pch.h"
+ #include "FAConfig.h"
+ #include "FAChains_pack_triv.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -24,8 +25,8 @@ void FAChains_pack_triv::SetImage (const unsigned char * pImage)
+ 
+     if (m_pImage) {
+ 
+-        m_SizeOfValue = *(const int *)m_pImage;
+-        m_MaxCount = *(const int *)(m_pImage + sizeof (int));
++        m_SizeOfValue = from_le32(*(const int *)m_pImage);
++        m_MaxCount = from_le32(*(const int *)(m_pImage + sizeof (int)));
+     }
+ }
+ 
+diff --git a/blingfireclient.library/src/FAIwMap_pack.cpp b/blingfireclient.library/src/FAIwMap_pack.cpp
+index 4419623..ab9b544 100644
+--- a/blingfireclient.library/src/FAIwMap_pack.cpp
++++ b/blingfireclient.library/src/FAIwMap_pack.cpp
+@@ -7,6 +7,7 @@
+ #include "blingfire-client_src_pch.h"
+ #include "FAConfig.h"
+ #include "FAIwMap_pack.h"
++#include "BFendian.h"
+ #include <algorithm>
+ #include <limits>
+ 
+@@ -46,10 +47,10 @@ void FAIwMap_pack::SetImage (const unsigned char * pImage)
+         unsigned int Offset = 0;
+ 
+         // get NewIw + 1 size
+-        m_SizeOfNewIw = *(const int *)(pImage + Offset);
++        m_SizeOfNewIw = from_le32(*(const int *)(pImage + Offset));
+         Offset += sizeof (int);
+         // number of intervals
+-        m_IntervalCount = *(const int *)(pImage + Offset);
++        m_IntervalCount = from_le32(*(const int *)(pImage + Offset));
+         Offset += sizeof (int);
+         // beginnings of the intervals
+         m_pArrFromIw = (const int *)(pImage + Offset);
+@@ -65,7 +66,7 @@ void FAIwMap_pack::SetImage (const unsigned char * pImage)
+             // get pair temporary pointer
+             const int * pPair = m_pArrToIwOffset + ((m_IntervalCount - 1) << 1);
+             // get ending of the interval
+-            const int EndIw = *pPair;
++            const int EndIw = from_le32(*pPair);
+             LogAssert (0 <= EndIw);
+ 
+             // allocate memory for the cache
+diff --git a/blingfireclient.library/src/FALDB.cpp b/blingfireclient.library/src/FALDB.cpp
+index e64bbaf..642c4c1 100644
+--- a/blingfireclient.library/src/FALDB.cpp
++++ b/blingfireclient.library/src/FALDB.cpp
+@@ -9,6 +9,7 @@
+ #include "FALDB.h"
+ #include "FAFsmConst.h"
+ #include "FAUtils_cl.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -32,7 +33,7 @@ void FALDB::SetImage (const unsigned char * pImgDump)
+     const unsigned char * pArr = pImgDump;
+ 
+     // get the number of dumps
+-    const int Count = *((const int *)pArr);
++    const int Count = from_le32(*((const int *)pArr));
+     DebugLogAssert (0 < Count);
+     pArr += sizeof (int);
+ 
+@@ -41,7 +42,7 @@ void FALDB::SetImage (const unsigned char * pImgDump)
+     LogAssert (0 <= Count && Count <= FALimits::MaxLdbDumpCount);
+ 
+     // setup configuration image-dump, it is 0-th
+-    int Offset = *((const int *)pArr);
++    int Offset = from_le32(*((const int *)pArr));
+     DebugLogAssert (0 <= Offset);
+     m_Conf.SetImage (pImgDump + Offset);
+ 
+@@ -51,7 +52,7 @@ void FALDB::SetImage (const unsigned char * pImgDump)
+     // setup dumps array
+     for (int i = 0; i < Count; ++i) {
+ 
+-        Offset = *((const int *)pArr);
++        Offset = from_le32(*((const int *)pArr));
+         DebugLogAssert (0 <= Offset);
+         pArr += sizeof (int);
+ 
+diff --git a/blingfireclient.library/src/FAMultiMap_pack.cpp b/blingfireclient.library/src/FAMultiMap_pack.cpp
+index e566ebb..ded1e73 100644
+--- a/blingfireclient.library/src/FAMultiMap_pack.cpp
++++ b/blingfireclient.library/src/FAMultiMap_pack.cpp
+@@ -8,6 +8,7 @@
+ #include "FAConfig.h"
+ #include "FAMultiMap_pack.h"
+ #include "FAEncodeUtils.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -26,11 +27,11 @@ void FAMultiMap_pack::SetImage (const unsigned char * pDump)
+         unsigned int Offset = 0;
+ 
+         // get max Key
+-        m_MaxKey = *(const unsigned int *)(pDump + Offset);
++        m_MaxKey = from_le32(*(const unsigned int *)(pDump + Offset));
+         Offset += sizeof (int);
+ 
+         // get size of offset
+-        m_SizeOfOffset = *(const unsigned int *)(pDump + Offset);
++        m_SizeOfOffset = from_le32(*(const unsigned int *)(pDump + Offset));
+         Offset += sizeof (int);
+ 
+         LogAssert (sizeof (char) <= (unsigned int) m_SizeOfOffset && \
+diff --git a/blingfireclient.library/src/FARSDfa_pack_triv.cpp b/blingfireclient.library/src/FARSDfa_pack_triv.cpp
+index 34b76e3..ad139c4 100644
+--- a/blingfireclient.library/src/FARSDfa_pack_triv.cpp
++++ b/blingfireclient.library/src/FARSDfa_pack_triv.cpp
+@@ -10,6 +10,7 @@
+ #include "FAEncodeUtils.h"
+ #include "FAUtils_cl.h"
+ #include "FAFsmConst.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -33,7 +34,7 @@ void FARSDfa_pack_triv::SetImage (const unsigned char * pAutImage)
+         unsigned int Offset = 0;
+ 
+         // get dst size
+-        m_DstSize = *(const int *)(m_pAutImage + Offset);
++        m_DstSize = from_le32(*(const int *)(m_pAutImage + Offset));
+         Offset += sizeof (int);
+         if (1 > m_DstSize || 4 < m_DstSize) {
+             m_DstSize = FAFsmConst::TRIV_PACK_DEF_DST_SIZE;
+@@ -42,15 +43,15 @@ void FARSDfa_pack_triv::SetImage (const unsigned char * pAutImage)
+         // skip Ows table offset
+         Offset += sizeof (int);
+ 
+-        const unsigned int * pIwsCount = 
+-            (const unsigned int *)(m_pAutImage + Offset);
++        const unsigned int pIwsCount =
++            from_le32(*(const unsigned int *)(m_pAutImage + Offset));
+         Offset += sizeof (int);
+ 
+         // see whether Iws should be remapped
+-        m_RemapIws = 0 != (0x80000000 & *pIwsCount);
++        m_RemapIws = 0 != (0x80000000 & pIwsCount);
+ 
+         // get alphabet size
+-        m_IwCount = 0x7FFFFFFF & *pIwsCount;
++        m_IwCount = 0x7FFFFFFF & pIwsCount;
+ 
+         // get pointer to the alphabet
+         m_pIws = (const int *) (m_pAutImage + Offset);
+@@ -62,7 +63,7 @@ void FARSDfa_pack_triv::SetImage (const unsigned char * pAutImage)
+         if (m_RemapIws) {
+ 
+             // get Iw2Iw dump size
+-            const int Iw2IwSize = *(const int *)(m_pAutImage + Offset);
++            const int Iw2IwSize = from_le32(*(const int *)(m_pAutImage + Offset));
+             Offset += sizeof (int);
+ 
+             m_iw2iw.SetImage (m_pAutImage + Offset);
+@@ -85,7 +86,7 @@ const int FARSDfa_pack_triv::GetMaxState () const
+ const int FARSDfa_pack_triv::GetMaxIw () const
+ {
+     DebugLogAssert (m_pIws && 0 < m_IwCount && 0 == m_IwCount % 2);
+-    return m_pIws [m_IwCount - 1];
++    return from_le32(m_pIws [m_IwCount - 1]);
+ }
+ 
+ 
+@@ -108,8 +109,8 @@ const int FARSDfa_pack_triv::
+ 
+     for (int i = 0; i < m_IwCount; ++i) {
+ 
+-        const int IwFrom = m_pIws [i++];
+-        const int IwTo = m_pIws [i];
++        const int IwFrom = from_le32(m_pIws [i++]);
++        const int IwTo = from_le32(m_pIws [i]);
+ 
+         for (int Iw = IwFrom; Iw <= IwTo; ++Iw) {
+ 
+@@ -200,7 +201,7 @@ const int FARSDfa_pack_triv::GetDest (const int State, const int Iw) const
+                 return -1;
+             }
+             // as DstCount - 1 was actually encoded
+-            DstCount = 1 + *(const unsigned short *)pCurrPtr;
++            DstCount = 1 + from_le16(*(const unsigned short *)pCurrPtr);
+             // skip DstCount
+             pCurrPtr += sizeof (short);
+             // find outgoing transition index, if any
+@@ -213,7 +214,7 @@ const int FARSDfa_pack_triv::GetDest (const int State, const int Iw) const
+             DebugLogAssert (sizeof (int) == IwSize);
+ 
+             // as DstCount - 1 was actually encoded
+-            DstCount = 1 + *(const unsigned int *)pCurrPtr;
++            DstCount = 1 + from_le32(*(const unsigned int *)pCurrPtr);
+             // skip DstCount
+             pCurrPtr += sizeof (int);
+             // find outgoing transition index, if any
+@@ -308,7 +309,7 @@ const int FARSDfa_pack_triv::GetDest (const int State, const int Iw) const
+                 return -1;
+             }
+             // as RangeCount - 1 was actually encoded
+-            RangeCount = 1 + *(const unsigned short *)pCurrPtr;
++            RangeCount = 1 + from_le16(*(const unsigned short *)pCurrPtr);
+             // skip RangeCount
+             pCurrPtr += sizeof (short);
+             // find range index
+@@ -334,7 +335,7 @@ const int FARSDfa_pack_triv::GetDest (const int State, const int Iw) const
+             DebugLogAssert (sizeof (int) == IwSize);
+ 
+             // as RangeCount - 1 was actually encoded
+-            RangeCount = 1 + *(const unsigned int *)pCurrPtr;
++            RangeCount = 1 + from_le32(*(const unsigned int *)pCurrPtr);
+             // skip RangeCount
+             pCurrPtr += sizeof (int);
+             // find range index
+@@ -381,11 +382,11 @@ const int FARSDfa_pack_triv::GetDest (const int State, const int Iw) const
+             if (NewIw == *pCurrPtr)
+                 return State + sizeof (char) + sizeof (char) + OwSize;
+         } else if (sizeof (short) == IwSize) {
+-            if (NewIw == *(const unsigned short *)pCurrPtr)
++            if (NewIw == from_le16(*(const unsigned short *)pCurrPtr))
+                 return State + sizeof (char) + sizeof (short) + OwSize;
+         } else {
+             DebugLogAssert (sizeof (int) == IwSize);
+-            if ((unsigned int) NewIw == *(const unsigned int *)pCurrPtr)
++            if ((unsigned int) NewIw == from_le32(*(const unsigned int *)pCurrPtr))
+                 return State + sizeof (char) + sizeof (int) + OwSize;
+         }
+ 
+diff --git a/blingfireclient.library/src/FAWbdConfKeeper.cpp b/blingfireclient.library/src/FAWbdConfKeeper.cpp
+index d490cfc..3e8e74b 100644
+--- a/blingfireclient.library/src/FAWbdConfKeeper.cpp
++++ b/blingfireclient.library/src/FAWbdConfKeeper.cpp
+@@ -16,6 +16,7 @@
+ #include "FAMultiMap_pack_mph.h"
+ #include "FAMultiMap_pack_fixed.h"
+ #include "FALimits.h"
++#include "BFendian.h"
+ 
+ namespace BlingFire
+ {
+@@ -65,25 +66,25 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+ 
+     for (int i = 0; i < Size; ++i) {
+ 
+-        const int Param = pValues [i];
++        const int Param = from_le32(pValues [i]);
+ 
+         switch (Param) {
+ 
+         case FAFsmConst::PARAM_MAP_MODE:
+         {
+-            const int MMType = pValues [++i];
++            const int MMType = from_le32(pValues [++i]);
+             LogAssert (FAFsmConst::MODE_PACK_TRIV == MMType);
+             break;
+         }
+         case FAFsmConst::PARAM_DEPTH:
+         {
+-            m_MaxDepth = pValues [++i];
++            m_MaxDepth = from_le32(pValues [++i]);
+             LogAssert (0 <= m_MaxDepth);
+             break;
+         }
+         case FAFsmConst::PARAM_MAX_LENGTH:
+         {
+-            m_MaxTokenLength = pValues [++i];
++            m_MaxTokenLength = from_le32(pValues [++i]);
+             LogAssert (0 <= m_MaxTokenLength);
+             break;
+         }
+@@ -94,14 +95,14 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+         }
+         case FAFsmConst::PARAM_FSM_TYPE:
+         {
+-            FsmType = pValues [++i];
++            FsmType = from_le32(pValues [++i]);
+             LogAssert (FAFsmConst::TYPE_MOORE_DFA == FsmType ||
+                 FAFsmConst::TYPE_MOORE_MULTI_DFA == FsmType);
+             break;
+         }
+         case FAFsmConst::PARAM_FSM:
+         {
+-            const int DumpNum = pValues [++i];
++            const int DumpNum = from_le32(pValues [++i]);
+             pFsmDump = pLDB->GetDump (DumpNum);
+             LogAssert (pFsmDump);
+ 
+@@ -116,7 +117,7 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+         }
+         case FAFsmConst::PARAM_MULTI_MAP:
+         {
+-            const int DumpNum = pValues [++i];
++            const int DumpNum = from_le32(pValues [++i]);
+             const unsigned char * pDump = pLDB->GetDump (DumpNum);
+             LogAssert (pDump);
+ 
+@@ -131,7 +132,7 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+         }
+         case FAFsmConst::PARAM_CHARMAP:
+         {
+-            const int DumpNum = pValues [++i];
++            const int DumpNum = from_le32(pValues [++i]);
+             const unsigned char * pDump = pLDB->GetDump (DumpNum);
+             LogAssert (pDump);
+ 
+@@ -145,7 +146,7 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+         }
+         case FAFsmConst::PARAM_ACT_DATA:
+         {
+-            const int DumpNum = pValues [++i];
++            const int DumpNum = from_le32(pValues [++i]);
+             const unsigned char * pDump = pLDB->GetDump (DumpNum);
+             LogAssert (pDump);
+ 
+@@ -159,43 +160,43 @@ void FAWbdConfKeeper::Initialize (const FALDB * pLDB, const int * pValues, const
+         }
+         case FAFsmConst::PARAM_PUNKT:
+         {
+-            m_TagPunkt = pValues [++i];
++            m_TagPunkt = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_EOS:
+         {
+-            m_TagEos = pValues [++i];
++            m_TagEos = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_EOP:
+         {
+-            m_TagEop = pValues [++i];
++            m_TagEop = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_WORD:
+         {
+-            m_TagWord = pValues [++i];
++            m_TagWord = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_XWORD:
+         {
+-            m_TagXWord = pValues [++i];
++            m_TagXWord = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_SEG:
+         {
+-            const int Tag = pValues [++i];
++            const int Tag = from_le32(pValues [++i]);
+             m_TagSeg = Tag;
+             break;
+         }
+         case FAFsmConst::PARAM_IGNORE:
+         {
+-            m_TagIgnore = pValues [++i];
++            m_TagIgnore = from_le32(pValues [++i]);
+             break;
+         }
+         case FAFsmConst::PARAM_MAX_TAG:
+         {
+-            m_MaxTag = pValues [++i];
++            m_MaxTag = from_le32(pValues [++i]);
+             break;
+         }
+ 
+@@ -270,7 +271,7 @@ inline void FAWbdConfKeeper::CalcFnIniStates ()
+             int i = 2;
+             // find the place where the function ids start
+             for (;i < ActSize; ++i) {
+-                if (0 == pAct [i] && i + 1 < ActSize) {
++                if (0 == from_le32(pAct [i]) && i + 1 < ActSize) {
+                     // skip 0-delimiter
+                     i++;
+                     break;
+@@ -279,7 +280,7 @@ inline void FAWbdConfKeeper::CalcFnIniStates ()
+             // update the maximum function id value
+             for (; i < ActSize; ++i) {
+ 
+-                const int FnId = pAct [i];
++                const int FnId = from_le32(pAct [i]);
+                 // bad function id
+                 LogAssert (0 <= FnId);
+ 
