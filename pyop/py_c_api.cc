@@ -165,7 +165,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
         return reinterpret_cast<std::uintptr_t>(tokenizer);
       },
-      "Create a tokenizer with options (like add_special_tokens, skip_special_tokens).");
+      "Create a tokenizer with options (like add_special_tokens, skip_special_tokens, or chat_template_kwargs).");
 
   m.def(
       "update_tokenizer_options",
@@ -187,7 +187,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
             throw std::runtime_error(std::string("Failed to update tokenizer options\n") + OrtxGetLastErrorMessage());
         }
       },
-      "Update existing tokenizer options, e.g., add_special_tokens or skip_special_tokens.");
+      "Update existing tokenizer options, e.g., add_special_tokens, skip_special_tokens, or chat_template_kwargs.");
 
   m.def(
       "batch_tokenize",

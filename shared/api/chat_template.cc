@@ -285,6 +285,10 @@ static json NormalizeTools(const char* tools_str) {
   }
 
   json raw_tools = json::parse(tools_str);
+  if (raw_tools.is_null()) {
+    return raw_tools;
+  }
+
   json normalized = json::array();
 
   for (auto& tool : raw_tools) {
