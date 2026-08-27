@@ -4,7 +4,7 @@ jobs:
   pool:
     vmImage: 'macOS-14'
   variables:
-    CIBW_BUILD: "cp3{8,9,10,11,12}-*"
+    CIBW_BUILD: "cp3{8,9,10,11,12,13,14}-*"
     CIBW_ARCHS_MACOS: "x86_64 universal2 arm64"
     CIBW_ENVIRONMENT: "MACOSX_DEPLOYMENT_TARGET=11.0"
     # Skip trying to test arm64 builds on Intel Macs
