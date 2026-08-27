@@ -531,6 +531,401 @@ expect(node, inputs=[inputs],
 </details>
 
 
+### CLIPTokenizer
+
+<details>
+<summary>CLIPTokenizer details</summary>
+
+Byte-pair-encoding (BPE) tokenizer matching the CLIP text encoder from HuggingFace/OpenAI. Converts input strings into token id sequences.
+
+#### Attributes
+
+***vocab: string***
+
+JSON vocabulary mapping tokens to ids (contents of `vocab.json`).
+
+***merges: string***
+
+Merge rules (contents of `merges.txt`).
+
+***padding_length: int64_t*** (default is -1)
+
+If positive, the output is right-padded (or truncated) to this length. When -1, the output is padded to the maximum sequence length in the batch; the operator still returns a dense tensor with a dynamic second dimension.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor containing the input texts.
+
+#### Outputs
+
+***input_ids: tensor(int64)***
+
+Tensor of token ids.
+
+***attention_mask: tensor(int64)*** (optional)
+
+Mask with the same shape as `input_ids` (1 for real tokens, 0 for padding).
+
+***offset_mapping: tensor(int64)*** (optional)
+
+If requested, per-token `(begin, end)` byte offsets into the corresponding input string.
+
+</details>
+
+
+### RobertaTokenizer
+
+<details>
+<summary>RobertaTokenizer details</summary>
+
+BPE tokenizer compatible with HuggingFace's RoBERTa tokenizer. Uses the same attributes and I/O contract as `CLIPTokenizer`.
+
+#### Attributes
+
+***vocab: string***
+
+JSON vocabulary (contents of `vocab.json`).
+
+***merges: string***
+
+BPE merge rules (contents of `merges.txt`).
+
+***padding_length: int64_t*** (default is -1)
+
+See `CLIPTokenizer`.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor of input texts.
+
+#### Outputs
+
+***input_ids: tensor(int64)***
+
+Token ids.
+
+***attention_mask: tensor(int64)*** (optional)
+
+Attention mask, same shape as `input_ids`.
+
+***offset_mapping: tensor(int64)*** (optional)
+
+Per-token byte offsets into each input string.
+
+</details>
+
+
+### SpmTokenizer
+
+<details>
+<summary>SpmTokenizer details</summary>
+
+SentencePiece-compatible tokenizer built on top of the shared BPE kernel. Produces tokens equivalent to HuggingFace's "fast" SentencePiece tokenizers (e.g. Llama, T5, XLM-RoBERTa).
+
+#### Attributes
+
+***vocab: string***
+
+JSON vocabulary produced from a SentencePiece model.
+
+***merges: string***
+
+SentencePiece merge rules.
+
+***padding_length: int64_t*** (default is -1)
+
+See `CLIPTokenizer`.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor of inputs.
+
+#### Outputs
+
+***input_ids: tensor(int64)***
+
+Tensor of token ids.
+
+***attention_mask: tensor(int64)*** (optional)
+
+Attention mask with the same shape as `input_ids`.
+
+***offset_mapping: tensor(int64)*** (optional)
+
+Per-token byte offsets.
+
+</details>
+
+
+### HfBertTokenizer
+
+<details>
+<summary>HfBertTokenizer details</summary>
+
+HuggingFace-compatible BERT WordPiece tokenizer. Behaves like `BertTokenizer`'s `__call__` method but with a smaller attribute surface. Produces ids, attention masks and token type ids in a single op.
+
+#### Attributes
+
+***vocab_file: string***
+
+Contents of `vocab.txt`.
+
+***do_lower_case: int64_t*** (default is 1)
+
+Lowercase inputs before tokenization.
+
+***strip_accents: int64_t*** (default is 0)
+
+Strip accents as part of normalization.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor containing the texts to tokenize.
+
+#### Outputs
+
+***input_ids: tensor(int64)***
+
+Token ids.
+
+***attention_mask: tensor(int64)***
+
+Attention mask, same shape as `input_ids`.
+
+***token_type_ids: tensor(int64)*** (optional)
+
+Segment ids. All zero for single-sentence input.
+
+***offset_mapping: tensor(int64)*** (optional)
+
+Per-token `(begin, end)` byte offsets into the corresponding input string.
+
+</details>
+
+
+### HfJsonTokenizer
+
+<details>
+<summary>HfJsonTokenizer details</summary>
+
+Loads a HuggingFace `tokenizer.json` directly and dispatches to the appropriate kernel (BPE or Unigram). Matches HuggingFace fast tokenizers at inference time.
+
+#### Attributes
+
+***tokenizer_config: string***
+
+Contents of `tokenizer.json` (and optionally `tokenizer_config.json`).
+
+***tokenizer_vocab: string*** (optional)
+
+Additional vocabulary data when the tokenizer uses an external vocab file.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor of inputs.
+
+#### Outputs
+
+***input_ids: tensor(int64)***
+
+Token ids.
+
+***attention_mask: tensor(int64)*** (optional)
+
+Attention mask matching `input_ids`.
+
+***offset_mapping: tensor(int64)*** (optional)
+
+Per-token byte offsets.
+
+</details>
+
+
+### SentencepieceDecoder
+
+<details>
+<summary>SentencepieceDecoder details</summary>
+
+Decodes a sequence of SentencePiece ids back into a string.
+
+#### Attributes
+
+***model: string***
+
+Serialized SentencePiece model (`*.model`).
+
+#### Inputs
+
+***ids: tensor(int64)***
+
+1D or 2D tensor of ids. When 2D the leading dimension must be 1.
+
+***fairseq: tensor(bool)*** (optional)
+
+Scalar flag. When true the `fairseq` vocab-id offset convention is applied.
+
+#### Outputs
+
+***output: tensor(string)***
+
+1D tensor with one string element containing the decoded text.
+
+</details>
+
+
+### BpeDecoder
+
+<details>
+<summary>BpeDecoder details</summary>
+
+Decodes BPE token ids (GPT-2 / CLIP / RoBERTa style) back into text.
+
+#### Attributes
+
+***id_vocab: string***
+
+Newline-separated token strings indexed by id.
+
+***byte_decoder: string***
+
+Reverse byte-to-unicode mapping used by GPT-2 BPE encoders.
+
+***added_tokens: string*** (optional)
+
+Extra tokens appended to the base vocabulary.
+
+***all_special_ids: string*** (optional)
+
+Comma-separated list of special token ids.
+
+***skip_special_tokens: int64_t*** (default is 0)
+
+When 1, ids in `all_special_ids` are skipped during decoding.
+
+***en_normalization: int64_t*** (default is 0)
+
+Apply a minimal English-oriented post-processing step (e.g. undo leading-space markers).
+
+***whitespace_token: string*** (optional)
+***bos_token: string*** (optional)
+***eos_token: string*** (optional)
+***unk_token: string*** (optional)
+
+Optional overrides for well-known special tokens.
+
+#### Inputs
+
+***ids: tensor(int64)***
+
+1D or 2D tensor of token ids.
+
+#### Outputs
+
+***output: tensor(string)***
+
+Decoded string tensor.
+
+</details>
+
+
+### TrieTokenizer
+
+<details>
+<summary>TrieTokenizer details</summary>
+
+Trie-based longest-match tokenizer used by RWKV-style models.
+
+#### Attributes
+
+***vocab: string***
+
+Newline-separated vocab where each line has the form `index token length`. `token` is a Python-repr-encoded byte string.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor of inputs.
+
+#### Outputs
+
+***output: tensor(int64)***
+
+2D right-padded tensor of token ids; padding uses id `0`.
+
+</details>
+
+
+### TrieDetokenizer
+
+<details>
+<summary>TrieDetokenizer details</summary>
+
+Inverse of `TrieTokenizer`. Converts 1D or 2D id tensors back to strings using the same trie vocabulary.
+
+#### Attributes
+
+***vocab: string***
+
+Same vocabulary format as `TrieTokenizer`.
+
+#### Inputs
+
+***ids: tensor(int64)***
+
+1D or 2D tensor of token ids.
+
+#### Outputs
+
+***output: tensor(string)***
+
+Decoded text, one string per row.
+
+</details>
+
+
+### BlingFireSentenceBreaker
+
+<details>
+<summary>BlingFireSentenceBreaker details</summary>
+
+Segments an input string into sentences using a compiled [BlingFire](https://github.com/microsoft/BlingFire) model.
+
+#### Attributes
+
+***model: string***
+
+Raw bytes of the compiled BlingFire sentence-breaking model (`*.bin`).
+
+***max_sentence: int64_t*** (default is -1)
+
+If positive, limits the number of returned sentences.
+
+#### Inputs
+
+***input: tensor(string)***
+
+Scalar input string.
+
+#### Outputs
+
+***output: tensor(string)***
+
+1D tensor of sentences.
+
+</details>
+
+
 ## String operators
 
 ### StringEqual
@@ -538,61 +933,75 @@ expect(node, inputs=[inputs],
 <details>
 <summary>StringEqual details</summary>
 
-Compares two strings and returns true if they are equal and false if not.
+Compares two strings elementwise and returns true when they are equal.
 
 #### Inputs
 
 ***x: tensor(string)***
 
-The first string input
+The first string input.
 
-***x: tensor(string)***
+***y: tensor(string)***
 
-The second string input
+The second string input. Must have the same shape as `x` (or be broadcastable).
 
 #### Outputs
 
-***z: tensor(boolean)***
+***z: tensor(bool)***
 
-String with replacements.
+Boolean tensor with the same shape as the broadcasted inputs; `true` where the inputs are equal.
 
 </details>
 
 
-### StringHash
+### StringToHashBucket
 
 <details>
-<summary>StringHash details</summary>
+<summary>StringToHashBucket details</summary>
 
-
-Hashes the input string based on the number of buckets
+Hashes each input string into one of `num_buckets` buckets using the internal FarmHash-like 64-bit hash implementation.
 
 #### Inputs
 
 ***input: tensor(string)***
 
-The string to hash
+The input string tensor to hash.
 
 ***num_buckets: tensor(int64)***
 
-The number of buckets (must be equal to 1?)
+Scalar number of hash buckets. Must be greater than 0.
 
 #### Outputs
 
-***name: tensor(int64)***
+***output: tensor(int64)***
 
-The hash value of the string
+Tensor of the same shape as `input` containing the hash-bucket index for each input string. Each value lies in the range `[0, num_buckets)`.
 
 </details>
 
 
-### StringHashFast
+### StringToHashBucketFast
 
 <details>
-<summary>StringHashFast details</summary>
+<summary>StringToHashBucketFast details</summary>
 
+A faster variant of `StringToHashBucket` that uses `std::hash<std::string>` internally. Hash values are not stable across platforms or compilers, so the op is intended for stateless in-process hashing rather than persisted lookup tables.
 
-A faster implementation of StringHash.
+#### Inputs
+
+***input: tensor(string)***
+
+The strings to hash.
+
+***num_buckets: tensor(int64)***
+
+Scalar number of hash buckets. Must be greater than 0.
+
+#### Outputs
+
+***output: tensor(int64)***
+
+The hashed values, with the same shape as `input`.
 
 </details>
 
@@ -613,11 +1022,11 @@ The input array of strings
 
 ***input_sep: tensor(string)***
 
-The string separator for the resulting joing
+The string separator for the resulting joining.
 
 ***input_axis: tensor(int64)***
 
-The axis along which to joing
+The axis along which to join.
 
 #### Outputs
 
@@ -730,7 +1139,7 @@ Replace all strings matching the pattern or the first one.
 
 ***ignore_case: int64*** (default is 0)
 
-Replace 
+Whether to perform case-insensitive ECMAScript regular expression matching.
 
 #### Outputs
 
@@ -744,7 +1153,7 @@ String with replacements.
 ```python
 
 node = onnx.helper.make_node(
-    'StringRegexReplace',
+    'StringECMARegexReplace',
     inputs=['text', 'pattern', 'rewrite'],
     outputs=['y'],
 )
@@ -763,30 +1172,118 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y],
 
 
 
-### StringSplit 
+### StringSplit
 
-TODO
+<details>
+<summary>StringSplit details</summary>
 
-### StringUpper  
+Splits each string in the input by a separator, producing a ragged (sparse) representation of the resulting tokens.
 
-TODO
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor to split.
+
+***sep: tensor(string)***
+
+Scalar string separator used to split each element of `input`. If empty, the string is split on whitespace.
+
+***skip_empty: tensor(bool)***
+
+Scalar boolean. When true, empty substrings are removed from the output.
+
+#### Outputs
+
+***indices: tensor(int64)***
+
+2D tensor of shape `[N, 2]` containing `(row, col)` coordinates of each output token in the ragged representation.
+
+***values: tensor(string)***
+
+1D tensor of `N` tokens produced by splitting, in row-major order.
+
+***shape: tensor(int64)***
+
+2-element tensor describing the dense shape `[num_rows, max_row_width]` of the ragged tensor.
+
+</details>
+
+### StringUpper
+
+<details>
+<summary>StringUpper details</summary>
+
+Converts every ASCII character in each string of the input tensor to uppercase using `std::toupper`. This operator is ASCII-only; non-ASCII bytes are passed through unchanged. For full Unicode case folding, pre-process inputs accordingly or use `StringLower` as a reference for Unicode handling.
+
+#### Inputs
+
+***input: tensor(string)***
+
+String tensor of arbitrary shape.
+
+#### Outputs
+
+***output: tensor(string)***
+
+String tensor of the same shape as `input` with uppercased strings.
+
+</details>
 
 ### StringLower
 
-TODO
+<details>
+<summary>StringLower details</summary>
+
+Converts each string in the input tensor to lowercase. Unlike `StringUpper`, this operator decodes input bytes as UTF-8 and performs Unicode-aware case folding on each code point before re-encoding the result.
+
+#### Inputs
+
+***input: tensor(string)***
+
+String tensor of arbitrary shape.
+
+#### Outputs
+
+***output: tensor(string)***
+
+String tensor of the same shape as `input` with lowercased strings.
+
+</details>
+
+### StringStrip
+
+<details>
+<summary>StringStrip details</summary>
+
+Removes leading and trailing whitespace characters from every string in the input tensor. Similar to `str.strip()` in Python.
+
+#### Inputs
+
+***input: tensor(string)***
+
+String tensor of arbitrary shape.
+
+#### Outputs
+
+***output: tensor(string)***
+
+String tensor of the same shape as `input` with whitespace stripped.
+
+</details>
 
 ### StringLength
 
 <details>
-<summary>StringECMARegexReplace details</summary>
+<summary>StringLength details</summary>
 
-Get the length of each string element in input tensor. Similar to the function `len("abcde"")` in python.
+Get the length of each string element in the input tensor. Similar to the function `len("abcde")` in Python.
 
 #### Inputs 
 
-***data: tensor(string)***
+***input: tensor(string)***
 
-String tensor to get length of its each string element.
+String tensor to get the length of each string element from.
 
 #### Outputs
 
@@ -874,33 +1371,39 @@ expect(node, inputs=[x, y], outputs=[result],
 <details>
 <summary>StringRegexSplitWithOffsets details</summary>
 
-Splits string based on regular expressions.
+Splits strings based on regular expressions (RE2 dialect) and reports the byte offsets of each produced token.
 
 #### Inputs
 
 ***text: tensor(string)***
 
-String tensor to extract slices from.
+String tensor to split.
 
 ***delim_regex_pattern: tensor(string)***
 
-Splitting attern of the regular expression.
+Splitting pattern of the regular expression.
 
 ***keep_delim_regex_pattern: tensor(string)***
 
-By default, delimiters are not included in the split string results. Delimiters may be included by specifying a regex pattern keep_delim_regex_pattern.
+By default, delimiters are not included in the split string results. Delimiters may be included by specifying a regex pattern via `keep_delim_regex_pattern`.
 
 #### Outputs
 
-***words: tensor(string)*** Tensor of words.
+***tokens: tensor(string)***
 
-***offsets: tensor(int64)*** 2D tensor with 3 columns:
-sentence index, position of the first character, position of the last one (excluded)
+1D tensor of tokens produced by splitting, in row-major order.
 
-***row_indices: tensor(int64)*** Indices of every first token of input sentences.
-`row_indices[i+1] - row_indices[i]` is the number of tokens in input `i`.
-These are updates row indices given as inputs or new ones if the second input is empty.
+***begin_offsets: tensor(int64)***
 
+1D tensor with the begin byte offset of each token in the corresponding input string.
+
+***end_offsets: tensor(int64)***
+
+1D tensor with the end byte offset (exclusive) of each token in the corresponding input string.
+
+***row_offsets: tensor(int64)***
+
+1D tensor of row offsets such that tokens of the i-th input string occupy `[row_offsets[i], row_offsets[i+1])` in `tokens`.
 
 #### Examples
 
@@ -908,22 +1411,22 @@ These are updates row indices given as inputs or new ones if the second input is
 ```python
 
 node = onnx.helper.make_node(
-    'StringRegexSplit',
-    inputs=['text', 'pattern', 'rewrite'],
-    outputs=['y', 'begin_end', 'indices'],
+    'StringRegexSplitWithOffsets',
+    inputs=['text', 'pattern', 'keep_pattern'],
+    outputs=['tokens', 'begin_offsets', 'end_offsets', 'row_offsets'],
 )
 
 text = np.array(["hello there"])
 pattern = np.array([r'\s'])
-rewrite = np.array([r'\s'])
-y = np.array(["hello", " ", "there"])
-z1 = np.array([[0, 0, 5],
-               [0, 5, 6],
-               [0, 6, 11]], dtype=np.int64)
-z2 = np.array([0, 2], dtype=np.int64)
+keep_pattern = np.array([""])
+tokens = np.array(["hello", "there"])
+begin_offsets = np.array([0, 6], dtype=np.int64)
+end_offsets = np.array([5, 11], dtype=np.int64)
+row_offsets = np.array([0, 2], dtype=np.int64)
 
-expect(node, inputs=[text, pattern, rewrite], outputs=[y, z1, z2],
-       name='test_string_regex_replace')
+expect(node, inputs=[text, pattern, keep_pattern],
+       outputs=[tokens, begin_offsets, end_offsets, row_offsets],
+       name='test_string_regex_split_with_offsets')
 ```
 
 </details>
@@ -931,7 +1434,50 @@ expect(node, inputs=[text, pattern, rewrite], outputs=[y, z1, z2],
 
 ### StringECMARegexSplitWithOffsets
 
-TODO
+<details>
+<summary>StringECMARegexSplitWithOffsets details</summary>
+
+Splits strings using a regular expression in the ECMAScript dialect and reports the byte offsets of every produced token. Provides the same functionality as `StringRegexSplitWithOffsets` but uses `std::regex` instead of `re2`, allowing ECMAScript regex features.
+
+#### Inputs
+
+***input: tensor(string)***
+
+String tensor to split.
+
+***pattern: tensor(string)***
+
+Scalar string containing the ECMAScript regex splitting pattern.
+
+***keep_pattern: tensor(string)***
+
+Scalar string. Delimiter matches that also match this pattern are preserved as tokens in the output. Pass an empty string to drop all delimiters.
+
+#### Attributes
+
+***ignore_case: int64_t*** (default is 0)
+
+When set to 1 the regex is matched case-insensitively.
+
+#### Outputs
+
+***tokens: tensor(string)***
+
+1D tensor containing the split tokens.
+
+***begin_offsets: tensor(int64)***
+
+1D tensor with the begin byte offset of each token in the corresponding input string.
+
+***end_offsets: tensor(int64)***
+
+1D tensor with the end byte offset (exclusive) of each token in the corresponding input string.
+
+***row_offsets: tensor(int64)***
+
+1D tensor of row offsets such that tokens of the i-th input string occupy `[row_offsets[i], row_offsets[i+1])` in `tokens`.
+
+</details>
 
 ### VectorToString
 
@@ -1225,40 +1771,809 @@ expect(node, inputs=[value, mask], outputs=[output],
 
 ### StringRaggedTensorToDense
 
-TODO
+<details>
+<summary>StringRaggedTensorToDense details</summary>
+
+Converts a ragged string tensor to a dense 2D string tensor, padding shorter rows with a fill value.
+
+#### Inputs
+
+***row_splits: tensor(int64)***
+
+1D tensor with the starting position of each row in `values`. Row `i` contains `values[row_splits[i]:row_splits[i+1]]`.
+
+***values: tensor(string)***
+
+1D flat string tensor holding the concatenated row values.
+
+***default_value_shape: tensor(int64)***
+
+1D tensor describing the target dense shape. Only used to determine the number of columns.
+
+***default_value: tensor(string)***
+
+Scalar string used to pad rows that are shorter than the longest row.
+
+#### Outputs
+
+***output: tensor(string)***
+
+2D dense string tensor with padding applied.
+
+</details>
 
 ### StringMapping
 
-TODO
+<details>
+<summary>StringMapping details</summary>
+
+Maps each element of the input string tensor to another string using a user-supplied dictionary. Strings not found in the dictionary are passed through unchanged.
+
+#### Attributes
+
+***map: string***
+
+A string containing one mapping per line. Each line has the form `key\tvalue`, where key and value are separated by a tab character.
+
+#### Inputs
+
+***input: tensor(string)***
+
+Input string tensor of arbitrary shape.
+
+#### Outputs
+
+***output: tensor(string)***
+
+Output string tensor of the same shape as `input` after mapping.
+
+</details>
 
 ## Math operators
 
 
 ### Inverse
 
-TODO 
+<details>
+<summary>Inverse details</summary>
+
+Computes the matrix inverse of a 2D floating-point tensor.
+
+#### Inputs
+
+***input: tensor(float)***
+
+A 2D square matrix of shape `[N, N]`.
+
+#### Outputs
+
+***output: tensor(float)***
+
+The inverse of the input matrix, of shape `[N, N]`.
+
+</details>
 
 ### NegPos
 
-TODO
+<details>
+<summary>NegPos details</summary>
+
+Splits an input tensor into its negative and positive parts. Equivalent to `min(x, 0)` and `max(x, 0)` returned separately.
+
+#### Inputs
+
+***input: tensor(float)***
+
+Input tensor of arbitrary shape.
+
+#### Outputs
+
+***neg: tensor(float)***
+
+Tensor with the same shape as `input`; contains `x` where `x < 0`, else `0`.
+
+***pos: tensor(float)***
+
+Tensor with the same shape as `input`; contains `x` where `x >= 0`, else `0`.
+
+</details>
 
 ### SegmentExtraction
 
-TODO
+<details>
+<summary>SegmentExtraction details</summary>
+
+Extracts contiguous non-zero segments from a 1D integer input. For every maximal run of non-zero values, the start and end positions are returned.
+
+#### Inputs
+
+***input: tensor(int64)***
+
+1D input tensor.
+
+#### Outputs
+
+***position: tensor(int64)***
+
+2D tensor of shape `[num_segments, 2]` where each row is `(begin, end)` (end exclusive).
+
+***value: tensor(int64)***
+
+1D tensor of length `num_segments` with the value inside each segment.
+
+</details>
 
 ### SegmentSum
 
-TODO
+<details>
+<summary>SegmentSum details</summary>
+
+Computes sums along segments of the first axis of a tensor, similar to TensorFlow's `tf.math.segment_sum`.
+
+#### Inputs
+
+***data: tensor(float)***
+
+The values to reduce. The first dimension is the segment axis.
+
+***segment_ids: tensor(int64)***
+
+1D tensor with the same length as `data.shape[0]`. Must be non-decreasing.
+
+#### Outputs
+
+***output: tensor(float)***
+
+Tensor where `output[i]` is the sum of all rows of `data` whose corresponding `segment_ids` equal `i`.
+
+</details>
+
+### StftNorm
+
+<details>
+<summary>StftNorm details</summary>
+
+Computes a short-time Fourier transform (STFT) of a 1D signal and returns the magnitude spectrogram. The implementation uses a Hann-style sliding window.
+
+#### Attributes
+
+***onesided: int64_t*** (default is 1)
+
+If 1, only the non-redundant positive-frequency half of the spectrum is returned (length `n_fft / 2 + 1`). If 0, the full spectrum is returned.
+
+#### Inputs
+
+***pcm: tensor(float)***
+
+1D audio signal.
+
+***n_fft: tensor(int64)***
+
+Scalar FFT size.
+
+***hop_length: tensor(int64)***
+
+Scalar hop length between consecutive frames.
+
+***window: tensor(float)***
+
+1D window function of length `frame_length`.
+
+***frame_length: tensor(int64)***
+
+Scalar frame length (must equal `n_fft`).
+
+#### Outputs
+
+***output: tensor(float)***
+
+3D tensor of shape `[1, num_frames, num_freq_bins]` containing the magnitude spectrogram.
+
+</details>
+
+### SplitSignalSegments
+
+<details>
+<summary>SplitSignalSegments details</summary>
+
+Partitions an audio signal into segments of voiced/high-energy regions based on a simple short-time energy threshold.
+
+#### Inputs
+
+***input: tensor(float)***
+
+1D audio signal.
+
+***sr: tensor(int64)***
+
+Scalar sample rate in Hz.
+
+***frame_ms: tensor(int64)***
+
+Scalar analysis frame length in milliseconds.
+
+***hop_ms: tensor(int64)***
+
+Scalar hop length between analysis frames in milliseconds.
+
+***energy_threshold_db: tensor(float)***
+
+Scalar energy threshold in dBFS. Frames with average energy below this are treated as silence.
+
+#### Outputs
+
+***segments: tensor(int64)***
+
+2D tensor of shape `[num_segments, 2]` where each row contains the `(begin_sample, end_sample)` indices of a detected segment.
+
+</details>
+
+### MergeSignalSegments
+
+<details>
+<summary>MergeSignalSegments details</summary>
+
+Merges adjacent audio segments whose gap is shorter than a configurable threshold. Typically used as a post-processing step after `SplitSignalSegments`.
+
+#### Inputs
+
+***segments: tensor(int64)***
+
+2D tensor of shape `[N, 2]` with `(begin, end)` indices, as produced by `SplitSignalSegments`.
+
+***merge_gap_ms: tensor(int64)***
+
+Scalar gap threshold in milliseconds. Segments separated by less than this value are merged.
+
+#### Outputs
+
+***output: tensor(int64)***
+
+2D tensor of shape `[M, 2]` (M <= N) of the merged segment boundaries.
+
+</details>
 
 ## Tensor operators
 
 ### RaggedTensorToSparse
 
-TODO
+<details>
+<summary>RaggedTensorToSparse details</summary>
+
+Converts a ragged tensor's row lengths to a COO-style sparse indexing representation.
+
+#### Inputs
+
+***n_element: tensor(int64)***
+
+1D tensor holding the number of elements in each row.
+
+#### Outputs
+
+***output_0: tensor(int64)***
+
+2D tensor of `(row, col)` indices for every element.
+
+***output_1: tensor(int64)***
+
+1D tensor of length 2 containing the dense shape `[num_rows, max_row_width]`.
+
+</details>
 
 ### RaggedTensorToDense
 
-TODO
+<details>
+<summary>RaggedTensorToDense details</summary>
+
+Converts a ragged int64 tensor to a dense 2D tensor, padding shorter rows with a configurable value.
+
+#### Attributes
+
+***missing_value: int64_t*** (default is -1)
+
+Value used to pad short rows.
+
+#### Inputs
+
+***input0: tensor(int64)***
+
+1D row-splits tensor indicating the start index of each row within `input3`.
+
+***input1: tensor(int64)***
+
+1D tensor of flat indices (unused by some consumers; reserved).
+
+***input2: tensor(int64)***
+
+1D tensor of length 2 describing the target dense shape `[num_rows, max_row_width]`.
+
+***input3: tensor(int64)***
+
+1D flat values tensor.
+
+#### Outputs
+
+***output: tensor(int64)***
+
+2D dense tensor with missing elements filled by `missing_value`.
+
+</details>
+
+## Audio operators
+
+### AudioDecoder
+
+<details>
+<summary>AudioDecoder details</summary>
+
+Decodes a byte stream containing an encoded audio file (WAV, MP3, or FLAC) into a float PCM tensor. Optionally resamples the audio to a target sample rate.
+
+#### Attributes
+
+***downsampling_rate: int64_t*** (default is -1)
+
+Target sample rate to resample the decoded audio to. When -1, the native sample rate of the decoded stream is used.
+
+***stereo_to_mono: int64_t*** (default is 0)
+
+If set to 1, multi-channel audio is mixed down to a single mono channel.
+
+#### Inputs
+
+***input: tensor(uint8)***
+
+1D tensor of raw bytes representing the encoded audio file.
+
+***format: tensor(string)*** (optional)
+
+Scalar describing the container format. Accepted values: `"wav"`, `"mp3"`, `"flac"`. When absent the format is detected from the file header.
+
+#### Outputs
+
+***output: tensor(float)***
+
+2D tensor of shape `[1, num_samples]` with the decoded (and optionally resampled) PCM samples in the range `[-1, 1]`.
+
+</details>
+
+## Vision operators
+
+### DecodeImage
+
+<details>
+<summary>DecodeImage details</summary>
+
+Decodes an encoded image (PNG, JPEG, BMP, TIFF, …) into an `HxWx3` uint8 tensor.
+
+#### Attributes
+
+***color_space: string*** (default is "bgr")
+
+Color ordering of the output. Valid values are `"rgb"` and `"bgr"` (case-insensitive).
+
+#### Inputs
+
+***input: tensor(uint8)***
+
+1D tensor containing the raw encoded image bytes.
+
+#### Outputs
+
+***output: tensor(uint8)***
+
+3D tensor of shape `[H, W, 3]`.
+
+</details>
+
+### EncodeImage
+
+<details>
+<summary>EncodeImage details</summary>
+
+Encodes a 3-channel `HxWx3` uint8 image tensor to image bytes.
+
+#### Attributes
+
+***format: string*** (default is "png")
+
+Output image format. Valid values are `"png"` and `"jpg"`.
+
+***color_space: string*** (default is "bgr")
+
+Color space / channel order of the input image. Supported values are `"bgr"` and `"rgb"`.
+
+#### Inputs
+
+***input: tensor(uint8)***
+
+3D tensor of shape `[H, W, 3]`. The expected channel order depends on `color_space`: BGR for `"bgr"` and RGB for `"rgb"`.
+
+#### Outputs
+
+***output: tensor(uint8)***
+
+1D tensor of encoded image bytes.
+
+</details>
+
+### DrawBoundingBoxes
+
+<details>
+<summary>DrawBoundingBoxes details</summary>
+
+Draws bounding boxes on a BGR image tensor.
+
+#### Attributes
+
+***thickness: int64_t*** (default is 4)
+
+Line thickness of the drawn rectangles, in pixels.
+
+***num_classes: int64_t*** (default is 10)
+
+Number of class colors to cycle through.
+
+***mode: string*** (default is "XYXY")
+
+Interpretation of the box coordinates. One of `"XYXY"`, `"XYWH"`, or `"CENTER_XYWH"`.
+
+***colour_by_classes: int64_t*** (default is 1)
+
+When 1, boxes of the same class share a colour. When 0, each box gets a unique colour from the palette.
+
+#### Inputs
+
+***image: tensor(uint8)***
+
+3D tensor of shape `[H, W, 3]` in BGR order.
+
+***boxes: tensor(float)***
+
+2D tensor of shape `[N, 6]`. Each row is `(class_id, score, x0, y0, x1, y1)` (or equivalent depending on `mode`).
+
+#### Outputs
+
+***output: tensor(uint8)***
+
+Image tensor with boxes drawn, same shape as `image`.
+
+</details>
+
+### GaussianBlur
+
+<details>
+<summary>GaussianBlur details</summary>
+
+Applies a 2D Gaussian blur to an image tensor using OpenCV's `cv::GaussianBlur`. The current kernel wraps the input buffer as a single `CV_32FC3` matrix, so inputs must have `N == 1` and `C == 3` channels.
+
+#### Inputs
+
+***input: tensor(float)***
+
+4D image tensor of shape `[1, H, W, 3]`.
+
+***ksize: tensor(int64)***
+
+1D tensor of length 2 specifying the kernel size `[kx, ky]` (odd positive integers).
+
+***sigma: tensor(double)***
+
+1D tensor of length 2 specifying the Gaussian standard deviation along X and Y.
+
+#### Outputs
+
+***output: tensor(float)***
+
+Blurred tensor with the same shape as `input`.
+
+</details>
+
+### ImageDecoder
+
+<details>
+<summary>ImageDecoder details</summary>
+
+Decodes raw encoded image bytes using OpenCV's `cv::imdecode`. Similar to `DecodeImage` but always returns BGR and does not expose a color-space attribute.
+
+#### Inputs
+
+***input: tensor(uint8)***
+
+1D tensor of encoded image bytes.
+
+#### Outputs
+
+***output: tensor(uint8)***
+
+3D tensor of shape `[H, W, C]` containing the decoded BGR image.
+
+</details>
+
+### ImageReader
+
+<details>
+<summary>ImageReader details</summary>
+
+Reads an image from a file path using OpenCV's `cv::imread` and returns the decoded tensor.
+
+#### Inputs
+
+***input: tensor(string)***
+
+1D string tensor of shape `[1]` containing the path of the image file to read.
+
+#### Outputs
+
+***output: tensor(uint8)***
+
+4D tensor of shape `[1, H, W, C]` containing the decoded BGR image.
+
+</details>
+
+## CUDA operators
+
+The following operators execute on CUDA devices only. They are only registered when the library is built with `USE_CUDA`. Unless otherwise noted each op supports `float`, `float16` (`MFloat16`), and in some cases `bfloat16` (`BFloat16`).
+
+### FastGelu
+
+<details>
+<summary>FastGelu details</summary>
+
+Fused CUDA kernel computing `gelu(x + bias)` using the fast tanh-based approximation.
+
+#### Inputs
+
+***input: tensor(T)***
+
+Input tensor of any shape. `T` is one of `float`, `float16`, `bfloat16`.
+
+***bias: tensor(T)*** (optional)
+
+Bias added elementwise before applying Gelu. Broadcast to the shape of `input`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Same shape as `input`.
+
+</details>
+
+### MulSigmoid
+
+<details>
+<summary>MulSigmoid details</summary>
+
+Computes `x * sigmoid(x)` (the SiLU / Swish activation) in a single fused CUDA kernel.
+
+#### Inputs
+
+***input: tensor(T)***
+
+Input tensor. `T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Same shape as `input`.
+
+</details>
+
+### MulMulSigmoid
+
+<details>
+<summary>MulMulSigmoid details</summary>
+
+Computes `x * y * sigmoid(y)` in a single fused CUDA kernel. Tensors must have the same shape.
+
+#### Inputs
+
+***x: tensor(T)***, ***y: tensor(T)***
+
+`T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Tensor with the same shape as the inputs.
+
+</details>
+
+### NegXPlus1
+
+<details>
+<summary>NegXPlus1 details</summary>
+
+Computes `1 - x` elementwise on CUDA.
+
+#### Inputs
+
+***input: tensor(T)***
+
+`T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Same shape as `input`.
+
+</details>
+
+### ReplaceZero
+
+<details>
+<summary>ReplaceZero details</summary>
+
+Replaces every zero element of the input with a scalar value.
+
+#### Attributes
+
+***by: float*** (default is 0.0)
+
+Replacement value for zero entries.
+
+#### Inputs
+
+***input: tensor(T)***
+
+`T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Same shape as `input`.
+
+</details>
+
+### AddSharedInput
+
+<details>
+<summary>AddSharedInput details</summary>
+
+Computes `A + B` and `A + C` in one kernel launch, sharing the read of `A`.
+
+#### Inputs
+
+***A: tensor(T)***, ***B: tensor(T)***, ***C: tensor(T)***
+
+`T` is one of `float`, `float16`, `bfloat16`. `B` and `C` must have the same shape as `A`.
+
+#### Outputs
+
+***AB: tensor(T)***, ***AC: tensor(T)***
+
+Elementwise sums `A + B` and `A + C`.
+
+</details>
+
+### MulSharedInput
+
+<details>
+<summary>MulSharedInput details</summary>
+
+Computes `A * B` and `A * C` in one kernel launch, sharing the read of `A`.
+
+#### Inputs
+
+***A: tensor(T)***, ***B: tensor(T)***, ***C: tensor(T)***
+
+`T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***AB: tensor(T)***, ***AC: tensor(T)***
+
+Elementwise products `A * B` and `A * C`.
+
+</details>
+
+### ScatterNDOfShape
+
+<details>
+<summary>ScatterNDOfShape details</summary>
+
+Allocates a zero tensor of the given shape and applies a `ScatterND` reduction. Equivalent to `ScatterND(ConstantOfShape(shape, 0), indices, updates, reduction=...)` but fused.
+
+#### Attributes
+
+***reduction: string*** (default is "add")
+
+Reduction to apply to scattered updates. One of `"add"`, `"mul"`, `"min"`, `"max"`.
+
+#### Inputs
+
+***shape: tensor(int64)***
+
+1D tensor describing the output shape. Must live on CPU.
+
+***indices: tensor(int64)***
+
+Indices into the output, as in standard ScatterND.
+
+***updates: tensor(T)***
+
+Values to scatter. `T` is one of `float`, `float16`, `bfloat16`.
+
+#### Outputs
+
+***output: tensor(T)***
+
+Tensor of the requested shape with updates applied.
+
+</details>
+
+### MaskedScatterNDOfShape
+
+<details>
+<summary>MaskedScatterNDOfShape details</summary>
+
+Variant of `ScatterNDOfShape` that ignores entries of `indices` equal to a configurable mask value.
+
+#### Attributes
+
+***reduction: string*** (default is "add")
+
+Same as `ScatterNDOfShape`.
+
+***maskedValue: int64_t***
+
+Index value that causes the corresponding update to be skipped.
+
+#### Inputs
+
+Same as `ScatterNDOfShape`.
+
+#### Outputs
+
+Same as `ScatterNDOfShape`.
+
+</details>
+
+### Transpose2DCastFP16
+
+<details>
+<summary>Transpose2DCastFP16 details</summary>
+
+Fused 2D transpose + cast from `float` to `float16`.
+
+#### Inputs
+
+***input: tensor(float)***
+
+2D tensor of shape `[M, N]`.
+
+#### Outputs
+
+***output: tensor(float16)***
+
+2D tensor of shape `[N, M]`.
+
+</details>
+
+### Transpose2DCastFP32
+
+<details>
+<summary>Transpose2DCastFP32 details</summary>
+
+Fused 2D transpose + cast from `float16` to `float`.
+
+#### Inputs
+
+***input: tensor(float16)***
+
+2D tensor of shape `[M, N]`.
+
+#### Outputs
+
+***output: tensor(float)***
+
+2D tensor of shape `[N, M]`.
+
+</details>
 
 ### Template
 
