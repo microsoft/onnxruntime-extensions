@@ -341,7 +341,7 @@ stages:
   #########
   - job: WindowsC
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     strategy:
       matrix:
@@ -401,7 +401,7 @@ stages:
 
   - job: WindowsStaticVC
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     steps:
     - script: |
@@ -412,7 +412,7 @@ stages:
 
   - job: Windows_PPApiBuild
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     steps:
     - script: |
@@ -426,7 +426,7 @@ stages:
   ################
   - job: WindowsPython
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     strategy:
       matrix:
@@ -471,7 +471,7 @@ stages:
   #################
   - job: WinPyDbgBuild
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     steps:
     - task: UsePythonVersion@0
@@ -935,8 +935,8 @@ stages:
           --pod-version ${ORT_EXTENSIONS_POD_VERSION}
       displayName: "Assemble pod"
 
-    # Note: In this CI, we only specify to build for iphonesimulator x86_64 arch in build_framework.py command however 
-    # this test app's podfile by default is setup for all platforms, and due to that we have to explicitly exclude the 
+    # Note: In this CI, we only specify to build for iphonesimulator x86_64 arch in build_framework.py command however
+    # this test app's podfile by default is setup for all platforms, and due to that we have to explicitly exclude the
     # macos target below when installing the pod for the test app.
     - script: |
         ORT_EXTENSIONS_LOCAL_POD_PATH=$(Build.BinariesDirectory)/pod_staging \
