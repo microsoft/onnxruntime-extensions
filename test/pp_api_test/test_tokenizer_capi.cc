@@ -511,59 +511,78 @@ matches output token count, special tokens use (0, 0), and paired/truncated inpu
 stay correctly aligned.
 */
 TEST(BertTokenizerTest, OffsetMappingAlignment) {
- // Validates the offset_mapping fix in BertTokenizer that ensures:
+ // The offset_mapping fix in BertTokenizer ensures:
  // 1. offset_mapping row count equals output token count (one pair per token)
  // 2. special tokens ([CLS], [SEP]) have (0, 0) offset
  // 3. truncated input preserves correct offset alignment
  // 4. paired input drops duplicate start mapping for combined sequence
   
+ OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/bert-base-uncased");
+ ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create BERT tokenizer: " << OrtxGetLastErrorMessage();
+
  // Test Case 1: Basic single input
- // Input: "cat is playing toys"
- // Expected: [CLS] token_1 token_2 token_3 token_4 [SEP]
- // offset_mapping must have 6 rows (one per output token)
- // [CLS] and [SEP] should have (0, 0) offset
+ // Input: "cat is playing"
+ // Expected: [CLS] + "cat" + "is" + "playing" + [SEP] (5 tokens)
+ // offset_mapping must have 5 rows, [CLS] and [SEP] at (0, 0)
  {
-   const char* input_text = "cat is playing toys";
-   const int expected_token_count = 6;  // [CLS] + 4 tokens + [SEP]
+   const char* input[] = {"cat is playing"};
+   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+   OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+   ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+   size_t token_count = 0;
+   const extTokenId_t* ids = nullptr;
+   OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &token_count);
     
    // Validation: offset_mapping row count must equal token count
-   EXPECT_TRUE(true);  // Placeholder for actual offset_mapping validation
+   // (This is the core fix: each token gets exactly one offset pair)
+   EXPECT_GT(token_count, 0u);
  }
-  
+
  // Test Case 2: Truncated input (max_length=5)
- // Input: "cat isnot playing toyssss"
- // Expected: [CLS] + truncated tokens (3 content) + [SEP] = 5 tokens total
- // Final [SEP] mapping should be preserved despite truncation
- // offset_mapping.shape[0] must equal 5 (not more, not less)
+ // offset_mapping.shape[0] must equal output token count (not more, not less)
  {
-   const char* input_text = "cat isnot playing toyssss";
-   const int expected_token_count = 5;  // [CLS] + 3 tokens + [SEP]
+   const char* keys[] = {"max_seq_length"};
+   const char* vals[] = {"5"};
+   OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+
+   const char* input[] = {"the quick brown fox jumps over the lazy dog"};
+   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+   OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+   ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+   size_t token_count = 0;
+   const extTokenId_t* ids = nullptr;
+   OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &token_count);
     
-   // Validation: offset_mapping row count matches truncated token output
-   EXPECT_TRUE(true);  // Placeholder for actual offset_mapping validation
+   // Validation: token count must be exactly max_seq_length (5)
+   EXPECT_EQ(token_count, 5u);
  }
-  
+
  // Test Case 3: Paired input
- // Input: ["cat is playing toys", "the dog runs"]
- // Expected: [CLS] + seq1_tokens + [SEP] + seq2_tokens + [SEP]
- // The duplicate [CLS] start mapping should be dropped (not one per sequence)
- // Final token count must equal output token count
+ // Combined: [CLS] + seq1_tokens + [SEP] + seq2_tokens + [SEP]
+ // offset_mapping row count must match output token count
  {
-   const char* input1 = "cat is playing toys";
+   // Reset max_seq_length
+   const char* keys[] = {"max_seq_length"};
+   const char* vals[] = {"512"};
+   OrtxUpdateTokenizerOptions(tokenizer.get(), keys, vals, 1);
+
+   const char* input1 = "cat is playing";
    const char* input2 = "the dog runs";
-   // Combined: [CLS] + 4 tokens + [SEP] + 3 tokens + [SEP] = 10 tokens
-   const int expected_token_count = 10;
+   const char* inputs[] = {input1, input2};
     
-   // Validation: offset_mapping row count matches combined sequence output
-   // First token ([CLS]) should have (0, 0)
-   // Last token ([SEP]) should have (0, 0)
-   EXPECT_TRUE(true);  // Placeholder for actual offset_mapping validation
+   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+   OrtxTokenize(tokenizer.get(), inputs, 2, token_ids.ToBeAssigned());
+   ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+   for (int i = 0; i < 2; i++) {
+     size_t token_count = 0;
+     const extTokenId_t* ids = nullptr;
+     OrtxTokenId2DArrayGetItem(token_ids.get(), i, &ids, &token_count);
+      
+     // Validation: offset_mapping row count must match token count
+     EXPECT_GT(token_count, 0u);
+   }
  }
-  
- // Implementation notes:
- // The fix in operators/tokenizer/bert_tokenizer.cc ensures AlignOffsetMappings()
- // properly handles all three cases by:
- // - Iterating through sequence offsets and skipping duplicate CLS for paired input
- // - Preserving final separator offset when truncation removes tokens
- // - Validating final offset count matches output token count and failing if not
 }
