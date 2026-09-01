@@ -3777,6 +3777,25 @@ namespace minja
       res.push_back(Value::array({key, value.at(key)}));
     }
     return res; }));
+    globals.set("sort", simple_function("sort", {"items", "reverse", "case_sensitive", "attribute"}, [](const std::shared_ptr<Context> &, Value &args)
+                                        {
+    auto & items = args.at("items");
+    if (!items.is_array()) throw std::runtime_error("sort expects an array");
+    std::vector<Value> result;
+    result.reserve(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+      result.push_back(items.at(i));
+    }
+    auto attribute = args.get<std::string>("attribute", "");
+    std::stable_sort(result.begin(), result.end(), [&attribute](const Value &left, const Value &right) {
+      Value left_key = attribute.empty() ? left : left.get(attribute);
+      Value right_key = attribute.empty() ? right : right.get(attribute);
+      return left_key < right_key;
+    });
+    if (args.get<bool>("reverse", false)) {
+      std::reverse(result.begin(), result.end());
+    }
+    return Value::array(result); }));
     globals.set("join", simple_function("join", {"items", "d"}, [](const std::shared_ptr<Context> &, Value &args)
                                         {
     auto do_join = [](Value & items, const std::string & sep) {

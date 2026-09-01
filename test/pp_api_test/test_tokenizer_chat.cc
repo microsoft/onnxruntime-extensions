@@ -2564,6 +2564,16 @@ TEST(OrtxTokenizerTest, MinjaUndefinedAwareFiltersPreserveExplicitNull) {
             "[null, 'fallback']");
 }
 
+TEST(OrtxTokenizerTest, MinjaSortSupportsAttribute) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'type': 'text'}, {'type': 'image'}] | sort(attribute='type') | "
+                            "map(attribute='type') | join(',') }}"),
+            "image,text");
+}
+
 TEST(OrtxTokenizerTest, MinjaUndefinedAndFalseyValuesWorkInCollections) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
