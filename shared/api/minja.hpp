@@ -3788,8 +3788,10 @@ namespace minja
     }
     auto attribute = args.get<std::string>("attribute", "");
     std::stable_sort(result.begin(), result.end(), [&attribute](const Value &left, const Value &right) {
-      Value left_key = attribute.empty() ? left : left.get(attribute);
-      Value right_key = attribute.empty() ? right : right.get(attribute);
+      Value left_item = left;
+      Value right_item = right;
+      Value left_key = attribute.empty() ? left_item : left_item.get(attribute);
+      Value right_key = attribute.empty() ? right_item : right_item.get(attribute);
       return left_key < right_key;
     });
     if (args.get<bool>("reverse", false)) {
