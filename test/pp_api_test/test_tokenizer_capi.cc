@@ -499,7 +499,6 @@ TEST(OrtxTokenizerV5Test, SmolLM3_V5_CApi) {
   OrtxObjectPtr<OrtxStringArray> decoded_text;
   OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
   EXPECT_EQ(decoded_text.Code(), kOrtxOK);
- 
   const char* text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
   EXPECT_STREQ(text, "Hello, world!");
