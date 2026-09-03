@@ -5,6 +5,48 @@
 #include <optional>
 #include <list>
 
+namespace {
+
+using OffsetMapping = std::pair<size_t, size_t>;
+using SequenceOffsetMapping = std::list<OffsetMapping>;
+
+std::vector<OffsetMapping> AlignOffsetMappings(const std::list<SequenceOffsetMapping>& sequence_offsets,
+                                               size_t output_token_count) {
+  std::vector<OffsetMapping> offsets;
+  for (auto sequence = sequence_offsets.begin(); sequence != sequence_offsets.end(); ++sequence) {
+    auto offset = sequence->begin();
+    if (sequence != sequence_offsets.begin() && offset != sequence->end()) {
+      ++offset;  // Paired output has one CLS token, not one per input sequence.
+    }
+    offsets.insert(offsets.end(), offset, sequence->end());
+  }
+
+  if (offsets.size() > output_token_count && output_token_count > 0) {
+    const auto separator_offset = offsets.back();
+    offsets.resize(output_token_count);
+    offsets.back() = separator_offset;
+  }
+
+  if (offsets.size() != output_token_count) {
+    ORTX_CXX_API_THROW("[BertTokenizer]: offset mapping does not match token output.", ORT_RUNTIME_EXCEPTION);
+  }
+
+  return offsets;
+}
+
+void WriteOffsetMappings(const std::list<SequenceOffsetMapping>& sequence_offsets, size_t output_token_count,
+                         ortc::Tensor<int64_t>& output) {
+  const auto offsets = AlignOffsetMappings(sequence_offsets, output_token_count);
+  const std::vector<int64_t> output_dims{static_cast<int64_t>(offsets.size()), 2};
+  auto* output_data = output.Allocate(output_dims);
+  for (const auto& [start, end] : offsets) {
+    *output_data++ = static_cast<int64_t>(start);
+    *output_data++ = static_cast<int64_t>(end);
+  }
+}
+
+}  // namespace
+
 BertTokenizerVocab::BertTokenizerVocab(std::string_view vocab) : raw_vocab_(vocab) {
   auto tokens = SplitString(raw_vocab_, "\r\n", true);
 
@@ -374,19 +416,8 @@ void KernelBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
   auto* p_out2 = output2.Allocate(output_dim);
   std::copy(attention_mask.begin(), attention_mask.end(), p_out2);
 
-  std::vector<int64_t> offset_dim{static_cast<int64_t>(input_ids.size()), 2};  // tuple of offsets for each input id
-
   if (offset_mapping.has_value()) {
-    auto* offset = (*offset_mapping)->Allocate(offset_dim);
-    int idx2 = 0;
-    for (auto& res : offset_map) {
-      for (auto& mapping : res) {
-        offset[idx2] = mapping.first;
-        idx2++;
-        offset[idx2] = mapping.second;
-        idx2++;
-      }
-    }
+    WriteOffsetMappings(offset_map, input_ids.size(), **offset_mapping);
   }
 }
 
@@ -436,17 +467,7 @@ void KernelHfBertTokenizer::Compute(const ortc::Tensor<std::string>& input,
     std::copy(token_type_ids.begin(), token_type_ids.end(), p_out2);
   }
 
-  std::vector<int64_t> offset_dim{static_cast<int64_t>(input_ids.size()), 2};  // tuple of offsets for each input id
   if (compute_offset_mapping) {
-    auto* offset = (*offset_mapping)->Allocate(offset_dim);
-    int idx2 = 0;
-    for (auto& res : offset_map) {
-      for (auto& mapping : res) {
-        offset[idx2] = mapping.first;
-        idx2++;
-        offset[idx2] = mapping.second;
-        idx2++;
-      }
-    }
+    WriteOffsetMappings(offset_map, input_ids.size(), **offset_mapping);
   }
 }
