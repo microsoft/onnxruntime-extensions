@@ -2572,6 +2572,42 @@ TEST(OrtxTokenizerTest, MinjaSortSupportsAttribute) {
                             "{{ [{'type': 'text'}, {'type': 'image'}] | sort(attribute='type') | "
                             "map(attribute='type') | join(',') }}"),
             "image,text");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ ['zebra', 'apple'] | sort | join(',') }}"), "apple,zebra");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'first', 'type': 'text'}, {'id': 'image', 'type': 'image'}, "
+                            "{'id': 'second', 'type': 'text'}] | sort(attribute='type', reverse=true) | "
+                            "map(attribute='id') | join(',') }}"),
+            "first,second,image");
+
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto error = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ 'not an array' | sort }}", messages_json.c_str(), nullptr, nullptr,
+      result.ToBeAssigned(), false, false);
+  EXPECT_NE(error, kOrtxOK);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("sort expects an array, got: 'not an array'"),
+            std::string::npos);
+}
+
+TEST(OrtxTokenizerTest, MinjaSortHandlesMissingKeysReverseAndCaseSensitivity) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'null', 'type': none}, {'id': 'missing'}, {'id': 'a', 'type': 'a'}, "
+                            "{'id': 'b', 'type': 'b'}] | sort(attribute='type') | map(attribute='id') | join(',') }}"),
+            "null,missing,a,b");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'first', 'type': 'b'}, {'id': 'second', 'type': 'a'}, "
+                            "{'id': 'third', 'type': 'b'}] | sort(attribute='type', reverse=true) | "
+                            "map(attribute='id') | join(',') }}"),
+            "first,third,second");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ ['Zebra', 'apple'] | sort | join(',') }}"),
+            "apple,Zebra");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ ['Zebra', 'apple'] | sort(case_sensitive=true) | join(',') }}"),
+            "Zebra,apple");
 }
 
 TEST(OrtxTokenizerTest, MinjaUndefinedAndFalseyValuesWorkInCollections) {
