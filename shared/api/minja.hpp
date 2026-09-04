@@ -13,6 +13,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -3777,6 +3778,42 @@ namespace minja
       res.push_back(Value::array({key, value.at(key)}));
     }
     return res; }));
+    globals.set("sort", simple_function("sort", {"items", "reverse", "case_sensitive", "attribute"}, [](const std::shared_ptr<Context> &, Value &args)
+                                        {
+    auto & items = args.at("items");
+    if (!items.is_array()) throw std::runtime_error("sort expects an array, got: " + items.dump());
+    std::vector<Value> result;
+    result.reserve(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+      result.push_back(items.at(i));
+    }
+    auto attribute = args.get<std::string>("attribute", "");
+    auto reverse = args.get<bool>("reverse", false);
+    auto case_sensitive = args.get<bool>("case_sensitive", false);
+    std::stable_sort(result.begin(), result.end(), [attribute, reverse, case_sensitive](const Value &left, const Value &right) {
+      Value left_item = left;
+      Value right_item = right;
+      Value left_key = attribute.empty() ? left_item : left_item.get(attribute);
+      Value right_key = attribute.empty() ? right_item : right_item.get(attribute);
+      const auto left_missing = left_key.is_null() || left_key.is_undefined();
+      const auto right_missing = right_key.is_null() || right_key.is_undefined();
+      if (left_missing || right_missing) {
+        if (left_missing && right_missing) return false;
+        return reverse ? right_missing : left_missing;
+      }
+      if (!case_sensitive && left_key.is_string() && right_key.is_string()) {
+        auto normalize = [](std::string value) {
+          std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+          });
+          return value;
+        };
+        left_key = normalize(left_key.get<std::string>());
+        right_key = normalize(right_key.get<std::string>());
+      }
+      return reverse ? right_key < left_key : left_key < right_key;
+    });
+    return Value::array(result); }));
     globals.set("join", simple_function("join", {"items", "d"}, [](const std::shared_ptr<Context> &, Value &args)
                                         {
     auto do_join = [](Value & items, const std::string & sep) {
