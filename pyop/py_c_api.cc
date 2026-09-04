@@ -1,11 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#include <pybind11/iostream.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/functional.h>
-#include <pybind11/numpy.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/stl/unordered_map.h>
+#include <nanobind/stl/vector.h>
 #include <thread>
 
 #include "ortx_utils.h"
@@ -14,7 +13,8 @@
 #include "ortx_cpp_helper.h"
 #include "pykernel.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 
 template <typename T>
 int64_t NumOfElement(const T& sp) {
@@ -25,7 +25,39 @@ int64_t NumOfElement(const T& sp) {
   return c;
 }
 
-void AddGlobalMethodsCApi(pybind11::module& m) {
+struct ScopedPyBuffer {
+  explicit ScopedPyBuffer(PyObject* object, int flags) {
+    if (PyObject_GetBuffer(object, &view, flags) != 0) {
+      throw nb::python_error();
+    }
+  }
+
+  ~ScopedPyBuffer() { PyBuffer_Release(&view); }
+
+  Py_buffer view{};
+};
+
+static nb::module_& GetNumpyModule() {
+  static nb::module_ numpy = nb::module_::import_("numpy");
+  return numpy;
+}
+
+static const char* GetNumpyDTypeName(extDataType_t tensor_type) {
+  switch (tensor_type) {
+    case extDataType_t::kOrtxFloat:
+      return "float32";
+    case extDataType_t::kOrtxInt64:
+      return "int64";
+    case extDataType_t::kOrtxUint8:
+      return "uint8";
+    case extDataType_t::kOrtxUint32:
+      return "uint32";
+    default:
+      throw std::runtime_error("unsupported tensor type");
+  }
+}
+
+void AddGlobalMethodsCApi(nb::module_& m) {
   m.def(
       "create_processor",
       [](const char* processor_def_json) {
@@ -72,7 +104,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
 
   m.def(
       "tensor_result_get_at",
-      [](std::uintptr_t result_h, size_t index) -> py::object {
+      [](std::uintptr_t result_h, size_t index) -> nb::object {
         OrtxTensorResult* result = reinterpret_cast<OrtxTensorResult*>(result_h);
         OrtxTensor* tensor{};
         auto err = OrtxTensorResultGetAt(result, index, &tensor);
@@ -89,7 +121,7 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         if (tensor_type == extDataType_t::kOrtxString) {
           const char* str{};
           OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&str), nullptr, nullptr);
-          return py::str(str);
+          return nb::str(str);
         } else if (tensor_type == extDataType_t::kOrtxInt64 || tensor_type == extDataType_t::kOrtxFloat ||
                    tensor_type == extDataType_t::kOrtxUint8 || tensor_type == extDataType_t::kOrtxUint32) {
           OrtxGetTensorData(tensor, reinterpret_cast<const void**>(&data), &shape, &num_dims);
@@ -102,22 +134,9 @@ void AddGlobalMethodsCApi(pybind11::module& m) {
         for (auto n = num_dims - num_dims; n < num_dims; ++n) {
           npy_dims.push_back(shape[n]);
         }
-        py::array obj{};
-
-        if (tensor_type == extDataType_t::kOrtxFloat) {
-          obj = py::array_t<float>(npy_dims);
-        } else if (tensor_type == extDataType_t::kOrtxInt64) {
-          obj = py::array_t<int64_t>(npy_dims);
-        } else if (tensor_type == extDataType_t::kOrtxUint8) {
-          obj = py::array_t<uint8_t>(npy_dims);
-        } else if (tensor_type == extDataType_t::kOrtxUint32) {
-          obj = py::array_t<uint32_t>(npy_dims);
-        } else {
-          throw std::runtime_error("unsupported tensor type");
-        }
-
-        void* out_ptr = obj.mutable_data();
-        memcpy(out_ptr, data, NumOfElement(npy_dims) * elem_size);
+        nb::object obj = GetNumpyModule().attr("empty")(nb::cast(npy_dims), "dtype"_a = GetNumpyDTypeName(tensor_type));
+        ScopedPyBuffer buffer(obj.ptr(), PyBUF_WRITABLE);
+        memcpy(buffer.view.buf, data, NumOfElement(npy_dims) * elem_size);
         return obj;
       },
       "Get tensor at index.");

@@ -14,12 +14,12 @@ RUN dnf install -y bash wget git&&\
 
 # Install python3
 RUN dnf install -y \
-    python3.8 \
-    python38-pip \
-    python38-wheel &&\
+    python3.10 \
+    python3.10-pip \
+    python3.10-wheel &&\
     cd /usr/local/bin &&\
-    ln -s /usr/bin/python3 python3.8 &&\
-    ln -s /usr/bin/pip3 pip3.8;
+    ln -s /usr/bin/python3 python3.10 &&\
+    ln -s /usr/bin/pip3 pip3.10;
 
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=68.2.2

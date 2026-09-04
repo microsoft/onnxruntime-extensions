@@ -13,6 +13,9 @@ from setuptools import setup, find_packages
 
 TOP_DIR = os.path.dirname(__file__) or os.getcwd()
 PACKAGE_NAME = "onnxruntime_extensions"
+NO_GIL = hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled()
+PY_312_OR_NEWER = sys.version_info >= (3, 12)
+USE_LIMITED_API = not NO_GIL and PY_312_OR_NEWER
 
 # setup.py cannot be debugged in pip command line, so the command classes are refactored into another file
 cmds_dir = pathlib.Path(TOP_DIR) / ".pyproject"
@@ -53,7 +56,12 @@ def write_py_version(ext_version):
         _fver.writelines(text)
 
 
-ext_modules = [setuptools.extension.Extension(name=str("onnxruntime_extensions._extensions_pydll"), sources=[])]
+ext_modules = [setuptools.extension.Extension(
+    name=str("onnxruntime_extensions._extensions_pydll"),
+    sources=[],
+    py_limited_api=USE_LIMITED_API,
+    define_macros=[("Py_LIMITED_API", "0x030C0000")] if USE_LIMITED_API else [],
+)]
 
 packages = find_packages()
 package_dir = {k: os.path.join(".", k.replace(".", "/")) for k in packages}
@@ -88,6 +96,7 @@ setup(
     cmdclass=_cmds.ortx_cmdclass,
     include_package_data=True,
     install_requires=[],
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 4 - Beta",
         "Environment :: Console",
