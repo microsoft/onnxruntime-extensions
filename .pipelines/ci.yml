@@ -509,6 +509,8 @@ stages:
   - job: WindowsCUDABoth
     pool:
       name: 'onnxruntime-extensions-Win2022-GPU-A10'
+      demands:
+      - ImageOverride -equals onnxruntime-win2025-nvme-x64
     variables:
       ORT_VERSION: '1.17.1'
     timeoutInMinutes: 120
