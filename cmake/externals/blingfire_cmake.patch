@@ -5,6 +5,18 @@ index 5d47b3a..dd36aaf 100644
 @@ -1,4 +1,4 @@
 -cmake_minimum_required (VERSION 3.0)
 +cmake_minimum_required (VERSION 3.5)
- 
+
  set (BLING_FIRE_VERSION_MAJOR 1)
  set (BLING_FIRE_VERSION_MINOR 0)
+
+--- ./CMakeLists_orig.txt	2026-05-23 03:43:50.580750573 -0500
++++ ./CMakeLists.txt	2026-05-23 03:44:19.454763579 -0500
+@@ -107,7 +107,7 @@
+       IF(${dirname} STREQUAL "any_test")
+         target_link_libraries(${dirname} ${CMAKE_DL_LIBS})
+       ENDIF()
+-      IF (APPLE)
++      IF (APPLE OR CMAKE_SYSTEM_NAME MATCHES "AIX")
+         target_link_libraries(${dirname} iconv)
+       ENDIF()
+     ENDIF()

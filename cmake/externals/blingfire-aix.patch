@@ -1,0 +1,34 @@
+--- ./blingfireclient.library/inc/FAConfig_orig.h	2026-05-19 03:27:38.241882009 -0500
++++ ./blingfireclient.library/inc/FAConfig.h	2026-05-19 03:29:23.720979389 -0500
+@@ -11,6 +11,7 @@
+ #define NEW new
+ #endif
+ 
++#include <stdio.h>
+ #if _MSC_VER < 1400
+ # ifndef fopen_s
+ #   define fopen_s(ppF,pN,pA) int(0); *ppF = fopen(pN,pA);
+@@ -23,13 +24,12 @@
+ #include <ctype.h>
+ #include <fcntl.h>
+ 
+-#ifdef BLING_FIRE_MAC
++#if defined(BLING_FIRE_MAC) || defined(_AIX)
+   #include <string>
+ #else
+   #include <malloc.h>
+ #endif
+ 
+-#include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <cmath>
+@@ -79,7 +79,7 @@
+ 
+ #include <stdint.h>
+ 
+-/* because we have stdint.h 
++/* because we have stdint.h
+ #ifndef __int32
+ #define __int32 int32_t
+ #endif

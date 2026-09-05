@@ -88,6 +88,9 @@ struct SpmUgmTokenizer {
       //   std::cout << int(charsmap_data_[i]) << " ";
       // }
 
+      if (charsmap_data_.size() < sizeof(uint32_t)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Precompiled charsmap is too short to contain XCDA header.");
+      }
       size_t charsmap_offset = 0;
 
       // First four bytes of precompiled_charsmap contains length of binary
@@ -97,6 +100,12 @@ struct SpmUgmTokenizer {
       }
       uint32_t xcda_blob_size;
       memcpy(&xcda_blob_size, charsmap_data_.data(), sizeof(uint32_t));
+      
+        // Convert from little-endian to host byte order
+      #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+      xcda_blob_size = __builtin_bswap32(xcda_blob_size);
+      #endif
+
       charsmap_offset += sizeof(xcda_blob_size);
       if (xcda_blob_size > charsmap_data_.size() - charsmap_offset) {
         return OrtxStatus(extError_t::kOrtxErrorCorruptData, "Index out of array bounds in precompiled charsmap!");
@@ -299,7 +308,7 @@ struct SpmUgmTokenizer {
                         "Invalid UTF-8 encoding detected in input string at position " +
                         std::to_string(-validation_result));
     }
-    
+
     std::string normalized;
     if (case_encoder_) {
       normalized = NmtNormalize(input);
@@ -640,7 +649,12 @@ struct SpmUgmTokenizer {
       if (index >= xcda_array_size_) {  // Fix #2: off-by-one correction
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in XCDA array!", ORT_RUNTIME_EXCEPTION);
       }
-      return xcda_array_[index];
+      uint32_t value = xcda_array_[index];
+      // Convert from little-endian to host byte order
+      #if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+      value = __builtin_bswap32(value);
+      #endif
+      return value;
     }
     const uint32_t* xcda_array_;
     size_t xcda_array_size_;

@@ -1,0 +1,19 @@
+--- a/3rdparty/libpng/CMakeLists.txt
++++ b/3rdparty/libpng/CMakeLists.txt
+@@ -56,11 +56,12 @@ else()
+ endif()
+
+-if(PPC64LE OR PPC64)
+-  # VSX3 features are backwards compatible
+-  if(";${CPU_BASELINE_FINAL};" MATCHES "VSX.*"
+-      AND NOT PPC64)
++# Enable PowerPC VSX optimizations on PowerPC systems (Linux) and AIX
++if(PPC64LE OR PPC64 OR CMAKE_SYSTEM_NAME MATCHES "AIX")
++  # Enable VSX on PowerPC (AIX and Linux)
++  if(";${CPU_BASELINE_FINAL};" MATCHES "VSX.*" OR CMAKE_SYSTEM_NAME MATCHES "AIX")
+     list(APPEND lib_srcs powerpc/powerpc_init.c powerpc/filter_vsx_intrinsics.c)
+     add_definitions(-DPNG_POWERPC_VSX_OPT=2)
++    message(STATUS "libpng: PowerPC VSX optimizations enabled")
+   else()
+     add_definitions(-DPNG_POWERPC_VSX_OPT=0)
+   endif()
