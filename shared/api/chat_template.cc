@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <cctype>
+
 #include "tokenizer_impl.h"
 namespace ort_extensions {
 
@@ -327,6 +329,37 @@ static json NormalizeTools(const char* tools_str) {
 }
 
 /*
+ * Reports whether a chat template consumes tool definitions in their raw OpenAI shape.
+ *
+ * NormalizeTools() rewrites tools into the flat Phi-4/Minja shape, which is lossy: it
+ * unwraps {"type":"function","function":{...}}, drops "required", "enum", "items" and any
+ * nested property schema, and renames the "string" type to "str". That is only safe for
+ * templates written against the flat shape. Two families need the raw objects instead:
+ *
+ *   - Harmony/GPT-OSS templates, which reach into `tool.function` themselves.
+ *   - Qwen-style templates, which serialize each tool verbatim with `tool | tojson`.
+ *
+ * Feeding a normalized tool to the latter silently changes the prompt the model was
+ * trained on, so it emits argument values that violate the real schema.
+ */
+static bool TemplateWantsRawTools(const std::string& tmpl) {
+  if (tmpl.find("tool.function") != std::string::npos) {
+    return true;
+  }
+
+  // Whitespace around a Jinja filter is free-form, so compare without it.
+  std::string compact;
+  compact.reserve(tmpl.size());
+  for (char c : tmpl) {
+    if (!std::isspace(static_cast<unsigned char>(c))) {
+      compact.push_back(c);
+    }
+  }
+
+  return compact.find("tool|tojson") != std::string::npos || compact.find("tools|tojson") != std::string::npos;
+}
+
+/*
  * This function normalizes quotes in tool-related strings within the input message. This normalization is crucial for
  * ensuring consistent JSON serialization and deserialization when working with tool calls. Specifically, the function
  * helps avoid differences between `json::dump` and `json::parse` behavior, which can occur when single quotes are used
@@ -432,16 +465,10 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
     // Check Phi-4-mini tool call case for quote normalization
     bool phi_4_mini = false;
 
-    // Determine whether to skip tool normalization based on template content.
-    // GPT-OSS/Harmony templates access `tool.function` directly (they expect the raw OpenAI format),
-    // so NormalizeTools() would break them by unwrapping the function object.
-    // Other templates (Phi-4, Qwen) either use a flat format or access `tool_call.function`.
-    bool skip_tool_normalization = false;
-    {
-      std::string tmpl_str(activated_str);
-      // Look for "tool.function" in the template (Harmony/GPT-OSS expects raw OpenAI tool objects).
-      skip_tool_normalization = tmpl_str.find("tool.function") != std::string::npos;
-    }
+    // Templates that consume tool definitions in their raw OpenAI shape must receive them
+    // untouched, because NormalizeTools() unwraps the "function" object and flattens
+    // "parameters", which discards "required", "enum" and nested property schemas.
+    bool skip_tool_normalization = TemplateWantsRawTools(activated_str);
 
     // Case 1: Check if tools are inside messages (for Phi-4-mini)
     if (actual_messages.is_array()) {
@@ -451,7 +478,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
           phi_4_mini = true;
 
           if (skip_tool_normalization) {
-            // GPT-OSS/Harmony: parse tools as-is without normalization
+            // The template consumes the complete OpenAI schema, so parse tools as-is.
             const auto tools_text = message_obj["tools"].get<std::string>();
             json tools_json = json::parse(tools_text, nullptr, /*allow_exceptions=*/false);
             if (tools_json.is_discarded()) {
@@ -472,7 +499,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       std::string tools_str = minja::normalize_newlines(tools);
       json tools_json;
       if (skip_tool_normalization) {
-        // GPT-OSS/Harmony: pass raw tools without normalization
+        // The template consumes the complete OpenAI schema, so parse tools as-is.
         tools_json = json::parse(tools_str, nullptr, /*allow_exceptions=*/false);
         if (tools_json.is_discarded()) {
           throw std::runtime_error("Invalid tools JSON.");
