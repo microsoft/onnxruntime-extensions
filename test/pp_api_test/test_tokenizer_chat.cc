@@ -786,6 +786,55 @@ TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
 
+TEST(OrtxTokenizerTest, Qwen3PreservesRawToolSchema) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Qwen3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([{"role":"user","content":"Plan a trip."}])";
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "plan_trip",
+          "description": "Plan a trip.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "destination": {
+                "type": "string",
+                "enum": ["Paris", "Tokyo"]
+              },
+              "days": {
+                "type": "array",
+                "items": {"type": "integer"}
+              }
+            },
+            "required": ["destination", "days"]
+          }
+        }
+      }
+    ])";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), tools_json.c_str(),
+                                   templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+  EXPECT_NE(output.find("\"type\": \"function\""), std::string::npos);
+  EXPECT_NE(output.find("\"function\": {"), std::string::npos);
+  EXPECT_NE(output.find("\"required\": [\"destination\", \"days\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"enum\": [\"Paris\", \"Tokyo\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"items\": {\"type\": \"integer\"}"), std::string::npos);
+}
+
 TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithMinjaTools) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
