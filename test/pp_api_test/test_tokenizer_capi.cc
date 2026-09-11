@@ -10,6 +10,8 @@
 
 #include "c_only_test.h"
 #include "ortx_cpp_helper.h"
+#include "nlohmann/json.hpp"
+#include "ugm_kernels.hpp"
 
 using namespace ort_extensions;
 
@@ -470,6 +472,147 @@ TEST_F(MarianId2TokenTest, UnicodeCasePreservesUnmarkedText) {
   ASSERT_TRUE(locale.IsValid()) << "Failed to activate the per-thread C locale.";
   EXPECT_EQ(RoundTrip(u8"башҡорт теле; école über; 中文 123"),
             u8"башҡорт теле; école über; 中文 123");
+}
+
+class MarianByteFallbackTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    const std::string config = R"({"tokenizer_class":"MarianTokenizer",
+      "unk_token":"<unk>","eos_token":"</s>","pad_token":"<pad>",
+      "add_bos_token":false,"add_eos_token":true})";
+    std::vector<std::string> pieces = {"</s>", "<unk>", "<pad>", "\xE2\x96\x81"};
+    constexpr char hex[] = "0123456789ABCDEF";
+    for (size_t byte = 0; byte < 256; ++byte) {
+      pieces.push_back(std::string("<0x") + hex[byte >> 4] + hex[byte & 15] + ">");
+    }
+    nlohmann::json vocab = nlohmann::json::array();
+    for (const auto& piece : pieces) {
+      vocab.push_back({piece, -1.0});
+    }
+    nlohmann::json added = nlohmann::json::array();
+    for (size_t index = 0; index < 3; ++index) {
+      added.push_back({{"id", index}, {"content", pieces[index]}, {"special", true}});
+    }
+    const std::string model = nlohmann::json({
+        {"version", "1.0"},
+        {"model", {{"type", "Unigram"}, {"unk_id", 1}, {"vocab", vocab}}},
+        {"added_tokens", added}}).dump();
+    const OrtxTokenizerBlob blob(config, model);
+    TokenJsonConfig token_config;
+    ASSERT_TRUE(token_config.LoadFromBlob(blob).IsOk());
+    SpmUgmTokenizer tokenizer;
+    ASSERT_TRUE(tokenizer.Load(token_config).IsOk());
+    ASSERT_TRUE(decoder_.Load(token_config, tokenizer).IsOk());
+  }
+
+  void ExpectDecoding(const std::string& encoded, const std::string& expected, bool append_eos = true) {
+    std::vector<extTokenId_t> ids;
+    for (unsigned char byte : encoded) {
+      ids.push_back(4 + byte);
+    }
+    if (append_eos) ids.push_back(0);
+    std::vector<int64_t> full_ids(ids.begin(), ids.end());
+    ortc::Tensor<int64_t> input({1, static_cast<int64_t>(full_ids.size())}, full_ids.data());
+    ortc::Tensor<std::string> output;
+    ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
+    EXPECT_EQ(output.AsScalar(), expected);
+    if (!append_eos) return;
+
+    auto cache = std::make_unique<TokenizerDecodingState>();
+    auto* state = cache.get();
+    std::string streamed;
+    for (extTokenId_t id : ids) {
+      std::string chunk;
+      ASSERT_TRUE(decoder_.Id2Token(id, chunk, &state).IsOk());
+      streamed += chunk;
+    }
+    EXPECT_EQ(streamed, expected);
+  }
+
+  SpmUgmDecoder decoder_;
+};
+
+TEST_F(MarianByteFallbackTest, UnicodeCasingAcrossBytes) {
+  ExpectDecoding("Ta", "A");
+  ExpectDecoding("T\xC3\xA9", "\xC3\x89");
+  ExpectDecoding("T\xD0\xB1", "\xD0\x91");
+  ExpectDecoding("T\xE1\xB8\x81", "\xE1\xB8\x80");
+  ExpectDecoding("T\xF0\x90\x90\xA8", "\xF0\x90\x90\x80");
+  ExpectDecoding("\xC3\xA9\xD0\xB1", "\xC3\xA9\xD0\xB1");
+  ExpectDecoding("\xE4\xB8\xAD\xE6\x96\x87", "\xE4\xB8\xAD\xE6\x96\x87");
+}
+
+TEST_F(MarianByteFallbackTest, CasingModesAndBoundaries) {
+  ExpectDecoding("T\xC3\xA9\xC3\xA9", "\xC3\x89\xC3\xA9");
+  ExpectDecoding("U\xC3\xA9\xC3\xA9-\xC3\xA9", "\xC3\x89\xC3\x89-\xC3\xA9");
+  ExpectDecoding("A\xC3\xA9 \xC3\xA9", "\xC3\x89 \xC3\x89");
+  ExpectDecoding("U\xC3\xA9\xE2\x96\x81\xC3\xA9", "\xC3\x89 \xC3\xA9");
+  ExpectDecoding("T\xF0\x9F\x98\x80" "abc", "\xF0\x9F\x98\x80" "abc");
+}
+
+TEST_F(MarianByteFallbackTest, IncompleteAndMalformedBytesArePreserved) {
+  ExpectDecoding("T\xC3", "\xC3");
+  ExpectDecoding("T\xC3", "\xC3", false);
+  ExpectDecoding("T\xC3" "a", "\xC3" "A");
+  ExpectDecoding("T\xFF" "a", "\xFF" "A");
+  ExpectDecoding("", "");
+}
+
+TEST_F(MarianByteFallbackTest, InvalidCodepointsAreNotCaseConverted) {
+  for (const std::string malformed : {
+           "\xC1\xA1", "\xE0\x81\xA1", "\xF0\x80\x81\xA1",
+           "\xED\xA0\x80", "\xF4\x90\x80\x80", "\xEF\xBF\xBE"}) {
+    ExpectDecoding("T" + malformed + "a", malformed + "A");
+  }
+}
+
+TEST_F(MarianByteFallbackTest, FullDecodeResetsStateBetweenRows) {
+  const std::vector<std::string> rows = {"aT", "bc", "T\xC3", "de", "Ua", "fg"};
+  std::vector<int64_t> ids;
+  for (const auto& row : rows) {
+    for (unsigned char byte : row) {
+      ids.push_back(4 + byte);
+    }
+  }
+  ortc::Tensor<int64_t> input({static_cast<int64_t>(rows.size()), 2}, ids.data());
+  ortc::Tensor<std::string> output;
+  ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
+  EXPECT_EQ(output.Data(), (std::vector<std::string>{"a", "bc", "\xC3", "de", "A", "fg"}));
+}
+
+TEST_F(MarianByteFallbackTest, UnknownIdPreservesPendingBytes) {
+  std::vector<int64_t> ids = {4 + 'T', 4 + 0xC3, 260, 4 + 'a', 0};
+  ortc::Tensor<int64_t> input({1, static_cast<int64_t>(ids.size())}, ids.data());
+  ortc::Tensor<std::string> output;
+  ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
+  EXPECT_EQ(output.AsScalar(), "\xC3<unk>A");
+
+  TokenizerDecodingState state;
+  auto* state_ptr = &state;
+  std::vector<std::string> chunks;
+  for (int64_t id : ids) {
+    std::string chunk;
+    ASSERT_TRUE(decoder_.Id2Token(static_cast<extTokenId_t>(id), chunk, &state_ptr).IsOk());
+    chunks.push_back(chunk);
+  }
+  EXPECT_EQ(chunks, (std::vector<std::string>{"", "", "\xC3<unk>", "A", ""}));
+  EXPECT_TRUE(state.incomplete_utf8_.empty());
+}
+
+TEST_F(MarianByteFallbackTest, IncrementalBytesStayWithinTheirStream) {
+  auto first = std::make_unique<TokenizerDecodingState>();
+  auto second = std::make_unique<TokenizerDecodingState>();
+  const auto expect_chunk = [&](TokenizerDecodingState* cache, unsigned char byte, const char* expected) {
+    std::string chunk;
+    ASSERT_TRUE(decoder_.Id2Token(4 + byte, chunk, &cache).IsOk());
+    EXPECT_EQ(chunk, expected);
+  };
+  expect_chunk(first.get(), 'T', "");
+  expect_chunk(first.get(), 0xC3, "");
+  expect_chunk(second.get(), 0xD0, "");
+  expect_chunk(first.get(), 0xA9, "\xC3\x89");
+  expect_chunk(second.get(), 0xB1, "\xD0\xB1");
+  expect_chunk(first.get(), 'a', "a");
 }
 
 // ============================================================================
