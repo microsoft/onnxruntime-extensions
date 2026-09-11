@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <list>
@@ -14,6 +15,7 @@
 #include <cstring>
 #include <functional>
 #include <unordered_map>
+#include <utility>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -788,13 +790,16 @@ class SpmUgmDecoder {
         text += token;
       }
 
+      if (state != nullptr) {
+        text += std::exchange(state->incomplete_utf8_, {});
+      }
       if (tokenizer_add_space_prefix_) {
         if (text.length() > 0 && text[0] == ' ') {
           text = text.substr(1);
         }
       }
 
-      if (case_encoding_ && text.back() == ' ') {
+      if (case_encoding_ && !text.empty() && text.back() == ' ') {
         text.pop_back();
       }
       decoded_strings.push_back(text);
@@ -830,6 +835,11 @@ class SpmUgmDecoder {
       char_len = 4;
     } else {
       return false;
+    }
+    for (size_t index = 1; index < char_len; ++index) {
+      if ((static_cast<unsigned char>(utf8[index]) & 0xC0) != 0x80) {
+        return false;
+      }
     }
     return true;
   }
@@ -883,21 +893,21 @@ class SpmUgmDecoder {
     }
 
     if (special_token_ids_.count(id)) {
-      token = "";
+      token = std::exchange((*state)->incomplete_utf8_, {});
       return {};
     }
 
     if (id >= vocab_.size()) {
-      token = unknown_token_;
+      token = std::exchange((*state)->incomplete_utf8_, {}) + unknown_token_;
       return {};
     }
 
-    const std::string& piece = vocab_[id];
+    const std::string& vocabulary_piece = vocab_[id];
 
     if (!case_encoding_) {
       // Non-Marian unigram path: just rewrite the SPM space marker and
       // emit the piece verbatim.
-      token = piece;
+      token = vocabulary_piece;
       auto pos = token.find(spm_escaped_space);
       if (pos == 0) {
         token = std::string(" ") + token.substr(spm_escaped_space.length());
@@ -924,6 +934,11 @@ class SpmUgmDecoder {
     // following lowercase run (e.g. "PPV-mp" decoded as "PPV-MP" instead
     // of "PPV-mp").
 
+    std::string buffered_piece = std::exchange((*state)->incomplete_utf8_, {});
+    if (!buffered_piece.empty()) {
+      buffered_piece += vocabulary_piece;
+    }
+    const std::string& piece = buffered_piece.empty() ? vocabulary_piece : buffered_piece;
     token.clear();
     token.reserve(piece.size());
 
@@ -958,6 +973,18 @@ class SpmUgmDecoder {
       }
 
       const unsigned char ch = static_cast<unsigned char>(piece[i]);
+
+      const size_t expected_length = ch >= 0xC2 && ch <= 0xDF ? 2
+                                     : ch >= 0xE0 && ch <= 0xEF ? 3
+                                     : ch >= 0xF0 && ch <= 0xF4 ? 4
+                                                               : 1;
+      if (n - i < expected_length &&
+          std::all_of(piece.begin() + i + 1, piece.end(), [](unsigned char byte) {
+            return (byte & 0xC0) == 0x80;
+          })) {
+        (*state)->incomplete_utf8_ = piece.substr(i);
+        break;
+      }
 
       // Single-byte ASCII marker dispatch.
       if (ch == normalizer::cUppercase) {
