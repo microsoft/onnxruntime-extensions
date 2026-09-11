@@ -651,6 +651,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     res.push_back(bos_token_id_);
   }
 
+  OffsetMappingType offset_mapping;
+  if (compute_offset_mapping && add_bos_token_.value_or(true) && add_special_tokens) {
+    offset_mapping.emplace_back(0, 0);
+  }
+
   // Split input by special/added tokens
   bpe::TokenPairs special_token_split_res;
   {
@@ -677,6 +682,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
     if (seg_id.second != bpe::kInvalidTokenId) {
       res.push_back(seg_id.second);
+      if (compute_offset_mapping) {
+        offset_mapping.emplace_back(0, 0);
+      }
       continue;
     }
 
@@ -695,9 +703,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     spm_splitter.Set(std::u32string_view(ustr));
 
     size_t offset = 0;
-    OffsetMappingType offset_mapping;
-    if (compute_offset_mapping && add_bos_token_.value_or(true) && add_special_tokens) {
-      offset_mapping.push_back(std::make_pair(0, 0));  // initial offset
+    if (compute_offset_mapping && !seg_id.first.empty()) {
+      const size_t prefix_length = static_cast<size_t>(seg_id.first.data() - input.data());
+      std::string prefix;
+      ustring::ToUTF8Into(std::u32string_view(input.data(), prefix_length), prefix);
+      offset = prefix.size();
     }
 
     // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
@@ -821,9 +831,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       }
     }
 
-    if (compute_offset_mapping) {
-      offset_map.emplace_back(offset_mapping);
-    }
+  }
+
+  if (compute_offset_mapping) {
+    offset_map.emplace_back(std::move(offset_mapping));
   }
 
   return res;

@@ -1003,6 +1003,47 @@ TEST(OrtxTokenizerTest, BpeOffsetMappingMatchesTokenIds) {
   EXPECT_TRUE(found_second_hello);
 }
 
+TEST(OrtxTokenizerTest, SpmOffsetMappingMatchesTokenIds) {
+  ort_extensions::TokenJsonConfig config;
+  auto status = config.Load("data/phi-3");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  JsonFastTokenizer tokenizer;
+  status = tokenizer.Load(config);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  ASSERT_TRUE(tokenizer.IsSpmModel());
+
+  ortc::Tensor<std::string> input({"Hello<|endoftext|>world"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+
+  status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(offset_mapping.Shape(), (std::vector<int64_t>{1, input_ids.Shape()[1], 2}));
+  ASSERT_EQ(offset_mapping.NumberOfElement(), input_ids.NumberOfElement() * 2);
+
+  const auto* ids = input_ids.Data();
+  const auto* offsets = offset_mapping.Data();
+  const auto special_id = static_cast<int64_t>(tokenizer.GetTokenId("<|endoftext|>"));
+  bool found_special = false;
+  bool found_following_text = false;
+  for (int64_t i = 0; i < input_ids.NumberOfElement(); ++i) {
+    if (ids[i] == special_id) {
+      found_special = true;
+      EXPECT_EQ(offsets[i * 2], 0);
+      EXPECT_EQ(offsets[i * 2 + 1], 0);
+      continue;
+    }
+    if (found_special && offsets[i * 2] >= 18) {
+      found_following_text = true;
+    }
+  }
+  EXPECT_TRUE(found_special);
+  EXPECT_TRUE(found_following_text);
+}
+
 // Regression test: batched detokenization with batch >= 2 must not read past the
 // token ID buffer. Previously the inner loop used the total tensor element count
 // instead of the per-row sequence length as its bound.
