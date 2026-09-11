@@ -781,8 +781,9 @@ class SpmUgmDecoder {
 
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
-    TokenizerDecodingState* state{};
     for (auto n = string_batch; n > 0; n--) {
+      TokenizerDecodingState row_state;
+      TokenizerDecodingState* state = &row_state;
       std::string text;
       for (int64_t i = 0; i < seq_len; ++i) {
         std::string token;
@@ -803,9 +804,9 @@ class SpmUgmDecoder {
         text.pop_back();
       }
       decoded_strings.push_back(text);
+      p_ids += seq_len;
     }
 
-    std::unique_ptr<TokenizerDecodingState> decoding_state(state);
     output.SetStringOutput(decoded_strings, output_dim);
     return {};
   }
@@ -836,10 +837,9 @@ class SpmUgmDecoder {
     } else {
       return false;
     }
-    for (size_t index = 1; index < char_len; ++index) {
-      if ((static_cast<unsigned char>(utf8[index]) & 0xC0) != 0x80) {
-        return false;
-      }
+    if (char_len > 1 &&
+        ustring::ValidateUTF8(utf8.substr(0, char_len)) != static_cast<ptrdiff_t>(char_len)) {
+      return false;
     }
     return true;
   }

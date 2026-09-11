@@ -558,6 +558,28 @@ TEST_F(MarianByteFallbackTest, IncompleteAndMalformedBytesArePreserved) {
   ExpectDecoding("", "");
 }
 
+TEST_F(MarianByteFallbackTest, InvalidCodepointsAreNotCaseConverted) {
+  for (const std::string malformed : {
+           "\xC1\xA1", "\xE0\x81\xA1", "\xF0\x80\x81\xA1",
+           "\xED\xA0\x80", "\xF4\x90\x80\x80", "\xEF\xBF\xBE"}) {
+    ExpectDecoding("T" + malformed + "a", malformed + "A");
+  }
+}
+
+TEST_F(MarianByteFallbackTest, FullDecodeResetsStateBetweenRows) {
+  const std::vector<std::string> rows = {"aT", "bc", "T\xC3", "de", "Ua", "fg"};
+  std::vector<int64_t> ids;
+  for (const auto& row : rows) {
+    for (unsigned char byte : row) {
+      ids.push_back(4 + byte);
+    }
+  }
+  ortc::Tensor<int64_t> input({static_cast<int64_t>(rows.size()), 2}, ids.data());
+  ortc::Tensor<std::string> output;
+  ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
+  EXPECT_EQ(output.Data(), (std::vector<std::string>{"a", "bc", "\xC3", "de", "A", "fg"}));
+}
+
 TEST_F(MarianByteFallbackTest, IncrementalBytesStayWithinTheirStream) {
   auto first = std::make_unique<TokenizerDecodingState>();
   auto second = std::make_unique<TokenizerDecodingState>();
