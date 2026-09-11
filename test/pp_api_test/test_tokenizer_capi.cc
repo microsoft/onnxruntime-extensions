@@ -580,6 +580,25 @@ TEST_F(MarianByteFallbackTest, FullDecodeResetsStateBetweenRows) {
   EXPECT_EQ(output.Data(), (std::vector<std::string>{"a", "bc", "\xC3", "de", "A", "fg"}));
 }
 
+TEST_F(MarianByteFallbackTest, UnknownIdPreservesPendingBytes) {
+  std::vector<int64_t> ids = {4 + 'T', 4 + 0xC3, 260, 4 + 'a', 0};
+  ortc::Tensor<int64_t> input({1, static_cast<int64_t>(ids.size())}, ids.data());
+  ortc::Tensor<std::string> output;
+  ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
+  EXPECT_EQ(output.AsScalar(), "\xC3<unk>A");
+
+  TokenizerDecodingState state;
+  auto* state_ptr = &state;
+  std::vector<std::string> chunks;
+  for (int64_t id : ids) {
+    std::string chunk;
+    ASSERT_TRUE(decoder_.Id2Token(static_cast<extTokenId_t>(id), chunk, &state_ptr).IsOk());
+    chunks.push_back(chunk);
+  }
+  EXPECT_EQ(chunks, (std::vector<std::string>{"", "", "\xC3<unk>", "A", ""}));
+  EXPECT_TRUE(state.incomplete_utf8_.empty());
+}
+
 TEST_F(MarianByteFallbackTest, IncrementalBytesStayWithinTheirStream) {
   auto first = std::make_unique<TokenizerDecodingState>();
   auto second = std::make_unique<TokenizerDecodingState>();
