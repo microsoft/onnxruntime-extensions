@@ -786,6 +786,55 @@ TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
 
+TEST(OrtxTokenizerTest, Qwen3PreservesRawToolSchema) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Qwen3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([{"role":"user","content":"Plan a trip."}])";
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "plan_trip",
+          "description": "Plan a trip.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "destination": {
+                "type": "string",
+                "enum": ["Paris", "Tokyo"]
+              },
+              "days": {
+                "type": "array",
+                "items": {"type": "integer"}
+              }
+            },
+            "required": ["destination", "days"]
+          }
+        }
+      }
+    ])";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), tools_json.c_str(),
+                                   templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+  EXPECT_NE(output.find("\"type\": \"function\""), std::string::npos);
+  EXPECT_NE(output.find("\"function\": {"), std::string::npos);
+  EXPECT_NE(output.find("\"required\": [\"destination\", \"days\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"enum\": [\"Paris\", \"Tokyo\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"items\": {\"type\": \"integer\"}"), std::string::npos);
+}
+
 TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithMinjaTools) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
@@ -1051,7 +1100,7 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIToolType) {
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}}\n"
+                                "{\"type\": \"tool\", \"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"sign\": {\"type\": \"string\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}, \"required\": [\"sign\"]}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1128,14 +1177,14 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionTypeArrayType) {
   const char* text_ptr = nullptr;
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
-  // "includePattern" with type ["string", "null"] should be normalized to "str"
+  // Qwen serializes the complete schema, including nullable array types.
   std::string expected_output = "<|im_start|>system\n"
                                 "You are an AI programming assistant.\n\n"
                                 "# Tools\n\n"
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"grep_search\", \"description\": \"Search for a pattern in files.\", \"parameters\": {\"query\": {\"type\": \"str\", \"description\": \"The search query.\"}, \"includePattern\": {\"type\": \"str\", \"description\": \"Glob pattern to filter files.\"}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"grep_search\", \"description\": \"Search for a pattern in files.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}, \"includePattern\": {\"type\": [\"string\", \"null\"], \"description\": \"Glob pattern to filter files.\"}}, \"required\": [\"query\"], \"additionalProperties\": false}}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1228,8 +1277,8 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"location\": {\"type\": \"str\", \"description\": \"The name of the city or location.\"}}}\n"
-                                "{\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"city\": {\"type\": \"str\", \"description\": \"The name of the city to find attractions for.\"}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"location\": {\"type\": \"string\", \"description\": \"The name of the city or location.\"}}, \"required\": [\"location\"]}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"city\": {\"type\": \"string\", \"description\": \"The name of the city to find attractions for.\"}}, \"required\": [\"city\"]}}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1596,11 +1645,10 @@ TEST(OrtxTokenizerTest, GptOssChatTemplateMultipleTools) {
 }
 
 /*
-  Test that the skip_tool_normalization detection does not affect non-GPT-OSS templates.
-  Qwen2.5 template does NOT contain "tool.function" so normalization should still occur.
-  This is a regression test to ensure existing behavior is preserved.
+  Qwen2.5 serializes each tool with `tool | tojson`, so it must receive the complete
+  OpenAI schema rather than the lossy flat representation produced by NormalizeTools().
 */
-TEST(OrtxTokenizerTest, Qwen2_5_NormalizationStillApplies) {
+TEST(OrtxTokenizerTest, Qwen2_5_PreservesRawToolSchema) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Qwen tokenizer: " << OrtxGetLastErrorMessage();
 
@@ -1617,7 +1665,7 @@ TEST(OrtxTokenizerTest, Qwen2_5_NormalizationStillApplies) {
       }
     ])";
 
-  // OpenAI type:function format - should be normalized for Qwen
+  // Include schema features that NormalizeTools() discards.
   std::string tools_json = R"(
     [
       {
@@ -1630,19 +1678,24 @@ TEST(OrtxTokenizerTest, Qwen2_5_NormalizationStillApplies) {
             "properties": {
               "timezone": {
                 "type": "string",
-                "description": "The timezone"
+                "description": "The timezone",
+                "enum": ["UTC", "America/Los_Angeles"]
+              },
+              "days": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
               }
             },
-            "required": ["timezone"]
+            "required": ["timezone", "days"]
           }
         }
       }
     ])";
 
-  auto err = OrtxApplyChatTemplate(
-    tokenizer.get(), nullptr,
-    messages_json.c_str(), tools_json.c_str(),
-    templated_text.ToBeAssigned(), true, false);
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), tools_json.c_str(),
+                                   templated_text.ToBeAssigned(), true, false);
   ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
 
   OrtxObjectPtr<OrtxTensor> tensor;
@@ -1653,14 +1706,17 @@ TEST(OrtxTokenizerTest, Qwen2_5_NormalizationStillApplies) {
 
   std::string output(text_ptr);
 
-  // Qwen renders normalized tools (flat format, no "type":"function" wrapper)
-  // The tool should appear as {"name": "get_time", ...} inside <tools></tools> tags
-  EXPECT_NE(output.find("<tools>"), std::string::npos)
-      << "Qwen should render tools in <tools> XML tags";
-  EXPECT_NE(output.find("\"name\": \"get_time\""), std::string::npos)
-      << "Tool name should be in normalized flat format";
-  EXPECT_NE(output.find("\"description\": \"Get the current time.\""), std::string::npos)
-      << "Tool description should be preserved";
+  EXPECT_NE(output.find("<tools>"), std::string::npos) << "Qwen should render tools in <tools> XML tags";
+  EXPECT_NE(output.find("\"type\": \"function\""), std::string::npos)
+      << "OpenAI tool wrapper should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"function\": {"), std::string::npos)
+      << "Function object should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"required\": [\"timezone\", \"days\"]"), std::string::npos)
+      << "Required parameters should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"enum\": [\"UTC\", \"America/Los_Angeles\"]"), std::string::npos)
+      << "Enum values should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"items\": {\"type\": \"integer\"}"), std::string::npos)
+      << "Array item schema should be preserved. Output: " << output;
 }
 
 /*
