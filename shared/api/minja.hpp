@@ -1897,6 +1897,10 @@ namespace minja
             const auto &name = t->get_name();
             if (name == "none")
               return l.is_null() && !l.is_undefined();
+            if (name == "true")
+              return l.is_boolean() && l.get<bool>();
+            if (name == "false")
+              return l.is_boolean() && !l.get<bool>();
             if (name == "boolean")
               return l.is_boolean();
             if (name == "integer")

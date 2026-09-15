@@ -2425,6 +2425,54 @@ TEST(OrtxTokenizerTest, MinjaIsDefinedUndefinedPredicates) {
   EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].role is not undefined }}"), "True");
 }
 
+TEST(OrtxTokenizerTest, MinjaIsTrueFalsePredicates) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ true is true }}|{{ true is false }}|"
+                                             "{{ false is true }}|{{ false is false }}"),
+            "True|False|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", R"({"value":true})"),
+            "True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", R"({"value":false})"),
+            "False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}",
+                            R"({"value":true})"),
+            "False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}",
+                            R"({"value":false})"),
+            "True|False");
+
+  for (const char* kwargs : {
+           R"({"value":1})",
+           R"({"value":"true"})",
+           R"({"value":[]})",
+           R"({"value":{}})",
+           R"({"value":null})",
+           R"({})",
+       }) {
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", kwargs),
+              "False|False");
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}", kwargs),
+              "True|True");
+  }
+}
+
+TEST(OrtxTokenizerTest, MinjaBooleanIdentityWorksInControlFlow) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      "{% if enable_thinking is undefined or enable_thinking is true %}"
+      "thinking{% else %}not-thinking{% endif %}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":true})"), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":false})"), "not-thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value   is   false %}false{% else %}other{% endif %}",
+                            R"({"value":false})"),
+            "false");
+}
+
 TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedKwargs) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
