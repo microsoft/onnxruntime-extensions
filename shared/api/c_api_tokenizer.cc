@@ -50,13 +50,11 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
 }
 
 // Helper function to convert key/value arrays to unordered_map for tokenizer options
-static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* keys[], const char* values[], size_t num_options) {
+static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* keys[], const char* values[],
+                                                                    size_t num_options) {
   // Define the set of valid option keys - may be added to in the future
-  static const std::unordered_set<std::string> valid_keys = {
-      "add_special_tokens",
-      "skip_special_tokens",
-      "chat_template_kwargs"
-  };
+  static const std::unordered_set<std::string> valid_keys = {"add_special_tokens", "skip_special_tokens",
+                                                             "chat_template_kwargs"};
 
   std::unordered_map<std::string, std::string> options;
 
@@ -82,8 +80,7 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
     std::string key = keys[i];
 
     if (valid_keys.find(key) == valid_keys.end()) {
-      ReturnableStatus::last_error_message_ =
-          "Invalid tokenizer option key: " + key;
+      ReturnableStatus::last_error_message_ = "Invalid tokenizer option key: " + key;
       return {};
     }
 
@@ -106,10 +103,7 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
 }
 
 // Helper function to parse boolean tokenizer options
-static bool ParseBoolOption(
-    const std::optional<std::string>& option,
-    bool default_value = true)
-{
+static bool ParseBoolOption(const std::optional<std::string>& option, bool default_value = true) {
   if (!option.has_value()) {
     return default_value;
   }
@@ -123,13 +117,8 @@ static bool ParseBoolOption(
   return true;
 }
 
-extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
-    OrtxTokenizer** tokenizer,
-    const char* tokenizer_path,
-    const char* keys[],
-    const char* values[],
-    size_t num_options) 
-{
+extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path,
+                                                        const char* keys[], const char* values[], size_t num_options) {
   // Validate tokenizer_path
   if (tokenizer_path == nullptr) {
     ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
@@ -137,8 +126,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
   }
 
   if (!path(tokenizer_path).is_directory()) {
-    ReturnableStatus::last_error_message_ =
-        std::string("Cannot find the directory of ") + tokenizer_path;
+    ReturnableStatus::last_error_message_ = std::string("Cannot find the directory of ") + tokenizer_path;
     return kOrtxErrorInvalidArgument;
   }
 
@@ -188,12 +176,8 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
   return status.Code();
 }
 
-extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(
-    OrtxTokenizer* tokenizer,
-    const char* keys[],
-    const char* values[],
-    size_t num_options)
-{
+extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* keys[], const char* values[],
+                                                    size_t num_options) {
   if (tokenizer == nullptr) {
     ReturnableStatus::last_error_message_ = "Tokenizer pointer is null.";
     return kOrtxErrorInvalidArgument;
@@ -485,8 +469,8 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
   bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
-  status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
-                                                  cache_ptr->decoder_state_, skip_special_tokens));
+  status = ReturnableStatus(
+      token_ptr->Id2Token(next_id, cache_ptr->last_text_, cache_ptr->decoder_state_, skip_special_tokens));
 
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
@@ -495,9 +479,29 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
   return status.Code();
 }
 
-static extError_t ApplyChatTemplateImpl(const TokenizerImpl* token_ptr, const char* template_str,
-                                        const char* input, const char* tools, const char* template_kwargs,
-                                        OrtxTensorResult** output, bool add_generation_prompt, bool tokenize) {
+extError_t ORTX_API_CALL OrtxTokenIdToPiece(const OrtxTokenizer* tokenizer, extTokenId_t id, OrtxString** piece) {
+  if (tokenizer == nullptr || piece == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  const auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status(token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer));
+  if (!status.IsOk()) return status.Code();
+
+  auto piece_ptr = std::make_unique<String>();
+  std::string piece_text;
+  status = ReturnableStatus(token_ptr->Id2TokenPiece(id, piece_text));
+  if (!status.IsOk()) return status.Code();
+
+  piece_ptr->SetString(piece_text);
+  *piece = piece_ptr.release();
+  return kOrtxOK;
+}
+
+static extError_t ApplyChatTemplateImpl(const TokenizerImpl* token_ptr, const char* template_str, const char* input,
+                                        const char* tools, const char* template_kwargs, OrtxTensorResult** output,
+                                        bool add_generation_prompt, bool tokenize) {
   std::string text;
   std::vector<extTokenId_t> ids_vec;
   ReturnableStatus status = token_ptr->ApplyChatTemplate(template_str, input, tools, template_kwargs, text, ids_vec,
@@ -545,9 +549,8 @@ static const TokenizerImpl* ValidateChatTemplateArguments(const OrtxTokenizer* t
 }
 
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
-                                               const char* input, const char* tools,
-                                               OrtxTensorResult** output, bool add_generation_prompt,
-                                               bool tokenize) {
+                                               const char* input, const char* tools, OrtxTensorResult** output,
+                                               bool add_generation_prompt, bool tokenize) {
   extError_t error;
   const auto token_ptr = ValidateChatTemplateArguments(tokenizer, input, output, error);
   if (!token_ptr) {
@@ -556,8 +559,8 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, c
 
   const auto template_kwargs = token_ptr->GetOption("chat_template_kwargs");
   return ApplyChatTemplateImpl(token_ptr, template_str, input, tools,
-                               template_kwargs ? template_kwargs->c_str() : nullptr, output,
-                               add_generation_prompt, tokenize);
+                               template_kwargs ? template_kwargs->c_str() : nullptr, output, add_generation_prompt,
+                               tokenize);
 }
 
 extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
@@ -570,6 +573,6 @@ extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* t
     return error;
   }
 
-  return ApplyChatTemplateImpl(token_ptr, template_str, input, tools, template_kwargs, output,
-                               add_generation_prompt, tokenize);
+  return ApplyChatTemplateImpl(token_ptr, template_str, input, tools, template_kwargs, output, add_generation_prompt,
+                               tokenize);
 }

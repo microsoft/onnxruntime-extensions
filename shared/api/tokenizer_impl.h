@@ -28,11 +28,13 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus UpdateOptions(const std::unordered_map<std::string, std::string>& options);
   std::optional<std::string> GetOption(const std::string& name) const;
 
-  OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids, bool add_special_tokens = true) const {
+  OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids,
+                      bool add_special_tokens = true) const {
     return BatchEncode(input, t_ids, add_special_tokens);
   }
 
-  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text, bool skip_special_tokens = true) const {
+  OrtxStatus Detokenize(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text,
+                        bool skip_special_tokens = true) const {
     return BatchDecode(t_ids, t_text, skip_special_tokens);
   }
 
@@ -41,7 +43,8 @@ class TokenizerImpl : public OrtxObjectImpl {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache, bool skip_special_tokens = true) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache,
+                      bool skip_special_tokens = true) const {
     TokenizerDecodingState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr, skip_special_tokens);
     if (status.IsOk()) {
@@ -53,12 +56,17 @@ class TokenizerImpl : public OrtxObjectImpl {
     return status;
   }
 
-  OrtxStatus BatchEncode(const std::vector<std::string_view>& input,
-                         std::vector<std::vector<extTokenId_t>>& t_ids,
+  OrtxStatus Id2TokenPiece(extTokenId_t id, std::string& token, bool skip_special_tokens = true) const {
+    token.clear();
+    return std::visit(
+        [&](const auto& detokenizer) { return detokenizer->Id2TokenPiece(id, token, skip_special_tokens); },
+        detokenizer_);
+  }
+
+  OrtxStatus BatchEncode(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids,
                          bool add_special_tokens) const;
 
-  OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
-                         std::vector<std::string>& t_text,
+  OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids, std::vector<std::string>& t_text,
                          bool skip_special_tokens) const;
 
   using MessageList = std::vector<std::unordered_map<std::string, std::string>>;
@@ -87,12 +95,13 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state,
+                      bool skip_special_tokens) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
   OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
-                               const char* template_kwargs, std::string& output,
-                               std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt, bool tokenize) const;
+                               const char* template_kwargs, std::string& output, std::vector<extTokenId_t>& ids_vec,
+                               bool add_generation_prompt, bool tokenize) const;
 
  private:
   mutable std::mutex options_mutex_;

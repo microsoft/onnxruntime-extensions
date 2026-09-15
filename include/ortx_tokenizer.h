@@ -96,8 +96,9 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  *
  * \see OrtxUpdateTokenizerOptions for updating options on an existing tokenizer.
  */
-extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path, const char* option_keys[], const char* option_values[], size_t num_options);
-
+extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path,
+                                                        const char* option_keys[], const char* option_values[],
+                                                        size_t num_options);
 
 /** \brief Create a tokenizer object with the specified tokenizer blob
  *
@@ -108,7 +109,6 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenize
 extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
                                                      const struct OrtxTokenizerBlob* tokenizer_blob);
 
-
 /** \brief Update the tokenizer options
  *
  * \param tokenizer Pointer to the tokenizer object
@@ -116,7 +116,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  * \param option_values Array of option values (same length as keys)
  * \param num_options Number of options
  * \return Error code indicating the success or failure of the operation
- * 
+ *
  *  *
  * \note Both keys and values are expected to be null-terminated UTF-8 strings.
  *
@@ -138,10 +138,10 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  *   - Default: `{}`. Set the value to `{}` to clear previously configured values.
  *
  * Future tokenizer options may be added without changing this API signature.
- * 
+ *
  */
-extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[], const char* option_values[], size_t num_options);
-
+extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[],
+                                                    const char* option_values[], size_t num_options);
 
 /** \brief Tokenize the input using the specified tokenizer
  *
@@ -154,7 +154,6 @@ extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, co
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output);
 
-
 /**
  * Converts a token to its corresponding ID.
  *
@@ -164,6 +163,13 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
  * @return The error code indicating the success or failure of the conversion.
  */
 extError_t ORTX_API_CALL OrtxConvertTokenToId(const OrtxTokenizer* tokenizer, const char* token, extTokenId_t* id);
+
+/**
+ * Retrieves the raw vocabulary piece for a token ID without detokenization.
+ *
+ * The caller owns the returned string object and must release it with OrtxDispose.
+ */
+extError_t ORTX_API_CALL OrtxTokenIdToPiece(const OrtxTokenizer* tokenizer, extTokenId_t id, OrtxString** piece);
 
 /**
  * @brief Retrieves the decoder prompt IDs from the tokenizer.
@@ -201,7 +207,6 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
  */
 extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
                                           OrtxStringArray** output);
-
 
 /** \brief Detokenize the input using the specified tokenizer with caching
  *

@@ -16,9 +16,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   using BPEDecoderState = ort_extensions::TokenizerDecodingState;
 
   // shared the data between the encoder and decoder
-  OrtxStatus Load(
-      std::shared_ptr<ort_extensions::TokenJsonConfig const> ptr_config,
-      const JsonFastTokenizer& encoder) {
+  OrtxStatus Load(std::shared_ptr<ort_extensions::TokenJsonConfig const> ptr_config, const JsonFastTokenizer& encoder) {
     const auto& tok_config = *ptr_config;
     bos_token_ = tok_config.bos_token_;
     eos_token_ = tok_config.eos_token_;
@@ -26,7 +24,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     spm_model_ = encoder.IsSpmModel();
 
     const auto& a_toks = encoder.GetAddedTokens();
-    for (const auto&[key, tok] : a_toks) {
+    for (const auto& [key, tok] : a_toks) {
       added_tokens_[tok.id_] = tok.content_;
       if (tok.special_) {
         all_special_ids_.insert(tok.id_);
@@ -47,12 +45,9 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id,
-                      std::string& token,
-                      bool skip_special_tokens,
-                      bool& f_special_last) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, bool skip_special_tokens, bool& f_special_last) const {
     bool f_special = all_special_ids_.count(id) ? true : false;
-    if (!(added_tokens_.count(200005) && added_tokens_.at(200005) == "<|channel|>")){
+    if (!(added_tokens_.count(200005) && added_tokens_.at(200005) == "<|channel|>")) {
       // We do not skip special tokens when decoding IDs for channel-based models as
       // they may be relevant to the output.
 
@@ -98,6 +93,22 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
+  OrtxStatus Id2TokenPiece(extTokenId_t id, std::string& token, bool skip_special_tokens = true) const {
+    if (skip_special_tokens && all_special_ids_.count(id)) {
+      return {};
+    }
+
+    if (auto added_token = added_tokens_.find(id); added_token != added_tokens_.end()) {
+      token = added_token->second;
+    } else if (static_cast<size_t>(id) < arr_vocab_.size()) {
+      token = arr_vocab_[id];
+    } else if (!skip_special_tokens) {
+      token = unk_token_;
+    }
+
+    return {};
+  }
+
   OrtxStatus SpmId2Token(extTokenId_t id, std::string& token, bool& f_special_last) const {
     bool f_special = false;
     if (added_tokens_.count(id)) {
@@ -124,7 +135,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state, bool skip_special_tokens = true) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state,
+                      bool skip_special_tokens = true) const {
     auto bpe_state = *state;
     std::unique_ptr<BPEDecoderState> bpe_state_ptr;
     bool is_first = false;
@@ -136,9 +148,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
 
     bool f_special = bpe_state->f_special_last_;  // [Spm]Id2Token needs the last state
     bool f_special_last = bpe_state->f_special_last_;
-    auto status = spm_model_
-                  ? SpmId2Token(id, token, f_special)
-                  : Id2Token(id, token, skip_special_tokens, f_special);
+    auto status = spm_model_ ? SpmId2Token(id, token, f_special) : Id2Token(id, token, skip_special_tokens, f_special);
 
     if (status.IsOk()) {
       if (bpe_state_ptr) {
@@ -176,8 +186,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return status;
   }
 
-  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids,
-                     ortc::Tensor<std::string>& output,
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output,
                      bool skip_special_tokens) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
@@ -200,9 +209,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
         const auto id = ort_extensions::narrow<extTokenId_t>(*(p_ids + tok_idx));
         std::string decoded_token;
 
-        auto status = spm_model_
-                      ? SpmId2Token(id, decoded_token, f_special_last)
-                      : Id2Token(id, decoded_token, skip_special_tokens, f_special_last);
+        auto status = spm_model_ ? SpmId2Token(id, decoded_token, f_special_last)
+                                 : Id2Token(id, decoded_token, skip_special_tokens, f_special_last);
 
         if (!status.IsOk()) {
           return status;
@@ -257,7 +265,6 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
   }
 
  private:
-
   extTokenId_t eos_token_id_{0};
   bool spm_model_{};
   bool add_dummy_prefix_{};

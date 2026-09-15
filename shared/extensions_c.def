@@ -12,6 +12,7 @@ EXPORTS
  OrtxDetokenize @10
  OrtxDetokenize1D @11
  OrtxDetokenizeCached @12
+ OrtxTokenIdToPiece @32
  OrtxStringArrayGetBatch @13
  OrtxStringArrayGetItem @14
  OrtxTokenId2DArrayGetBatch @15

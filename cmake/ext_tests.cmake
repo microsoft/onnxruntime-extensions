@@ -126,7 +126,9 @@ function(add_test_target)
 endfunction(add_test_target)
 
 # -- static test --
-file(GLOB static_TEST_SRC "${TEST_SRC_DIR}/static_test/*.cc")
+file(GLOB static_TEST_SRC
+  "${TEST_SRC_DIR}/static_test/*.cc"
+  "${TEST_SRC_DIR}/static_test/*.cpp")
 
 if(NOT OCOS_ENABLE_AUDIO)
   list(FILTER static_TEST_SRC EXCLUDE REGEX "test_nemo_mel")

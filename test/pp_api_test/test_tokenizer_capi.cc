@@ -78,6 +78,18 @@ TEST(CApiTest, StreamApiTest) {
   OrtxDispose(&tokenizer);
 }
 
+TEST(CApiTest, TokenIdToPieceReturnsRawVocabularyPiece) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxString> piece;
+  ASSERT_EQ(OrtxTokenIdToPiece(tokenizer.get(), 910, piece.ToBeAssigned()), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* raw_piece = nullptr;
+  ASSERT_EQ(OrtxStringGetCstr(piece.get(), &raw_piece), kOrtxOK) << OrtxGetLastErrorMessage();
+  EXPECT_STREQ(raw_piece, "\xE2\x96\x81This");
+}
+
 TEST(OrtxTokenizerTest, WhisperTokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");
@@ -215,7 +227,7 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
             std::vector<extTokenId_t>({1,   306,   763,   22049, 590,   274,   1082,  11203, 13,    322,  26,
                                        769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,
                                        259, 12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
-  
+
   // Set add_special_tokens to false before the updated tokenization
   const char* keys[] = {"add_special_tokens"};
   const char* vals[] = {"false"};
@@ -232,10 +244,9 @@ TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
   // expected ids was generated using the following command:
   // AutoTokenizer.from_pretrained("FacebookAI/xlm-roberta-base")
   EXPECT_EQ(updated_ids_vec,
-            std::vector<extTokenId_t>({306, 763,   22049, 590,   274,   1082,  11203, 13,    322,   26,
-                                       769, 29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392,
-                                       259, 12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
-  
+            std::vector<extTokenId_t>({306,   763,   22049, 590,   274,   1082,  11203, 13,    322,  26,    769,
+                                       29892, 29871, 30486, 31704, 30210, 30848, 235,   179,   158,  30392, 259,
+                                       12,    12,    12,    12,    29871, 13,    13,    29953, 29896}));
 }
 
 TEST(OrtxTokenizerTest, T5Tokenizer) {
@@ -387,9 +398,7 @@ class ScopedCTypeCLocale {
 // that tokenizes + detokenizes a string, returning the round-tripped text.
 class MarianId2TokenTest : public ::testing::Test {
  protected:
-  static void SetUpTestSuite() {
-    tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizer, "data/tokenizer/nmt");
-  }
+  static void SetUpTestSuite() { tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizer, "data/tokenizer/nmt"); }
   static void TearDownTestSuite() { tokenizer_.reset(); }
 
   // Tokenize |input|, detokenize, and return the result.
@@ -406,8 +415,7 @@ class MarianId2TokenTest : public ::testing::Test {
 
     std::vector<extTokenId_t> ids_vec(ids, ids + length);
     OrtxObjectPtr<OrtxStringArray> decoded;
-    OrtxDetokenize1D(tokenizer_.get(), ids_vec.data(), ids_vec.size(),
-                     decoded.ToBeAssigned());
+    OrtxDetokenize1D(tokenizer_.get(), ids_vec.data(), ids_vec.size(), decoded.ToBeAssigned());
     EXPECT_EQ(decoded.Code(), kOrtxOK);
 
     const char* text = nullptr;
@@ -450,8 +458,7 @@ TEST_F(MarianId2TokenTest, ImplicitLReset) {
 // Combined test: exercises all three Id2Token bugs in a single sentence.
 TEST_F(MarianId2TokenTest, CombinedBugs) {
   ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
-  EXPECT_EQ(RoundTrip("THIS iPhone costs PPV-mp only"),
-            "THIS iPhone costs PPV-mp only");
+  EXPECT_EQ(RoundTrip("THIS iPhone costs PPV-mp only"), "THIS iPhone costs PPV-mp only");
 }
 
 // Non-ASCII letters must not depend on the process locale. Hosted Linux and
@@ -461,8 +468,7 @@ TEST_F(MarianId2TokenTest, UnicodeCaseRestoration) {
   ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
   ScopedCTypeCLocale locale;
   ASSERT_TRUE(locale.IsValid()) << "Failed to activate the per-thread C locale.";
-  EXPECT_EQ(RoundTrip(u8"Башҡортостан Республикаһы"),
-            u8"Башҡортостан Республикаһы");
+  EXPECT_EQ(RoundTrip(u8"Башҡортостан Республикаһы"), u8"Башҡортостан Республикаһы");
   EXPECT_EQ(RoundTrip(u8"École Über"), u8"École Über");
 }
 
@@ -470,8 +476,7 @@ TEST_F(MarianId2TokenTest, UnicodeCasePreservesUnmarkedText) {
   ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << "Failed to create tokenizer.";
   ScopedCTypeCLocale locale;
   ASSERT_TRUE(locale.IsValid()) << "Failed to activate the per-thread C locale.";
-  EXPECT_EQ(RoundTrip(u8"башҡорт теле; école über; 中文 123"),
-            u8"башҡорт теле; école über; 中文 123");
+  EXPECT_EQ(RoundTrip(u8"башҡорт теле; école über; 中文 123"), u8"башҡорт теле; école über; 中文 123");
 }
 
 class MarianByteFallbackTest : public ::testing::Test {
@@ -493,10 +498,10 @@ class MarianByteFallbackTest : public ::testing::Test {
     for (size_t index = 0; index < 3; ++index) {
       added.push_back({{"id", index}, {"content", pieces[index]}, {"special", true}});
     }
-    const std::string model = nlohmann::json({
-        {"version", "1.0"},
-        {"model", {{"type", "Unigram"}, {"unk_id", 1}, {"vocab", vocab}}},
-        {"added_tokens", added}}).dump();
+    const std::string model = nlohmann::json({{"version", "1.0"},
+                                              {"model", {{"type", "Unigram"}, {"unk_id", 1}, {"vocab", vocab}}},
+                                              {"added_tokens", added}})
+                                  .dump();
     const OrtxTokenizerBlob blob(config, model);
     TokenJsonConfig token_config;
     ASSERT_TRUE(token_config.LoadFromBlob(blob).IsOk());
@@ -547,21 +552,32 @@ TEST_F(MarianByteFallbackTest, CasingModesAndBoundaries) {
   ExpectDecoding("U\xC3\xA9\xC3\xA9-\xC3\xA9", "\xC3\x89\xC3\x89-\xC3\xA9");
   ExpectDecoding("A\xC3\xA9 \xC3\xA9", "\xC3\x89 \xC3\x89");
   ExpectDecoding("U\xC3\xA9\xE2\x96\x81\xC3\xA9", "\xC3\x89 \xC3\xA9");
-  ExpectDecoding("T\xF0\x9F\x98\x80" "abc", "\xF0\x9F\x98\x80" "abc");
+  ExpectDecoding(
+      "T\xF0\x9F\x98\x80"
+      "abc",
+      "\xF0\x9F\x98\x80"
+      "abc");
 }
 
 TEST_F(MarianByteFallbackTest, IncompleteAndMalformedBytesArePreserved) {
   ExpectDecoding("T\xC3", "\xC3");
   ExpectDecoding("T\xC3", "\xC3", false);
-  ExpectDecoding("T\xC3" "a", "\xC3" "A");
-  ExpectDecoding("T\xFF" "a", "\xFF" "A");
+  ExpectDecoding(
+      "T\xC3"
+      "a",
+      "\xC3"
+      "A");
+  ExpectDecoding(
+      "T\xFF"
+      "a",
+      "\xFF"
+      "A");
   ExpectDecoding("", "");
 }
 
 TEST_F(MarianByteFallbackTest, InvalidCodepointsAreNotCaseConverted) {
-  for (const std::string malformed : {
-           "\xC1\xA1", "\xE0\x81\xA1", "\xF0\x80\x81\xA1",
-           "\xED\xA0\x80", "\xF4\x90\x80\x80", "\xEF\xBF\xBE"}) {
+  for (const std::string malformed :
+       {"\xC1\xA1", "\xE0\x81\xA1", "\xF0\x80\x81\xA1", "\xED\xA0\x80", "\xF4\x90\x80\x80", "\xEF\xBF\xBE"}) {
     ExpectDecoding("T" + malformed + "a", malformed + "A");
   }
 }

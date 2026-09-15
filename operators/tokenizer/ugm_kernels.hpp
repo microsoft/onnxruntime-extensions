@@ -297,11 +297,11 @@ struct SpmUgmTokenizer {
     // Validate UTF-8 encoding before processing
     ptrdiff_t validation_result = ustring::ValidateUTF8(input);
     if (validation_result < 0) {
-      return OrtxStatus(extError_t::kOrtxErrorInvalidArgument,
-                        "Invalid UTF-8 encoding detected in input string at position " +
-                        std::to_string(-validation_result));
+      return OrtxStatus(
+          extError_t::kOrtxErrorInvalidArgument,
+          "Invalid UTF-8 encoding detected in input string at position " + std::to_string(-validation_result));
     }
-    
+
     std::string normalized;
     if (case_encoder_) {
       normalized = NmtNormalize(input);
@@ -351,7 +351,9 @@ struct SpmUgmTokenizer {
             unsigned char bc = static_cast<unsigned char>(normalized[input_offset + b]);
             std::string btok(1, static_cast<char>(bc));
             extTokenId_t token_id = GetTokenId(btok);
-            double token_score = (token_id != special_unk_id_) ? (special_token_ids_.count(token_id) ? 0.0 : scores_[token_id]) : unknown_token_score_;
+            double token_score = (token_id != special_unk_id_)
+                                     ? (special_token_ids_.count(token_id) ? 0.0 : scores_[token_id])
+                                     : unknown_token_score_;
             double challenger_score = tokenization_results[input_offset + b].score_sum + token_score;
             size_t target_index = input_offset + b + 1;
             struct BestTokenization& champ = tokenization_results[target_index];
@@ -378,7 +380,8 @@ struct SpmUgmTokenizer {
     for (struct BestTokenization& tokenization = tokenization_results[input_len];;
          tokenization = tokenization_results[tokenization.input_offset]) {
       bool is_unknown = tokenization.token_id == special_unk_id_;
-      if (byte_fallback_ || !is_prev_unknown || !is_unknown) { // Fix #5: keep consecutive unknowns when byte_fallback_ is true
+      if (byte_fallback_ || !is_prev_unknown ||
+          !is_unknown) {  // Fix #5: keep consecutive unknowns when byte_fallback_ is true
         output.push_back(tokenization.token_id);
       }
       if (tokenization.input_offset == 0) {
@@ -767,7 +770,8 @@ class SpmUgmDecoder {
     return {};
   }
 
-  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output, std::optional<bool> add_special_tokens) const {
+  OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output,
+                     std::optional<bool> add_special_tokens) const {
     const int64_t* p_ids = ids.Data();
     const auto& ids_dim = ids.Shape();
     std::vector<int64_t> output_dim = {1};
@@ -823,22 +827,16 @@ class SpmUgmDecoder {
       char_len = 2;
     } else if ((lead >> 4) == 0xE) {
       if (utf8.size() < 3) return false;
-      codepoint = ((lead & 0x0F) << 12) |
-                  ((utf8[1] & 0x3F) << 6) |
-                  (utf8[2] & 0x3F);
+      codepoint = ((lead & 0x0F) << 12) | ((utf8[1] & 0x3F) << 6) | (utf8[2] & 0x3F);
       char_len = 3;
     } else if ((lead >> 3) == 0x1E) {
       if (utf8.size() < 4) return false;
-      codepoint = ((lead & 0x07) << 18) |
-                  ((utf8[1] & 0x3F) << 12) |
-                  ((utf8[2] & 0x3F) << 6) |
-                  (utf8[3] & 0x3F);
+      codepoint = ((lead & 0x07) << 18) | ((utf8[1] & 0x3F) << 12) | ((utf8[2] & 0x3F) << 6) | (utf8[3] & 0x3F);
       char_len = 4;
     } else {
       return false;
     }
-    if (char_len > 1 &&
-        ustring::ValidateUTF8(utf8.substr(0, char_len)) != static_cast<ptrdiff_t>(char_len)) {
+    if (char_len > 1 && ustring::ValidateUTF8(utf8.substr(0, char_len)) != static_cast<ptrdiff_t>(char_len)) {
       return false;
     }
     return true;
@@ -885,7 +883,18 @@ class SpmUgmDecoder {
     token = prefix + suffix;
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens /* only used by BPE; placeholder for UGM */ = true) const {
+  OrtxStatus Id2TokenPiece(extTokenId_t id, std::string& token, bool skip_special_tokens = true) const {
+    if (special_token_ids_.count(id)) {
+      if (!skip_special_tokens && id < vocab_.size()) token = vocab_[id];
+      return {};
+    }
+
+    token = id < vocab_.size() ? vocab_[id] : unknown_token_;
+    return {};
+  }
+
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state,
+                      bool skip_special_tokens /* only used by BPE; placeholder for UGM */ = true) const {
     std::unique_ptr<TokenizerDecodingState> decoding_state;
     if (*state == nullptr) {
       decoding_state = std::make_unique<TokenizerDecodingState>();
@@ -911,8 +920,7 @@ class SpmUgmDecoder {
       auto pos = token.find(spm_escaped_space);
       if (pos == 0) {
         token = std::string(" ") + token.substr(spm_escaped_space.length());
-      } else if (pos != std::string::npos &&
-                 pos + spm_escaped_space.length() == token.length()) {
+      } else if (pos != std::string::npos && pos + spm_escaped_space.length() == token.length()) {
         token = token.substr(0, pos) + std::string(" ");
       }
       return {};
@@ -959,8 +967,7 @@ class SpmUgmDecoder {
     while (i < n) {
       // SPM space marker (\u2581 = U+2581, 3 UTF-8 bytes).
       if (i + spm_escaped_space.size() <= n &&
-          std::memcmp(piece.data() + i, spm_escaped_space.data(),
-                      spm_escaped_space.size()) == 0) {
+          std::memcmp(piece.data() + i, spm_escaped_space.data(), spm_escaped_space.size()) == 0) {
         token.push_back(' ');
         // U/T modes do not survive a word boundary.  cAllUppercase by
         // design crosses spaces (matches case_encoder.cc::PostProcess
@@ -974,14 +981,12 @@ class SpmUgmDecoder {
 
       const unsigned char ch = static_cast<unsigned char>(piece[i]);
 
-      const size_t expected_length = ch >= 0xC2 && ch <= 0xDF ? 2
+      const size_t expected_length = ch >= 0xC2 && ch <= 0xDF   ? 2
                                      : ch >= 0xE0 && ch <= 0xEF ? 3
                                      : ch >= 0xF0 && ch <= 0xF4 ? 4
-                                                               : 1;
+                                                                : 1;
       if (n - i < expected_length &&
-          std::all_of(piece.begin() + i + 1, piece.end(), [](unsigned char byte) {
-            return (byte & 0xC0) == 0x80;
-          })) {
+          std::all_of(piece.begin() + i + 1, piece.end(), [](unsigned char byte) { return (byte & 0xC0) == 0x80; })) {
         (*state)->incomplete_utf8_ = piece.substr(i);
         break;
       }
@@ -1025,13 +1030,10 @@ class SpmUgmDecoder {
         continue;
       }
 
-      const bool is_letter =
-          (ufal::unilib::unicode::category(codepoint) &
-           ufal::unilib::unicode::L) != 0;
+      const bool is_letter = (ufal::unilib::unicode::category(codepoint) & ufal::unilib::unicode::L) != 0;
 
-      if (is_letter && (mode == normalizer::cTitlecase ||
-                        mode == normalizer::cUppercase ||
-                        mode == normalizer::cAllUppercase)) {
+      if (is_letter &&
+          (mode == normalizer::cTitlecase || mode == normalizer::cUppercase || mode == normalizer::cAllUppercase)) {
         // Uppercase transform needed -- allocate only for this path.
         std::string cp = piece.substr(i, cp_len);
         uppercase_codepoint(cp);
@@ -1043,8 +1045,7 @@ class SpmUgmDecoder {
       } else {
         // No transform: append directly from piece without allocating.
         token.append(piece, i, cp_len);
-        if (!is_letter && (mode == normalizer::cUppercase ||
-                           mode == normalizer::cTitlecase)) {
+        if (!is_letter && (mode == normalizer::cUppercase || mode == normalizer::cTitlecase)) {
           // Implicit L: the encoder would have terminated the U/T run at
           // a non-letter codepoint, but the SPM unigram lattice may have
           // merged the explicit L away in scoring.  Recover here.
