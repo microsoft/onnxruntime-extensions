@@ -136,13 +136,19 @@ private:
 };
 
 template <typename TT>
-ONNXTensorElementDataType GetOrtDType(){
+constexpr ONNXTensorElementDataType GetOrtDType(){
   if constexpr (std::is_same<TT, bool>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL;
   else if constexpr (std::is_same<TT, float>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
   else if constexpr (std::is_same<TT, double>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE;
+#if ORT_API_VERSION >= 16
+  else if constexpr (std::is_same<TT, MFloat16>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16;
+  else if constexpr (std::is_same<TT, BFloat16>::value)
+    return ONNX_TENSOR_ELEMENT_DATA_TYPE_BFLOAT16;
+#endif  // ORT_API_VERSION >= 16
   else if constexpr (std::is_same<TT, uint8_t>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8;
   else if constexpr (std::is_same<TT, int8_t>::value)
@@ -159,10 +165,13 @@ ONNXTensorElementDataType GetOrtDType(){
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64;
   else if constexpr (std::is_same<TT, int64_t>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_INT64;
-  else if constexpr (std::is_same<TT, std::string>::value)
+  else if constexpr (std::is_same<TT, std::string>::value || std::is_same<TT, std::string_view>::value)
     return ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING;
-  ORTX_CXX_API_THROW("Unexpected type", ORT_RUNTIME_EXCEPTION);
-  return ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT;
+  else {
+    // Type-dependent false value. Needed for compilers which don't allow static_assert(false) here (see CWG 2518).
+    constexpr bool always_false = !std::is_same_v<TT, TT>;
+    static_assert(always_false, "Invalid type");
+  }
 }
 
 class TensorBase : public Arg {
