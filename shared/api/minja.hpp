@@ -1900,7 +1900,7 @@ namespace minja
             const auto &name = t->get_name();
             if ((op == Op::SameAs || op == Op::SameAsNot) &&
                 name != "none" && name != "true" && name != "false")
-              throw std::runtime_error("'sameas' only supports true, false, or none");
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
             if (name == "none")
               return l.is_null() && !l.is_undefined();
             if (name == "true")
