@@ -2507,6 +2507,16 @@ std::string RenderMinjaExpr(OrtxTokenizer* tokenizer, const std::string& templat
   }
   return text != nullptr ? std::string(text) : std::string();
 }
+
+std::string RenderMinjaError(OrtxTokenizer* tokenizer, const std::string& template_str) {
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer, template_str.c_str(), messages_json.c_str(), nullptr, nullptr, result.ToBeAssigned(), false, false);
+  EXPECT_NE(err, kOrtxOK);
+  const char* message = OrtxGetLastErrorMessage();
+  return message != nullptr ? std::string(message) : std::string();
+}
 }  // namespace
 
 TEST(OrtxTokenizerTest, MinjaIsDefinedUndefinedPredicates) {
@@ -2580,6 +2590,79 @@ TEST(OrtxTokenizerTest, MinjaBooleanIdentityWorksInControlFlow) {
   EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value   is   false %}false{% else %}other{% endif %}",
                             R"({"value":false})"),
             "false");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsSingletonPredicates) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ true is sameas true }}|{{ true is sameas false }}|"
+                                             "{{ false is sameas true }}|{{ false is sameas false }}|"
+                                             "{{ none is sameas none }}"),
+            "True|False|False|True|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":true})"),
+            "True|False|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":false})"),
+            "False|True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":null})"),
+            "False|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not sameas true }}|"
+                                             "{{ value is not sameas false }}|"
+                                             "{{ value is not sameas none }}",
+                            R"({"value":false})"),
+            "True|False|True");
+
+  for (const char* kwargs : {
+           R"({"value":1})",
+           R"({"value":"true"})",
+           R"({"value":[]})",
+           R"({"value":{}})",
+           R"({})",
+       }) {
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                               "{{ value is sameas none }}",
+                              kwargs),
+              "False|False|False");
+  }
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% macro value() %}text{% endmacro %}"
+                                             "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}|{{ value is not sameas true }}|"
+                                             "{{ value is not sameas false }}|{{ value is not sameas none }}"),
+            "False|False|False|True|True|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsWorksInControlFlow) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      "{% if enable_thinking is undefined or enable_thinking is sameas true %}"
+      "thinking{% else %}not-thinking{% endif %}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":true})"), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":false})"), "not-thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value  is not  sameas  none %}set{% else %}none{% endif %}",
+                            R"({"value":null})"),
+            "none");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsRejectsUnsupportedSyntax) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string expected_error = "'sameas' expects one of: true, false, none";
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas }}").find(expected_error), std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas value }}").find(expected_error), std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas undefined }}").find(expected_error),
+            std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas(true) }}").find(expected_error), std::string::npos);
 }
 
 TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedKwargs) {
