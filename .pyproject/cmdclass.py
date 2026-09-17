@@ -205,6 +205,11 @@ class CmdBuildCMakeExt(_build_ext):
 
         if self.ort_pkg_dir:
             cmake_args += ['-DONNXRUNTIME_PKG_DIR=' + self.ort_pkg_dir]
+        elif os.environ.get('OCOS_ONNXRUNTIME_PKG_URI'):
+            cmake_args += ['-DOCOS_ONNXRUNTIME_PKG_URI=' + os.environ.get('OCOS_ONNXRUNTIME_PKG_URI')]
+
+        if os.environ.get('OCOS_ONNXRUNTIME_VERSION'):
+            cmake_args += ['-DOCOS_ONNXRUNTIME_VERSION=' + os.environ.get('OCOS_ONNXRUNTIME_VERSION')]
 
         if self.no_opencv:
             # Disabling openCV can drastically reduce the build time.
