@@ -19,6 +19,22 @@ typedef OrtxObject OrtxStringArray;
 typedef OrtxObject OrtxTokenId2DArray;
 typedef OrtxObject OrtxDetokenizerCache;
 
+/** \brief One exact-text word completed during incremental detokenization. */
+typedef struct OrtxDetokenizedWord {
+  const char* text;
+  /** Half-open indices of input tokens contributing to this word: [start, stop). */
+  size_t start_token_index;
+  size_t stop_token_index;
+} OrtxDetokenizedWord;
+
+/** \brief Completed word events produced during incremental detokenization. */
+typedef struct OrtxDetokenizeMetadata {
+  const OrtxDetokenizedWord* words;
+  size_t word_count;
+  /** Earliest input token index still needed by a pending word or buffered decoder output. */
+  size_t first_pending_token_index;
+} OrtxDetokenizeMetadata;
+
 struct OrtxTokenizerBlob {
   const char* config_json_blob;
   const char* vocab_json_blob;
@@ -213,6 +229,27 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
  */
 extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
                                               extTokenId_t next_id, const char** text_out);
+
+/** \brief Detokenize one token and return completed word events.
+ *
+ * The decoded fragment is identical to OrtxDetokenizeCached. Word events preserve exact decoded
+ * whitespace and punctuation and use half-open token-index spans. The event array may be empty or
+ * contain multiple words when one token spans multiple boundaries. Returned words are owned by the
+ * cache and remain valid until the next operation on that cache.
+ */
+extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* tokenizer,
+                                                          OrtxDetokenizerCache* cache,
+                                                          extTokenId_t next_id,
+                                                          const char** text_out,
+                                                          OrtxDetokenizeMetadata* metadata_out);
+
+/** \brief Complete any word still pending after incremental detokenization.
+ *
+ * Repeated calls return no duplicate words. The returned event array has the same cache-owned
+ * lifetime as OrtxDetokenizeCachedWithMetadata.
+ */
+extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
+  OrtxDetokenizerCache* cache, OrtxDetokenizeMetadata* metadata_out);
 
 /**
  * @brief Retrieves the C-style string representation from an OrtxString object.

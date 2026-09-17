@@ -119,6 +119,61 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   status = tokenizer->Detokenize(token_ids_span, out_text);
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
+
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
+  for (extTokenId_t token_id : {589, 533, 1628, 269}) {
+    std::string token;
+    status = tokenizer->Id2Token(token_id, token, decoder_cache, true);
+    EXPECT_TRUE(status.IsOk());
+  }
+}
+
+TEST(TokenizerWordGroupingTest, OneTokenCanCompleteMultipleWords) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"▁first▁second▁third", ort_extensions::WordBoundaryStyle::SentencePiece, false, false},
+                   " first second third");
+
+  const auto& completed = grouping.CompletedWords();
+  ASSERT_EQ(completed.size(), 2u);
+  EXPECT_EQ(completed[0].text, " first");
+  EXPECT_EQ(completed[1].text, " second");
+  EXPECT_EQ(completed[0].start_token_index, 0u);
+  EXPECT_EQ(completed[0].stop_token_index, 1u);
+  EXPECT_EQ(completed[1].start_token_index, 0u);
+  EXPECT_EQ(completed[1].stop_token_index, 1u);
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, " third");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+}
+
+TEST(TokenizerWordGroupingTest, EmptyDecoderOutputRetainsContributingTokenSpan) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "é");
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "é");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
+}
+
+TEST(TokenizerWordGroupingTest, DelimiterBeforePunctuationStaysWithPreviousWord) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"▁hello", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " hello");
+  grouping.Consume({"▁", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " ");
+  grouping.Consume({",", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, ",");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+
+  grouping.Consume({"▁world", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " world");
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, " hello ,");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
 }
 
 TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {

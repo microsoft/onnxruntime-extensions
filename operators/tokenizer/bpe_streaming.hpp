@@ -7,6 +7,7 @@
 #include "bpe_decoder.hpp"
 #include "tokenizer_jsconfig.hpp"
 #include "bpe_tokenizer_model.hpp"
+#include "tokenizer_word_grouping.h"
 
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
@@ -44,6 +45,24 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     eos_token_id_ = encoder.GetEncoder().GetTokenId(tok_config.eos_token_);
 
     tok_config_ = ptr_config;
+    return {};
+  }
+
+  OrtxStatus GetWordPieceInfo(extTokenId_t id, ort_extensions::TokenizerWordPieceInfo& info) const {
+    info = {};
+    info.boundary_style = spm_model_ ? ort_extensions::WordBoundaryStyle::SentencePiece
+               : end_of_word_suffix_.empty() ? ort_extensions::WordBoundaryStyle::PrefixBpe
+                               : ort_extensions::WordBoundaryStyle::SuffixBpe;
+    info.is_special = all_special_ids_.count(id) != 0;
+    if (added_tokens_.count(id)) {
+      info.encoded_piece = added_tokens_.at(id);
+    } else if (static_cast<size_t>(id) < arr_vocab_.size()) {
+      info.encoded_piece = arr_vocab_[id];
+    }
+    info.ends_word = !spm_model_ && !end_of_word_suffix_.empty() &&
+                     info.encoded_piece.size() >= end_of_word_suffix_.size() &&
+                     info.encoded_piece.compare(info.encoded_piece.size() - end_of_word_suffix_.size(),
+                                                end_of_word_suffix_.size(), end_of_word_suffix_) == 0;
     return {};
   }
 
@@ -124,7 +143,8 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state, bool skip_special_tokens = true) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, BPEDecoderState** state,
+                      bool skip_special_tokens = true) const {
     auto bpe_state = *state;
     std::unique_ptr<BPEDecoderState> bpe_state_ptr;
     bool is_first = false;
@@ -136,6 +156,7 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
 
     bool f_special = bpe_state->f_special_last_;  // [Spm]Id2Token needs the last state
     bool f_special_last = bpe_state->f_special_last_;
+
     auto status = spm_model_
                   ? SpmId2Token(id, token, f_special)
                   : Id2Token(id, token, skip_special_tokens, f_special);

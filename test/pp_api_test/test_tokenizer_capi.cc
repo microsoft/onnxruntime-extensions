@@ -5,6 +5,7 @@
 #include <string>
 #include <fstream>
 #include <locale.h>
+#include <numeric>
 #include <algorithm>
 #include "gtest/gtest.h"
 
@@ -60,11 +61,22 @@ TEST(CApiTest, StreamApiTest) {
   err = OrtxCreate(kOrtxKindDetokenizerCache, &detok_cache);
   EXPECT_EQ(err, kOrtxOK);
 
+  OrtxDetokenizerCache* metadata_cache = NULL;
+  err = OrtxCreate(kOrtxKindDetokenizerCache, &metadata_cache);
+  EXPECT_EQ(err, kOrtxOK);
+
   extTokenId_t token_ids[] = {1, 910, 338, 263, 1243, 322, 278, 1473, 697, 29889, 29871, 35};
   for (size_t i = 0; i < sizeof(token_ids) / sizeof(token_ids[0]); i++) {
     const char* token = NULL;
     err = OrtxDetokenizeCached(tokenizer, detok_cache, token_ids[i], &token);
     EXPECT_EQ(err, kOrtxOK);
+
+    const char* token_with_metadata = NULL;
+    OrtxDetokenizeMetadata metadata{};
+    err = OrtxDetokenizeCachedWithMetadata(tokenizer, metadata_cache, token_ids[i],
+                                           &token_with_metadata, &metadata);
+    EXPECT_EQ(err, kOrtxOK);
+    EXPECT_STREQ(token_with_metadata, token);
 #ifdef _DEBUG
     std::cout << token;
 #endif
@@ -74,8 +86,49 @@ TEST(CApiTest, StreamApiTest) {
   std::cout << std::endl;
 #endif
 
+  OrtxDisposeOnly(metadata_cache);
   OrtxDisposeOnly(detok_cache);
   OrtxDispose(&tokenizer);
+}
+
+TEST(CApiTest, StreamingWordEventsPreserveExactText) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  OrtxDetokenizerCache* cache = nullptr;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::vector<extTokenId_t> token_ids{910, 338, 263, 1243, 29889, 278};
+  std::string transcript;
+  std::vector<std::string> words;
+  std::vector<std::pair<size_t, size_t>> spans;
+  for (const auto token_id : token_ids) {
+    const char* text = nullptr;
+    OrtxDetokenizeMetadata metadata{};
+    ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, token_id, &text, &metadata),
+              kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    transcript += text;
+    for (size_t index = 0; index < metadata.word_count; ++index) {
+      words.emplace_back(metadata.words[index].text);
+      spans.emplace_back(metadata.words[index].start_token_index,
+                         metadata.words[index].stop_token_index);
+    }
+  }
+
+  OrtxDetokenizeMetadata trailing{};
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &trailing), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  for (size_t index = 0; index < trailing.word_count; ++index) {
+    words.emplace_back(trailing.words[index].text);
+    spans.emplace_back(trailing.words[index].start_token_index,
+                       trailing.words[index].stop_token_index);
+  }
+
+  EXPECT_EQ(transcript, " This is a test. the");
+  EXPECT_EQ(words, (std::vector<std::string>{" This", " is", " a", " test.", " the"}));
+  EXPECT_EQ(spans, (std::vector<std::pair<size_t, size_t>>{{0, 1}, {1, 2}, {2, 3}, {3, 5}, {5, 6}}));
+  EXPECT_EQ(std::accumulate(words.begin(), words.end(), std::string{}), transcript);
+  OrtxDisposeOnly(cache);
 }
 
 TEST(OrtxTokenizerTest, WhisperTokenizer) {
@@ -255,6 +308,45 @@ TEST(OrtxTokenizerTest, T5Tokenizer) {
   // AutoTokenizer.from_pretrained("google-t5/t5-small")
   EXPECT_EQ(ids_vec,
             std::vector<extTokenId_t>({27, 3, 32099, 114, 3214, 82, 5295, 1782, 11, 258, 6, 3, 2, 3, 4241, 1}));
+}
+
+TEST(CApiTest, StreamingWordEventsSupportUnigram) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/t5-small");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* input[] = {"This is a test."};
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  ASSERT_EQ(OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned()), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  size_t token_count = 0;
+  const extTokenId_t* ids = nullptr;
+  ASSERT_EQ(OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &token_count), kOrtxOK);
+
+  OrtxDetokenizerCache* cache = nullptr;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK);
+  std::string transcript;
+  std::vector<std::string> words;
+  for (size_t token_index = 0; token_index < token_count; ++token_index) {
+    const char* text = nullptr;
+    OrtxDetokenizeMetadata metadata{};
+    ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, ids[token_index], &text, &metadata),
+              kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    transcript += text;
+    for (size_t word_index = 0; word_index < metadata.word_count; ++word_index) {
+      words.emplace_back(metadata.words[word_index].text);
+    }
+  }
+
+  OrtxDetokenizeMetadata trailing{};
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &trailing), kOrtxOK);
+  for (size_t word_index = 0; word_index < trailing.word_count; ++word_index) {
+    words.emplace_back(trailing.words[word_index].text);
+  }
+
+  EXPECT_EQ(std::accumulate(words.begin(), words.end(), std::string{}), transcript);
+  EXPECT_EQ(words, (std::vector<std::string>{" This", " is", " a", " test."}));
+  OrtxDisposeOnly(cache);
 }
 
 TEST(OrtxTokenizerTest, ChatGLMTokenizer) {
@@ -480,7 +572,7 @@ class MarianByteFallbackTest : public ::testing::Test {
     const std::string config = R"({"tokenizer_class":"MarianTokenizer",
       "unk_token":"<unk>","eos_token":"</s>","pad_token":"<pad>",
       "add_bos_token":false,"add_eos_token":true})";
-    std::vector<std::string> pieces = {"</s>", "<unk>", "<pad>", "\xE2\x96\x81"};
+    std::vector<std::string> pieces = {"</s>", "<unk>", "<pad>", "\xE2\x96\x81", "word\xE2\x96\x81"};
     constexpr char hex[] = "0123456789ABCDEF";
     for (size_t byte = 0; byte < 256; ++byte) {
       pieces.push_back(std::string("<0x") + hex[byte >> 4] + hex[byte & 15] + ">");
@@ -508,7 +600,7 @@ class MarianByteFallbackTest : public ::testing::Test {
   void ExpectDecoding(const std::string& encoded, const std::string& expected, bool append_eos = true) {
     std::vector<extTokenId_t> ids;
     for (unsigned char byte : encoded) {
-      ids.push_back(4 + byte);
+      ids.push_back(5 + byte);
     }
     if (append_eos) ids.push_back(0);
     std::vector<int64_t> full_ids(ids.begin(), ids.end());
@@ -571,7 +663,7 @@ TEST_F(MarianByteFallbackTest, FullDecodeResetsStateBetweenRows) {
   std::vector<int64_t> ids;
   for (const auto& row : rows) {
     for (unsigned char byte : row) {
-      ids.push_back(4 + byte);
+      ids.push_back(5 + byte);
     }
   }
   ortc::Tensor<int64_t> input({static_cast<int64_t>(rows.size()), 2}, ids.data());
@@ -581,7 +673,7 @@ TEST_F(MarianByteFallbackTest, FullDecodeResetsStateBetweenRows) {
 }
 
 TEST_F(MarianByteFallbackTest, UnknownIdPreservesPendingBytes) {
-  std::vector<int64_t> ids = {4 + 'T', 4 + 0xC3, 260, 4 + 'a', 0};
+  std::vector<int64_t> ids = {5 + 'T', 5 + 0xC3, 261, 5 + 'a', 0};
   ortc::Tensor<int64_t> input({1, static_cast<int64_t>(ids.size())}, ids.data());
   ortc::Tensor<std::string> output;
   ASSERT_TRUE(decoder_.Compute(input, output, true).IsOk());
@@ -604,7 +696,7 @@ TEST_F(MarianByteFallbackTest, IncrementalBytesStayWithinTheirStream) {
   auto second = std::make_unique<TokenizerDecodingState>();
   const auto expect_chunk = [&](TokenizerDecodingState* cache, unsigned char byte, const char* expected) {
     std::string chunk;
-    ASSERT_TRUE(decoder_.Id2Token(4 + byte, chunk, &cache).IsOk());
+    ASSERT_TRUE(decoder_.Id2Token(5 + byte, chunk, &cache).IsOk());
     EXPECT_EQ(chunk, expected);
   };
   expect_chunk(first.get(), 'T', "");
