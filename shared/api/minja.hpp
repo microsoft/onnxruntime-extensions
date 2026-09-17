@@ -1866,7 +1866,9 @@ namespace minja
       In,
       NotIn,
       Is,
-      IsNot
+      IsNot,
+      SameAs,
+      SameAsNot
     };
 
   private:
@@ -1887,7 +1889,7 @@ namespace minja
 
       auto do_eval = [&](const Value &l) -> Value
       {
-        if (op == Op::Is || op == Op::IsNot)
+        if (op == Op::Is || op == Op::IsNot || op == Op::SameAs || op == Op::SameAsNot)
         {
           auto t = expr_cast<VariableExpr *>(right.get());
           if (!t)
@@ -1896,6 +1898,9 @@ namespace minja
           auto eval = [&]()
           {
             const auto &name = t->get_name();
+            if ((op == Op::SameAs || op == Op::SameAsNot) &&
+                name != "none" && name != "true" && name != "false")
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
             if (name == "none")
               return l.is_null() && !l.is_undefined();
             if (name == "true")
@@ -1925,7 +1930,7 @@ namespace minja
             throw std::runtime_error("Unknown type for 'is' operator: " + name);
           };
           auto value = eval();
-          return Value(op == Op::Is ? value : !value);
+          return Value(op == Op::Is || op == Op::SameAs ? value : !value);
         }
 
         if (op == Op::And)
@@ -1987,7 +1992,7 @@ namespace minja
         throw std::runtime_error("Unknown binary operator");
       };
 
-      if (l.is_callable())
+      if (l.is_callable() && op != Op::SameAs && op != Op::SameAsNot)
       {
         return Value::callable([l, do_eval](const std::shared_ptr<Context> &context, ArgumentsValue &args)
                                {
@@ -2725,6 +2730,25 @@ namespace minja
           auto identifier = parseIdentifier();
           if (!identifier)
             throw std::runtime_error("Expected identifier after 'is' keyword");
+
+          auto test = expr_cast<VariableExpr *>(identifier.get());
+          if (test && test->get_name() == "sameas")
+          {
+            auto singleton = parseIdentifier();
+            if (!singleton)
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
+            auto singleton_identifier = expr_cast<VariableExpr *>(singleton.get());
+            if (!singleton_identifier ||
+                (singleton_identifier->get_name() != "true" &&
+                 singleton_identifier->get_name() != "false" &&
+                 singleton_identifier->get_name() != "none"))
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
+
+            return std::make_shared<BinaryOpExpr>(
+                left->location,
+                std::move(left), std::move(singleton),
+                negated ? BinaryOpExpr::Op::SameAsNot : BinaryOpExpr::Op::SameAs);
+          }
 
           return std::make_shared<BinaryOpExpr>(
               left->location,
