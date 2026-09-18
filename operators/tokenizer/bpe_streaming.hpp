@@ -7,7 +7,7 @@
 #include "bpe_decoder.hpp"
 #include "tokenizer_jsconfig.hpp"
 #include "bpe_tokenizer_model.hpp"
-#include "tokenizer_word_grouping.h"
+#include "../../shared/api/tokenizer_word_grouping.h"
 
 class BpeStreamingDecoder : public KernelBpeDecoder {
  public:
