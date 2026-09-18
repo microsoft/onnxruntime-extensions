@@ -107,6 +107,7 @@ void TokenizerWordGroupingState::Consume(const TokenizerWordPieceInfo& piece,
 
 void TokenizerWordGroupingState::Finalize() {
   completed_words_.clear();
+  buffered_output_start_token_index_.reset();
   if (pending_delimiter_.active) {
     Append(pending_word_, pending_delimiter_.text,
            pending_delimiter_.start_token_index, pending_delimiter_.stop_token_index);

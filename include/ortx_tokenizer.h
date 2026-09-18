@@ -221,6 +221,10 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
 
 /** \brief Detokenize the input using the specified tokenizer with caching
  *
+ * The first call to OrtxDetokenizeCached or OrtxDetokenizeCachedWithMetadata locks the cache
+ * to that mode. The two functions cannot be mixed on the same cache. Destroy and recreate the
+ * cache to switch modes.
+ *
  * \param tokenizer Pointer to the tokenizer object
  * \param cache Pointer to the detokenizer cache
  * \param next_id Next token ID to detokenize
@@ -236,6 +240,10 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
  * whitespace and punctuation and use half-open token-index spans. The event array may be empty or
  * contain multiple words when one token spans multiple boundaries. Returned words are owned by the
  * cache and remain valid until the next operation on that cache.
+ *
+ * The first call to OrtxDetokenizeCached or OrtxDetokenizeCachedWithMetadata locks the cache
+ * to that mode. The two functions cannot be mixed on the same cache. Destroy and recreate the
+ * cache to switch modes.
  */
 extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* tokenizer,
                                                           OrtxDetokenizerCache* cache,
@@ -246,7 +254,7 @@ extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* t
 /** \brief Complete any word still pending after incremental detokenization.
  *
  * Repeated calls return no duplicate words. The returned event array has the same cache-owned
- * lifetime as OrtxDetokenizeCachedWithMetadata.
+ * lifetime as OrtxDetokenizeCachedWithMetadata. This function uses and locks the cache in metadata mode.
  */
 extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
   OrtxDetokenizerCache* cache, OrtxDetokenizeMetadata* metadata_out);

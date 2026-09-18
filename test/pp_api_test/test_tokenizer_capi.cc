@@ -131,6 +131,53 @@ TEST(CApiTest, StreamingWordEventsPreserveExactText) {
   OrtxDisposeOnly(cache);
 }
 
+TEST(CApiTest, DetokenizerCacheRejectsSwitchFromTextToMetadata) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  OrtxDetokenizerCache* cache = nullptr;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* text = nullptr;
+  ASSERT_EQ(OrtxDetokenizeCached(tokenizer.get(), cache, 910, &text), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+
+  OrtxDetokenizeMetadata metadata{};
+  EXPECT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 338, &text, &metadata),
+            kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(),
+               "Cannot mix OrtxDetokenizeCached and OrtxDetokenizeCachedWithMetadata on the same cache. "
+               "Destroy and recreate the detokenizer cache to switch modes.");
+
+  EXPECT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &metadata), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(OrtxDetokenizeCached(tokenizer.get(), cache, 338, &text), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxDisposeOnly(cache);
+}
+
+TEST(CApiTest, DetokenizerCacheRejectsSwitchFromMetadataToText) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  OrtxDetokenizerCache* cache = nullptr;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* text = nullptr;
+  OrtxDetokenizeMetadata metadata{};
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 910, &text, &metadata),
+            kOrtxOK)
+      << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(OrtxDetokenizeCached(tokenizer.get(), cache, 338, &text), kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(),
+               "Cannot mix OrtxDetokenizeCached and OrtxDetokenizeCachedWithMetadata on the same cache. "
+               "Destroy and recreate the detokenizer cache to switch modes.");
+
+  EXPECT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 338, &text, &metadata),
+            kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  EXPECT_EQ(metadata.first_pending_token_index, 1U);
+  OrtxDisposeOnly(cache);
+}
+
 TEST(OrtxTokenizerTest, WhisperTokenizer) {
   // test the llama2 tokenizer with BPE class, instead of sentencepiece wrapper.
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/whisper.tiny");

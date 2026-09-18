@@ -16,6 +16,12 @@ struct StreamingWordGroupingCache {
   std::vector<OrtxDetokenizedWord> word_views;
 };
 
+enum class DetokenizerCacheMode {
+  Unset,
+  Text,
+  Metadata,
+};
+
 class DetokenizerCache : public OrtxObjectImpl {
  public:
   DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
@@ -24,6 +30,7 @@ class DetokenizerCache : public OrtxObjectImpl {
   std::unique_ptr<TokenizerDecodingState> decoder_state_{};
   std::string last_text_{};  // last detokenized text
   std::unique_ptr<StreamingWordGroupingCache> word_grouping_cache_{};
+  DetokenizerCacheMode mode_{DetokenizerCacheMode::Unset};
 };
 
 template <>
@@ -468,6 +475,21 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
   return extError_t();
 }
 
+static extError_t SetDetokenizerCacheMode(DetokenizerCache& cache, DetokenizerCacheMode requested_mode) {
+  if (cache.mode_ == DetokenizerCacheMode::Unset) {
+    cache.mode_ = requested_mode;
+    return kOrtxOK;
+  }
+  if (cache.mode_ == requested_mode) {
+    return kOrtxOK;
+  }
+
+  ReturnableStatus::last_error_message_ =
+      "Cannot mix OrtxDetokenizeCached and OrtxDetokenizeCachedWithMetadata on the same cache. "
+      "Destroy and recreate the detokenizer cache to switch modes.";
+  return kOrtxErrorInvalidArgument;
+}
+
 static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
                                        extTokenId_t next_id, const char** text_out,
                                        OrtxDetokenizeMetadata* metadata_out) {
@@ -486,6 +508,13 @@ static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetok
   status = ReturnableStatus(cache_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindDetokenizerCache));
   if (!status.IsOk()) {
     return status.Code();
+  }
+
+  const auto requested_mode = metadata_out == nullptr ? DetokenizerCacheMode::Text
+                                                       : DetokenizerCacheMode::Metadata;
+  const extError_t mode_status = SetDetokenizerCacheMode(*cache_ptr, requested_mode);
+  if (mode_status != kOrtxOK) {
+    return mode_status;
   }
 
   cache_ptr->last_text_.clear();
@@ -552,6 +581,9 @@ extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
   auto cache_ptr = static_cast<DetokenizerCache*>(cache);
   ReturnableStatus status(cache_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindDetokenizerCache));
   if (!status.IsOk()) return status.Code();
+
+  const extError_t mode_status = SetDetokenizerCacheMode(*cache_ptr, DetokenizerCacheMode::Metadata);
+  if (mode_status != kOrtxOK) return mode_status;
 
   *metadata_out = {};
   if (!cache_ptr->word_grouping_cache_) return kOrtxOK;

@@ -162,6 +162,16 @@ TEST(TokenizerWordGroupingTest, EmptyDecoderOutputRetainsContributingTokenSpan) 
   EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
 }
 
+TEST(TokenizerWordGroupingTest, FinalizeDiscardsTrailingEmptyDecoderOutput) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Finalize();
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+}
+
 TEST(TokenizerWordGroupingTest, DelimiterBeforePunctuationStaysWithPreviousWord) {
   ort_extensions::TokenizerWordGroupingState grouping;
   grouping.Consume({"▁hello", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " hello");
