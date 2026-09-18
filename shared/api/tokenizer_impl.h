@@ -13,6 +13,7 @@
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"
 #include "minja.hpp"
+#include "tokenizer_word_grouping.h"
 
 namespace ort_extensions {
 
@@ -41,7 +42,8 @@ class TokenizerImpl : public OrtxObjectImpl {
     return {};
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache, bool skip_special_tokens = true) const {
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, std::unique_ptr<TokenizerDecodingState>& cache,
+                      bool skip_special_tokens = true) const {
     TokenizerDecodingState* state_ptr = cache.get();
     OrtxStatus status = Id2Token(id, token, &state_ptr, skip_special_tokens);
     if (status.IsOk()) {
@@ -87,7 +89,9 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Llama3_3ChatTemplate(std::string& output, bool add_generation_prompt) const;
   OrtxStatus DeepSeekChatTemplate(std::string& output, bool add_generation_prompt) const;
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens) const;
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state,
+                      bool skip_special_tokens) const;
+  OrtxStatus GetWordPieceInfo(extTokenId_t id, TokenizerWordPieceInfo& info) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
   OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools,

@@ -31,3 +31,5 @@ EXPORTS
  OrtxImagePreProcess @29
  OrtxFeatureExtraction @30
  OrtxDisposeOnly @31
+ OrtxDetokenizeCachedWithMetadata @32
+ OrtxFinalizeDetokenizeCachedWithMetadata @33
