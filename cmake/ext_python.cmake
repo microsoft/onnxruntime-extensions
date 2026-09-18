@@ -31,7 +31,8 @@ include(pybind11)
 target_include_directories(extensions_pydll PRIVATE
   ${pybind11_INCLUDE_DIRS}
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_INCLUDE_DIRECTORIES>
-  $<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>)
+  $<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>
+  ${PROJECT_SOURCE_DIR}/shared/api)
 
 target_compile_definitions(extensions_pydll PRIVATE
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
