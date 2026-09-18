@@ -417,9 +417,11 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   }
 
   if (AllSpaceUstring(input) && ModelName() == kModel_CLIP) {
-    // Add BOS and EOS token to result
     res.push_back(bos_token_id_);
     res.push_back(eos_token_id_);
+    if (compute_offset_mapping) {
+      offset_map.emplace_back(OffsetMappingType{{0, 0}, {0, 0}});
+    }
     return res;
   }
 
@@ -438,6 +440,11 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
     add_eos_token = add_eos_token_.value();
   } else if (IsBosEosRequired(ModelName())) {
     add_eos_token = true;
+  }
+
+  OffsetMappingType offset_mapping;
+  if (compute_offset_mapping && add_bos_token && add_special_tokens) {
+    offset_mapping.emplace_back(0, 0);
   }
 
   if (ModelName() == kModel_CLIP) {
@@ -555,17 +562,18 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
 
     if (seg_id.second != bpe::kInvalidTokenId) {
       res.push_back(seg_id.second);
+      if (compute_offset_mapping) {
+        offset_mapping.emplace_back(0, 0);
+      }
       continue;
     }
 
     size_t offset = 0;
-    OffsetMappingType offset_mapping;
-
-    if (compute_offset_mapping) {
-      if (add_bos_token && add_special_tokens) {
-        // Add offset mapping for BOS token
-        offset_mapping.push_back(std::make_pair(0, 0));
-      }
+    if (compute_offset_mapping && !seg_id.first.empty()) {
+      const size_t prefix_length = static_cast<size_t>(seg_id.first.data() - input.data());
+      std::string prefix;
+      ustring::ToUTF8Into(std::u32string_view(input.data(), prefix_length), prefix);
+      offset = prefix.size();
     }
 
     if (use_sequence) {
@@ -609,19 +617,18 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
       }
     }
 
-    if (compute_offset_mapping) {
-      if (add_eos_token) {
-        // Add offset mapping for EOS token
-        offset_mapping.emplace_back(std::make_pair(0, 0));
-      }
-      // Add offset mappings for input in this instance to list of offset mappings for all inputs
-      offset_map.emplace_back(offset_mapping);
-    }
   }
 
   if (add_eos_token && add_special_tokens) {
     // Add EOS token to result
     res.push_back(eos_token_id_);
+    if (compute_offset_mapping) {
+      offset_mapping.emplace_back(0, 0);
+    }
+  }
+
+  if (compute_offset_mapping) {
+    offset_map.emplace_back(std::move(offset_mapping));
   }
 
   return res;
@@ -642,6 +649,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
   // Add BOS token if configured
   if (add_bos_token_.value_or(true) && add_special_tokens) {
     res.push_back(bos_token_id_);
+  }
+
+  OffsetMappingType offset_mapping;
+  if (compute_offset_mapping && add_bos_token_.value_or(true) && add_special_tokens) {
+    offset_mapping.emplace_back(0, 0);
   }
 
   // Split input by special/added tokens
@@ -670,6 +682,9 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
 
     if (seg_id.second != bpe::kInvalidTokenId) {
       res.push_back(seg_id.second);
+      if (compute_offset_mapping) {
+        offset_mapping.emplace_back(0, 0);
+      }
       continue;
     }
 
@@ -688,9 +703,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
     spm_splitter.Set(std::u32string_view(ustr));
 
     size_t offset = 0;
-    OffsetMappingType offset_mapping;
-    if (compute_offset_mapping && add_bos_token_.value_or(true) && add_special_tokens) {
-      offset_mapping.push_back(std::make_pair(0, 0));  // initial offset
+    if (compute_offset_mapping && !seg_id.first.empty()) {
+      const size_t prefix_length = static_cast<size_t>(seg_id.first.data() - input.data());
+      std::string prefix;
+      ustring::ToUTF8Into(std::u32string_view(input.data(), prefix_length), prefix);
+      offset = prefix.size();
     }
 
     // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
@@ -814,9 +831,10 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       }
     }
 
-    if (compute_offset_mapping) {
-      offset_map.emplace_back(offset_mapping);
-    }
+  }
+
+  if (compute_offset_mapping) {
+    offset_map.emplace_back(std::move(offset_mapping));
   }
 
   return res;
@@ -848,7 +866,7 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
                                        std::optional<bool> add_special_tokens) const {
   // Setup inputs
   std::vector<std::string> str_input{input.Data()};
-  std::list<OffsetMappingType> offset_map;
+  std::vector<OffsetMappingType> offset_maps;
   const auto& input_dim = input.Shape();
 
   std::vector<std::vector<int64_t>> tokenize_results;
@@ -872,9 +890,17 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
 
   for (auto& str : str_input) {
     ustring ustr = ustring(str);
+    std::list<OffsetMappingType> input_offset_maps;
     tokenize_results.emplace_back(
         (this->*tok_fun)(ustr, padding_length_ < 0 ? (std::numeric_limits<uint32_t>::max)() : padding_length_,
-                         compute_offset_mapping, offset_map, append_special_tokens));
+                         compute_offset_mapping, input_offset_maps, append_special_tokens));
+    if (compute_offset_mapping) {
+      OffsetMappingType flattened_offsets;
+      for (auto& mappings : input_offset_maps) {
+        flattened_offsets.splice(flattened_offsets.end(), mappings);
+      }
+      offset_maps.emplace_back(std::move(flattened_offsets));
+    }
   }
 
   size_t max_length = 0;
@@ -910,13 +936,20 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
   }
   if (offset_mapping.has_value()) {
     auto* offset = (*offset_mapping)->Allocate(offset_dim);
-    int idx2 = 0;
-    for (auto& res : offset_map) {
-      for (auto& mapping : res) {
-        offset[idx2] = mapping.first;
-        idx2++;
-        offset[idx2] = mapping.second;
-        idx2++;
+    const size_t offset_capacity = static_cast<size_t>((*offset_mapping)->NumberOfElement());
+    std::fill(offset, offset + offset_capacity, 0);
+    for (size_t batch = 0; batch < offset_maps.size(); ++batch) {
+      const auto& mappings = offset_maps[batch];
+      if (mappings.size() > max_length) {
+        return {kOrtxErrorInternal, "BPE offset mapping exceeds token output row size."};
+      }
+      size_t idx2 = batch * max_length * 2;
+      for (const auto& mapping : mappings) {
+        if (idx2 + 2 > offset_capacity) {
+          return {kOrtxErrorInternal, "BPE offset mapping exceeds token output size."};
+        }
+        offset[idx2++] = static_cast<int64_t>(mapping.first);
+        offset[idx2++] = static_cast<int64_t>(mapping.second);
       }
     }
   }
