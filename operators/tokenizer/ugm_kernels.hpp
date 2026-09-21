@@ -112,7 +112,7 @@ struct SpmUgmTokenizer {
 
       // Remaining bytes of precompiled charsmap contain null-terminated
       // replacement strings for prefixes matched by the XCDA.
-      prefix_replacements_ = reinterpret_cast<const char*>(&charsmap_data_[charsmap_offset]);
+      prefix_replacements_ = reinterpret_cast<const char*>(charsmap_data_.data() + charsmap_offset);
       prefix_replacements_size_ = charsmap_data_.size() - charsmap_offset;
       if ((xcda_array_size_ > 0 && prefix_replacements_size_ == 0) ||
           (prefix_replacements_size_ > 0 && charsmap_data_.back() != 0)) {

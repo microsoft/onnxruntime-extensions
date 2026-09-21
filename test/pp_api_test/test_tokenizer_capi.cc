@@ -156,6 +156,20 @@ TEST(OrtxTokenizerTest, RejectsUnterminatedCharsmapReplacement) {
   EXPECT_EQ(status.Code(), kOrtxErrorCorruptData);
 }
 
+TEST(OrtxTokenizerTest, RejectsCharsmapWithoutReplacementRegion) {
+  const std::string config = R"({"tokenizer_class":"T5Tokenizer","unk_token":"<unk>"})";
+  const std::string model = R"({
+    "version":"1.0",
+    "normalizer":{"type":"Precompiled","precompiled_charsmap":"BAAAAAAAAAA="},
+    "model":{"type":"Unigram","unk_id":0,"vocab":[["<unk>",0.0],["a",-1.0]]}
+  })";
+  const OrtxTokenizerBlob blob(config, model);
+
+  TokenJsonConfig token_config;
+  ASSERT_TRUE(token_config.LoadFromBlob(blob).IsOk());
+  SpmUgmTokenizer tokenizer;
+  EXPECT_EQ(tokenizer.Load(token_config).Code(), kOrtxErrorCorruptData);
+}
 static std::string ReadFile(const std::string& filepath) {
   std::ifstream file(filepath.data(), std::ios::binary);
   if (!file.is_open()) {
