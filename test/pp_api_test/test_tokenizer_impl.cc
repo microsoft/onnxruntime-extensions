@@ -12,6 +12,7 @@
 #endif
 
 #include "shared/api/tokenizer_impl.h"
+#include "shared/api/c_api_utils.hpp"
 #include "bpe_utils.hpp"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
@@ -23,10 +24,14 @@ static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids
 
     std::cout << std::endl;
   }
-
   std::cout << std::endl;
 #endif
 }
+
+class TestJsonFastTokenizer : public JsonFastTokenizer {
+ public:
+  void SetPaddingLength(int64_t padding_length) { padding_length_ = padding_length; }
+};
 
 TEST(OrtxTokenizerTest, RegexTest) {
   std::u32string str = U"You'll enjoy the concert.";
@@ -944,6 +949,127 @@ TEST(OrtxTokenizerProfileTest, DISABLED_MemoryUsage) {
   fprintf(stderr, "Note: CPU-only heap memory (vocab + merges + lookup tables).\n");
   fprintf(stderr, "Allocated once at model load, freed when tokenizer is destroyed.\n");
   fprintf(stderr, "================================================================\n\n");
+}
+
+TEST(OrtxTokenizerTest, BpeOffsetMappingMatchesTokenIds) {
+  ort_extensions::TokenJsonConfig config;
+  auto status = config.Load("data/tokenizer/roberta-base");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  JsonFastTokenizer tokenizer;
+  status = tokenizer.Load(config);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ortc::Tensor<std::string> input({"Hello <mask> world", "Hello"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+
+  status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(input_ids.Shape().size(), 2u);
+  ASSERT_EQ(offset_mapping.Shape(), (std::vector<int64_t>{2, input_ids.Shape()[1], 2}));
+  ASSERT_EQ(offset_mapping.NumberOfElement(), input_ids.NumberOfElement() * 2);
+
+  const auto* ids = input_ids.Data();
+  const auto* offsets = offset_mapping.Data();
+  const int64_t row_length = input_ids.Shape()[1];
+  const auto mask_id = static_cast<int64_t>(tokenizer.GetTokenId("<mask>"));
+  const auto world_id = static_cast<int64_t>(tokenizer.GetTokenId("\xC4\xA0world"));
+  const auto pad_id = static_cast<int64_t>(tokenizer.GetTokenId("<pad>"));
+  bool found_mask = false;
+  bool found_world = false;
+  for (int64_t i = 0; i < row_length; ++i) {
+    if (ids[i] == mask_id) {
+      found_mask = true;
+      EXPECT_EQ(offsets[i * 2], 0);
+      EXPECT_EQ(offsets[i * 2 + 1], 0);
+    }
+    if (ids[i] == world_id && offsets[i * 2] == 13 && offsets[i * 2 + 1] == 18) {
+      found_world = true;
+    }
+  }
+  EXPECT_TRUE(found_mask);
+  EXPECT_TRUE(found_world);
+
+  bool found_second_hello = false;
+  for (int64_t i = 0; i < row_length; ++i) {
+    const int64_t token_index = row_length + i;
+    const int64_t offset_index = token_index * 2;
+    if (offsets[offset_index] == 0 && offsets[offset_index + 1] == 5) {
+      found_second_hello = true;
+    }
+    if (ids[token_index] == pad_id) {
+      EXPECT_EQ(offsets[offset_index], 0);
+      EXPECT_EQ(offsets[offset_index + 1], 0);
+    }
+  }
+  EXPECT_TRUE(found_second_hello);
+}
+
+TEST(OrtxTokenizerTest, BpeFixedLengthReservesSpecialTokens) {
+  ort_extensions::TokenJsonConfig config;
+  ASSERT_TRUE(config.Load("data/tokenizer/roberta-base").IsOk());
+
+  TestJsonFastTokenizer tokenizer;
+  ASSERT_TRUE(tokenizer.Load(config).IsOk());
+  tokenizer.SetPaddingLength(4);
+
+  ortc::Tensor<std::string> input({"Hello world this input is too long"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+  ASSERT_TRUE(tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true).IsOk());
+
+  ASSERT_EQ(input_ids.Shape(), (std::vector<int64_t>{1, 4}));
+  EXPECT_EQ(input_ids.Data()[3], static_cast<int64_t>(tokenizer.GetTokenId("</s>")));
+  EXPECT_EQ(offset_mapping.Data()[6], 0);
+  EXPECT_EQ(offset_mapping.Data()[7], 0);
+
+  ort_extensions::TokenJsonConfig clip_config;
+  ASSERT_TRUE(clip_config.Load("data/tokenizer/clip").IsOk());
+  TestJsonFastTokenizer clip_tokenizer;
+  ASSERT_TRUE(clip_tokenizer.Load(clip_config).IsOk());
+  clip_tokenizer.SetPaddingLength(1);
+  ortc::Tensor<std::string> spaces({"   "});
+  ortc::Tensor<int64_t> clip_ids(allocator);
+  ortc::Tensor<int64_t> clip_offsets(allocator);
+  ASSERT_TRUE(clip_tokenizer.Compute(spaces, clip_ids, std::nullopt, &clip_offsets, true).IsOk());
+  EXPECT_EQ(clip_ids.Shape(), (std::vector<int64_t>{1, 1}));
+  EXPECT_EQ(clip_offsets.Shape(), (std::vector<int64_t>{1, 1, 2}));
+}
+TEST(OrtxTokenizerTest, SpmOffsetMappingMatchesTokenIds) {
+  ort_extensions::TokenJsonConfig config;
+  auto status = config.Load("data/phi-3");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  JsonFastTokenizer tokenizer;
+  status = tokenizer.Load(config);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  ASSERT_TRUE(tokenizer.IsSpmModel());
+
+  ortc::Tensor<std::string> input({"é<|endoftext|>world"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+
+  status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(offset_mapping.Shape(), (std::vector<int64_t>{1, input_ids.Shape()[1], 2}));
+  ASSERT_EQ(offset_mapping.NumberOfElement(), input_ids.NumberOfElement() * 2);
+
+  const auto* ids = input_ids.Data();
+  const auto* offsets = offset_mapping.Data();
+  const std::vector<int64_t> expected_ids = {
+      static_cast<int64_t>(tokenizer.GetTokenId("<s>")),
+      static_cast<int64_t>(tokenizer.GetTokenId("▁é")),
+      static_cast<int64_t>(tokenizer.GetTokenId("<|endoftext|>")),
+      static_cast<int64_t>(tokenizer.GetTokenId("▁world"))};
+  const std::vector<int64_t> expected_offsets = {0, 0, 0, 2, 0, 0, 15, 20};
+  EXPECT_EQ(std::vector<int64_t>(ids, ids + input_ids.NumberOfElement()), expected_ids);
+  EXPECT_EQ(std::vector<int64_t>(offsets, offsets + offset_mapping.NumberOfElement()), expected_offsets);
 }
 
 // Regression test: batched detokenization with batch >= 2 must not read past the

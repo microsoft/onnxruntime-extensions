@@ -112,8 +112,13 @@ struct SpmUgmTokenizer {
 
       // Remaining bytes of precompiled charsmap contain null-terminated
       // replacement strings for prefixes matched by the XCDA.
-      prefix_replacements_ = reinterpret_cast<const char*>(&charsmap_data_[charsmap_offset]);
+      prefix_replacements_ = reinterpret_cast<const char*>(charsmap_data_.data() + charsmap_offset);
       prefix_replacements_size_ = charsmap_data_.size() - charsmap_offset;
+      if ((xcda_array_size_ > 0 && prefix_replacements_size_ == 0) ||
+          (prefix_replacements_size_ > 0 && charsmap_data_.back() != 0)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData,
+                          "Precompiled charsmap replacement strings must be NUL-terminated.");
+      }
     }
 
     return {};
@@ -536,7 +541,13 @@ struct SpmUgmTokenizer {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, static_cast<int>(longest_prefix_length)};
+      const void* terminator = std::memchr(prefix_replacement, 0,
+                                           prefix_replacements_size_ - longest_prefix_offset);
+      if (terminator == nullptr) {
+        ORTX_CXX_API_THROW("[UgmTok]Unterminated replacement in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      const auto replacement_length = static_cast<size_t>(static_cast<const char*>(terminator) - prefix_replacement);
+      return {std::string_view(prefix_replacement, replacement_length), static_cast<int>(longest_prefix_length)};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = ustring::UTF8Len(input_view[0]);
@@ -692,7 +703,13 @@ struct SpmUgmTokenizer {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, strlen(prefix_replacement), longest_prefix_length};
+      const void* terminator = std::memchr(prefix_replacement, 0,
+                                           prefix_replacements_size_ - longest_prefix_offset);
+      if (terminator == nullptr) {
+        ORTX_CXX_API_THROW("[UgmTok]Unterminated replacement in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      const auto replacement_length = static_cast<size_t>(static_cast<const char*>(terminator) - prefix_replacement);
+      return {prefix_replacement, replacement_length, longest_prefix_length};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
