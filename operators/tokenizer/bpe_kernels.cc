@@ -719,6 +719,14 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
       const size_t prefix_length = static_cast<size_t>(seg_id.first.data() - input.data());
       offset = utf8_byte_offsets[prefix_length];
     }
+    size_t synthetic_prefix_bytes = add_dummy_prefix && !ustr.empty() ? ustring::UTF8Len(U'▁') : 0;
+    auto append_offset_mapping = [&](size_t token_length) {
+      const size_t synthetic_length = (std::min)(synthetic_prefix_bytes, token_length);
+      synthetic_prefix_bytes -= synthetic_length;
+      const size_t source_length = token_length - synthetic_length;
+      offset_mapping.emplace_back(offset, offset + source_length);
+      offset += source_length;
+    };
 
     // Gemma has its own SPM-based tokenizer with BPE fallback that behaves differently
     // from the traditional LlamaTokenizer. This is also true for certain special cases.
@@ -763,9 +771,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
             }
             res.push_back(p.first);
             if (compute_offset_mapping) {
-              offset_mapping.emplace_back(
-                  std::make_pair(offset, ort_extensions::narrow<size_t>(offset + (size_t)p.second)));
-              offset += ((size_t)p.second);
+              append_offset_mapping(static_cast<size_t>(p.second));
             }
           }
           byte_list.clear();
@@ -834,8 +840,7 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
           res.push_back(p.first);
 
           if (compute_offset_mapping) {
-            offset_mapping.emplace_back(std::make_pair(offset, offset + p.second));
-            offset += p.second;
+            append_offset_mapping(static_cast<size_t>(p.second));
           }
         }
       }

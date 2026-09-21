@@ -1067,7 +1067,7 @@ TEST(OrtxTokenizerTest, SpmOffsetMappingMatchesTokenIds) {
       static_cast<int64_t>(tokenizer.GetTokenId("▁é")),
       static_cast<int64_t>(tokenizer.GetTokenId("<|endoftext|>")),
       static_cast<int64_t>(tokenizer.GetTokenId("▁world"))};
-  const std::vector<int64_t> expected_offsets = {0, 0, 0, 5, 0, 0, 15, 23};
+  const std::vector<int64_t> expected_offsets = {0, 0, 0, 2, 0, 0, 15, 20};
   EXPECT_EQ(std::vector<int64_t>(ids, ids + input_ids.NumberOfElement()), expected_ids);
   EXPECT_EQ(std::vector<int64_t>(offsets, offsets + offset_mapping.NumberOfElement()), expected_offsets);
 }
