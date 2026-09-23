@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <cctype>
+
 #include "tokenizer_impl.h"
 namespace ort_extensions {
 
@@ -285,6 +287,10 @@ static json NormalizeTools(const char* tools_str) {
   }
 
   json raw_tools = json::parse(tools_str);
+  if (raw_tools.is_null()) {
+    return raw_tools;
+  }
+
   json normalized = json::array();
 
   for (auto& tool : raw_tools) {
@@ -320,6 +326,37 @@ static json NormalizeTools(const char* tools_str) {
   }
 
   return normalized;
+}
+
+/*
+ * Reports whether a chat template consumes tool definitions in their raw OpenAI shape.
+ *
+ * NormalizeTools() rewrites tools into the flat Phi-4/Minja shape, which is lossy: it
+ * unwraps {"type":"function","function":{...}}, drops "required", "enum", "items" and any
+ * nested property schema, and renames the "string" type to "str". That is only safe for
+ * templates written against the flat shape. Two families need the raw objects instead:
+ *
+ *   - Harmony/GPT-OSS templates, which reach into `tool.function` themselves.
+ *   - Qwen-style templates, which serialize each tool verbatim with `tool | tojson`.
+ *
+ * Feeding a normalized tool to the latter silently changes the prompt the model was
+ * trained on, so it emits argument values that violate the real schema.
+ */
+static bool TemplateWantsRawTools(const std::string& tmpl) {
+  if (tmpl.find("tool.function") != std::string::npos) {
+    return true;
+  }
+
+  // Whitespace around a Jinja filter is free-form, so compare without it.
+  std::string compact;
+  compact.reserve(tmpl.size());
+  for (char c : tmpl) {
+    if (!std::isspace(static_cast<unsigned char>(c))) {
+      compact.push_back(c);
+    }
+  }
+
+  return compact.find("tool|tojson") != std::string::npos || compact.find("tools|tojson") != std::string::npos;
 }
 
 /*
@@ -376,8 +413,9 @@ std::string normalize_tool_quotes(const std::string& input) {
 }
 
 OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
-                                            std::string& output, std::vector<extTokenId_t>& ids_vec,
-                                            bool add_generation_prompt, bool tokenize) const {
+                                            const char* template_kwargs, std::string& output,
+                                            std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt,
+                                            bool tokenize) const {
   OrtxStatus status;
   std::string input_str = minja::normalize_newlines(message);
 
@@ -408,21 +446,29 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       throw std::runtime_error("Invalid or unsupported chat template.");
     }
 
-    std::shared_ptr<minja::Context> context;
+    json context_values = json::object();
+    if (template_kwargs) {
+      if (*template_kwargs == '\0') {
+        throw std::runtime_error("template_kwargs must be a JSON object or null.");
+      }
+      auto parsed_kwargs = json::parse(minja::normalize_newlines(template_kwargs), nullptr,
+                                       /*allow_exceptions=*/false);
+      if (parsed_kwargs.is_discarded()) {
+        throw std::runtime_error("Invalid template_kwargs JSON.");
+      }
+      if (!parsed_kwargs.is_object()) {
+        throw std::runtime_error("template_kwargs must be a JSON object.");
+      }
+      context_values = std::move(parsed_kwargs);
+    }
 
     // Check Phi-4-mini tool call case for quote normalization
     bool phi_4_mini = false;
 
-    // Determine whether to skip tool normalization based on template content.
-    // GPT-OSS/Harmony templates access `tool.function` directly (they expect the raw OpenAI format),
-    // so NormalizeTools() would break them by unwrapping the function object.
-    // Other templates (Phi-4, Qwen) either use a flat format or access `tool_call.function`.
-    bool skip_tool_normalization = false;
-    {
-      std::string tmpl_str(activated_str);
-      // Look for "tool.function" in the template (Harmony/GPT-OSS expects raw OpenAI tool objects).
-      skip_tool_normalization = tmpl_str.find("tool.function") != std::string::npos;
-    }
+    // Templates that consume tool definitions in their raw OpenAI shape must receive them
+    // untouched, because NormalizeTools() unwraps the "function" object and flattens
+    // "parameters", which discards "required", "enum" and nested property schemas.
+    bool skip_tool_normalization = TemplateWantsRawTools(activated_str);
 
     // Case 1: Check if tools are inside messages (for Phi-4-mini)
     if (actual_messages.is_array()) {
@@ -432,7 +478,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
           phi_4_mini = true;
 
           if (skip_tool_normalization) {
-            // GPT-OSS/Harmony: parse tools as-is without normalization
+            // The template consumes the complete OpenAI schema, so parse tools as-is.
             const auto tools_text = message_obj["tools"].get<std::string>();
             json tools_json = json::parse(tools_text, nullptr, /*allow_exceptions=*/false);
             if (tools_json.is_discarded()) {
@@ -453,7 +499,7 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
       std::string tools_str = minja::normalize_newlines(tools);
       json tools_json;
       if (skip_tool_normalization) {
-        // GPT-OSS/Harmony: pass raw tools without normalization
+        // The template consumes the complete OpenAI schema, so parse tools as-is.
         tools_json = json::parse(tools_str, nullptr, /*allow_exceptions=*/false);
         if (tools_json.is_discarded()) {
           throw std::runtime_error("Invalid tools JSON.");
@@ -462,19 +508,15 @@ OrtxStatus TokenizerImpl::ApplyChatTemplate(const char* template_str, const char
         tools_json = NormalizeTools(tools_str.c_str());
       }
 
-      // Add tools to the context
-      context = minja::Context::make(json({
-          {"messages", actual_messages},
-          {"tools", tools_json},
-          {"add_generation_prompt", add_generation_prompt},
-      }));
+      context_values["tools"] = std::move(tools_json);
     } else {
-      // No tools input, just use the messages
-      context = minja::Context::make(json({
-          {"messages", actual_messages},
-          {"add_generation_prompt", add_generation_prompt},
-      }));
+      context_values.erase("tools");
     }
+
+    // Core request values take precedence over additional template kwargs.
+    context_values["messages"] = std::move(actual_messages);
+    context_values["add_generation_prompt"] = add_generation_prompt;
+    auto context = minja::Context::make(std::move(context_values));
 
     // Set required context values
     context->set("strftime_now", minja::Value::callable(strftime_function));

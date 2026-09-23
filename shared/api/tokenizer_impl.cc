@@ -116,12 +116,24 @@ OrtxStatus TokenizerImpl::UpdateOptions(const std::unordered_map<std::string, st
     if (v.empty()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Option value cannot be empty for key: " + k);
     }
+  }
 
-    // Insert new or update existing KV pair
-    options_map[k] = v;
+  std::lock_guard<std::mutex> lock(options_mutex_);
+  for (const auto& [k, v] : options) {
+    options_map_[k] = v;
   }
 
   return OrtxStatus(kOrtxOK, "Tokenizer options updated successfully.");
+}
+
+std::optional<std::string> TokenizerImpl::GetOption(const std::string& name) const {
+  std::lock_guard<std::mutex> lock(options_mutex_);
+  const auto option = options_map_.find(name);
+  if (option == options_map_.end()) {
+    return std::nullopt;
+  }
+
+  return option->second;
 }
 
 OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input,

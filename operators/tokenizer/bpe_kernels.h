@@ -5,6 +5,7 @@
 
 #include <list>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <functional>
@@ -84,8 +85,9 @@ struct KernelBpeTokenizer {
   uint32_t spm_underscore_id_ = 0xFFFFFFFF;
   bool spm_token_ids_valid_ = false;
 
-  // Cached compiled pre-tokenizer splitters (compiled once, reused per call)
+  // Cached compiled pre-tokenizer splitters (compiled once, reused per call via CreateCursor())
   mutable std::unique_ptr<CachedSplitters> cached_splitters_;
+  mutable std::once_flag compile_pretokenizer_flag_;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {

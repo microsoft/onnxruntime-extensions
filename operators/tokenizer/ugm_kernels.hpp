@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <map>
 #include <set>
 #include <list>
@@ -14,8 +15,7 @@
 #include <cstring>
 #include <functional>
 #include <unordered_map>
-#include <cwctype>
-#include <locale>
+#include <utility>
 
 #include "ortx_tokenizer.h"
 #include "ext_status.h"
@@ -27,6 +27,7 @@
 #include "trietree.hpp"
 #include "tokenizer_jsconfig.hpp"
 #include "case_encoder.h"
+#include "unicode.h"
 
 namespace ort_extensions {
 
@@ -111,8 +112,13 @@ struct SpmUgmTokenizer {
 
       // Remaining bytes of precompiled charsmap contain null-terminated
       // replacement strings for prefixes matched by the XCDA.
-      prefix_replacements_ = reinterpret_cast<const char*>(&charsmap_data_[charsmap_offset]);
+      prefix_replacements_ = reinterpret_cast<const char*>(charsmap_data_.data() + charsmap_offset);
       prefix_replacements_size_ = charsmap_data_.size() - charsmap_offset;
+      if ((xcda_array_size_ > 0 && prefix_replacements_size_ == 0) ||
+          (prefix_replacements_size_ > 0 && charsmap_data_.back() != 0)) {
+        return OrtxStatus(extError_t::kOrtxErrorCorruptData,
+                          "Precompiled charsmap replacement strings must be NUL-terminated.");
+      }
     }
 
     return {};
@@ -535,7 +541,13 @@ struct SpmUgmTokenizer {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, static_cast<int>(longest_prefix_length)};
+      const void* terminator = std::memchr(prefix_replacement, 0,
+                                           prefix_replacements_size_ - longest_prefix_offset);
+      if (terminator == nullptr) {
+        ORTX_CXX_API_THROW("[UgmTok]Unterminated replacement in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      const auto replacement_length = static_cast<size_t>(static_cast<const char*>(terminator) - prefix_replacement);
+      return {std::string_view(prefix_replacement, replacement_length), static_cast<int>(longest_prefix_length)};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = ustring::UTF8Len(input_view[0]);
@@ -691,7 +703,13 @@ struct SpmUgmTokenizer {
         ORTX_CXX_API_THROW("[UgmTok]Index out of array bounds in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
       }
       const char* prefix_replacement = &prefix_replacements_[longest_prefix_offset];
-      return {prefix_replacement, strlen(prefix_replacement), longest_prefix_length};
+      const void* terminator = std::memchr(prefix_replacement, 0,
+                                           prefix_replacements_size_ - longest_prefix_offset);
+      if (terminator == nullptr) {
+        ORTX_CXX_API_THROW("[UgmTok]Unterminated replacement in precompiled charsmap!", ORT_RUNTIME_EXCEPTION);
+      }
+      const auto replacement_length = static_cast<size_t>(static_cast<const char*>(terminator) - prefix_replacement);
+      return {prefix_replacement, replacement_length, longest_prefix_length};
     } else {
       // if yes, return this sequence unmodified
       size_t prefix_offset = input_offset + ustring::UTF8Len(input[input_offset]);
@@ -780,8 +798,9 @@ class SpmUgmDecoder {
 
     std::vector<std::string> decoded_strings;
     decoded_strings.reserve(string_batch);
-    TokenizerDecodingState* state{};
     for (auto n = string_batch; n > 0; n--) {
+      TokenizerDecodingState row_state;
+      TokenizerDecodingState* state = &row_state;
       std::string text;
       for (int64_t i = 0; i < seq_len; ++i) {
         std::string token;
@@ -789,25 +808,28 @@ class SpmUgmDecoder {
         text += token;
       }
 
+      if (state != nullptr) {
+        text += std::exchange(state->incomplete_utf8_, {});
+      }
       if (tokenizer_add_space_prefix_) {
         if (text.length() > 0 && text[0] == ' ') {
           text = text.substr(1);
         }
       }
 
-      if (case_encoding_ && text.back() == ' ') {
+      if (case_encoding_ && !text.empty() && text.back() == ' ') {
         text.pop_back();
       }
       decoded_strings.push_back(text);
+      p_ids += seq_len;
     }
 
-    std::unique_ptr<TokenizerDecodingState> decoding_state(state);
     output.SetStringOutput(decoded_strings, output_dim);
     return {};
   }
 
   // Helper: Decode first UTF-8 codepoint
-  bool DecodeFirstUTF8Codepoint(const std::string& utf8, wchar_t& codepoint, size_t& char_len) const {
+  bool DecodeFirstUTF8Codepoint(const std::string& utf8, char32_t& codepoint, size_t& char_len) const {
     unsigned char lead = static_cast<unsigned char>(utf8[0]);
     if (lead < 0x80) {
       codepoint = lead;
@@ -832,15 +854,18 @@ class SpmUgmDecoder {
     } else {
       return false;
     }
+    if (char_len > 1 &&
+        ustring::ValidateUTF8(utf8.substr(0, char_len)) != static_cast<ptrdiff_t>(char_len)) {
+      return false;
+    }
     return true;
   }
 
-  // Helper: Encode a wchar_t as UTF-8
-  std::string EncodeUTF8(wchar_t wc) const {
+  // Helper: Encode a Unicode codepoint as UTF-8
+  std::string EncodeUTF8(char32_t codepoint) const {
     std::string out;
 
-    // Promote wchar_t to uint32_t to avoid data loss from shift operations and silence warning C4333
-    uint32_t u = static_cast<uint32_t>(wc);
+    uint32_t u = static_cast<uint32_t>(codepoint);
 
     if (u < 0x80) {
       out += static_cast<char>(u);
@@ -865,19 +890,12 @@ class SpmUgmDecoder {
   void TitlecaseFirstCharacter(std::string& token) const {
     if (token.empty()) return;
 
-    wchar_t codepoint;
+    char32_t codepoint;
     size_t char_len = 0;
 
     if (!DecodeFirstUTF8Codepoint(token, codepoint, char_len)) return;
 
-    // Unicode-aware titlecasing for Cyrillic
-    if (codepoint >= L'а' && codepoint <= L'я') {
-      codepoint = codepoint - (L'а' - L'А');  // Convert to uppercase
-    } else if (codepoint == L'ё') {
-      codepoint = L'Ё';  // Special case
-    } else {
-      codepoint = std::towupper(codepoint);  // Fallback (Latin, etc.)
-    }
+    codepoint = ufal::unilib::unicode::titlecase(codepoint);
 
     std::string prefix = EncodeUTF8(codepoint);
     std::string suffix = token.substr(char_len);
@@ -892,21 +910,21 @@ class SpmUgmDecoder {
     }
 
     if (special_token_ids_.count(id)) {
-      token = "";
+      token = std::exchange((*state)->incomplete_utf8_, {});
       return {};
     }
 
     if (id >= vocab_.size()) {
-      token = unknown_token_;
+      token = std::exchange((*state)->incomplete_utf8_, {}) + unknown_token_;
       return {};
     }
 
-    const std::string& piece = vocab_[id];
+    const std::string& vocabulary_piece = vocab_[id];
 
     if (!case_encoding_) {
       // Non-Marian unigram path: just rewrite the SPM space marker and
       // emit the piece verbatim.
-      token = piece;
+      token = vocabulary_piece;
       auto pos = token.find(spm_escaped_space);
       if (pos == 0) {
         token = std::string(" ") + token.substr(spm_escaped_space.length());
@@ -933,6 +951,11 @@ class SpmUgmDecoder {
     // following lowercase run (e.g. "PPV-mp" decoded as "PPV-MP" instead
     // of "PPV-mp").
 
+    std::string buffered_piece = std::exchange((*state)->incomplete_utf8_, {});
+    if (!buffered_piece.empty()) {
+      buffered_piece += vocabulary_piece;
+    }
+    const std::string& piece = buffered_piece.empty() ? vocabulary_piece : buffered_piece;
     token.clear();
     token.reserve(piece.size());
 
@@ -940,19 +963,11 @@ class SpmUgmDecoder {
 
     auto uppercase_codepoint = [this](std::string& cp_utf8) {
       if (cp_utf8.empty()) return;
-      wchar_t codepoint = 0;
+      char32_t codepoint = 0;
       size_t char_len = 0;
       if (!DecodeFirstUTF8Codepoint(cp_utf8, codepoint, char_len)) return;
       (void)char_len;
-      // Match TitlecaseFirstCharacter's special-cases.
-      if (codepoint >= L'\u0430' && codepoint <= L'\u044f') {
-        codepoint = codepoint - (L'\u0430' - L'\u0410');
-      } else if (codepoint == L'\u0451') {
-        codepoint = L'\u0401';
-      } else {
-        codepoint = static_cast<wchar_t>(
-            std::towupper(static_cast<wint_t>(codepoint)));
-      }
+      codepoint = ufal::unilib::unicode::uppercase(codepoint);
       cp_utf8 = EncodeUTF8(codepoint);
     };
 
@@ -975,6 +990,18 @@ class SpmUgmDecoder {
       }
 
       const unsigned char ch = static_cast<unsigned char>(piece[i]);
+
+      const size_t expected_length = ch >= 0xC2 && ch <= 0xDF ? 2
+                                     : ch >= 0xE0 && ch <= 0xEF ? 3
+                                     : ch >= 0xF0 && ch <= 0xF4 ? 4
+                                                               : 1;
+      if (n - i < expected_length &&
+          std::all_of(piece.begin() + i + 1, piece.end(), [](unsigned char byte) {
+            return (byte & 0xC0) == 0x80;
+          })) {
+        (*state)->incomplete_utf8_ = piece.substr(i);
+        break;
+      }
 
       // Single-byte ASCII marker dispatch.
       if (ch == normalizer::cUppercase) {
@@ -1005,7 +1032,7 @@ class SpmUgmDecoder {
 
       // Real codepoint: use DecodeFirstUTF8Codepoint for robust byte-
       // length detection (handles malformed / truncated sequences).
-      wchar_t codepoint = 0;
+      char32_t codepoint = 0;
       size_t cp_len = 0;
       std::string remaining = piece.substr(i);
       if (!DecodeFirstUTF8Codepoint(remaining, codepoint, cp_len) || cp_len == 0) {
@@ -1015,7 +1042,9 @@ class SpmUgmDecoder {
         continue;
       }
 
-      const bool is_letter = std::iswalpha(static_cast<wint_t>(codepoint)) != 0;
+      const bool is_letter =
+          (ufal::unilib::unicode::category(codepoint) &
+           ufal::unilib::unicode::L) != 0;
 
       if (is_letter && (mode == normalizer::cTitlecase ||
                         mode == normalizer::cUppercase ||

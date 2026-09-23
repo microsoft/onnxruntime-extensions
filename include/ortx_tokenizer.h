@@ -87,6 +87,11 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
  *   - Default: `"true"`
  *
+ * - `chat_template_kwargs`
+ *   - Purpose: Adds typed values to the chat template context;
+ *   - Values: A serialized JSON object, such as `{"enable_thinking":false}`;
+ *   - Default: `{}`. Set the value to `{}` to clear previously configured values.
+ *
  * Future tokenizer options may be added without changing this API signature.
  *
  * \see OrtxUpdateTokenizerOptions for updating options on an existing tokenizer.
@@ -126,6 +131,11 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  *   - Purpose: Controls whether to remove special tokens during detokenization;
  *   - Values: `"true"` / `"false"` or `"1"` / `"0"`;
  *   - Default: `"true"`
+ *
+ * - `chat_template_kwargs`
+ *   - Purpose: Adds typed values to the chat template context;
+ *   - Values: A serialized JSON object, such as `{"enable_thinking":false}`;
+ *   - Default: `{}`. Set the value to `{}` to clear previously configured values.
  *
  * Future tokenizer options may be added without changing this API signature.
  * 
@@ -275,6 +285,29 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
 extError_t ORTX_API_CALL OrtxApplyChatTemplate(const OrtxTokenizer* tokenizer, const char* template_str,
                                                const char* input, const char* tools, OrtxTensorResult** output,
                                                bool add_generation_prompt, bool tokenize);
+
+/**
+ * @brief Applies a chat template with per-call template context values.
+ *
+ * This compatibility API preserves the per-call behavior introduced in #1102.
+ * New callers should prefer configuring `chat_template_kwargs` through
+ * OrtxUpdateTokenizerOptions and then calling OrtxApplyChatTemplate.
+ *
+ * @param tokenizer Pointer to an OrtxTokenizer used for template processing.
+ * @param template_str Null-terminated string representing the chat template; can be null if tokenizer.json has one.
+ * @param input Null-terminated string containing the input to be processed.
+ * @param tools Null-terminated string containing the function tools.
+ * @param template_kwargs Null-terminated JSON object containing additional template context values; can be null.
+ * @param output Pointer to an OrtxTensorResult that will be populated with the output strings,
+ *        if tokenize is true, the ids will be in the output as indexed 1.
+ * @param add_generation_prompt Indicates whether to add a generation prompt to the output.
+ * @param tokenize Indicates whether to tokenize the templated text to IDs.
+ * @return extError_t Returns an error code indicating success or the type of failure.
+ */
+extError_t ORTX_API_CALL OrtxApplyChatTemplateWithOptions(const OrtxTokenizer* tokenizer, const char* template_str,
+                                                          const char* input, const char* tools,
+                                                          const char* template_kwargs, OrtxTensorResult** output,
+                                                          bool add_generation_prompt, bool tokenize);
 
 #ifdef __cplusplus
 }

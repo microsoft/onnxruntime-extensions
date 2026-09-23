@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <mutex>
+#include <optional>
 #include <variant>
 
 #include "bpe_kernels.h"
@@ -24,6 +26,7 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Load(const OrtxTokenizerBlob& blob);
 
   OrtxStatus UpdateOptions(const std::unordered_map<std::string, std::string>& options);
+  std::optional<std::string> GetOption(const std::string& name) const;
 
   OrtxStatus Tokenize(const std::vector<std::string_view>& input, std::vector<std::vector<extTokenId_t>>& t_ids, bool add_special_tokens = true) const {
     return BatchEncode(input, t_ids, add_special_tokens);
@@ -64,8 +67,6 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   mutable std::string tool_calls;
 
-  std::unordered_map<std::string, std::string> options_map;
-
   std::string bos_token;
   std::string eos_token;
   std::vector<std::string> custom_tools;
@@ -89,10 +90,14 @@ class TokenizerImpl : public OrtxObjectImpl {
   OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens) const;
   OrtxStatus GetDecoderPromptIds(size_t batch_size, const char* lang, const char* task, int no_timestamps,
                                  std::vector<std::vector<extTokenId_t>>& t_ids) const;
-  OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools, std::string& output,
+  OrtxStatus ApplyChatTemplate(const char* template_str, const char* message, const char* tools,
+                               const char* template_kwargs, std::string& output,
                                std::vector<extTokenId_t>& ids_vec, bool add_generation_prompt, bool tokenize) const;
 
  private:
+  mutable std::mutex options_mutex_;
+  std::unordered_map<std::string, std::string> options_map_;
+
   OrtxStatus LoadTokenizer(const OrtxTokenizerBlob* blob = nullptr);
   OrtxStatus LoadChatTemplate();
 
