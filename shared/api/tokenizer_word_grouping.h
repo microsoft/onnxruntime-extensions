@@ -9,20 +9,9 @@
 #include <string_view>
 #include <vector>
 
+#include "tokenizer_common.h"
+
 namespace ort_extensions {
-
-enum class WordBoundaryStyle {
-  SentencePiece,
-  PrefixBpe,
-  SuffixBpe,
-};
-
-struct TokenizerWordPieceInfo {
-  std::string_view encoded_piece;
-  WordBoundaryStyle boundary_style{WordBoundaryStyle::SentencePiece};
-  bool is_special{};
-  bool ends_word{};
-};
 
 struct CompletedTokenizerWord {
   std::string text;

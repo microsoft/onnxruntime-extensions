@@ -128,7 +128,8 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  * - `track_timestamp_metadata`
  *   - Values: `"true"` / `"false"` or `"1"` / `"0"`; default `"false"`.
  *   - Enables exact-text word events and token spans in cached metadata decoding.
- *   - Snapshotted on the first metadata decode; updates affect only new caches.
+ *   - Snapshotted on the first metadata decode, not cache creation. Updates affect
+ *     caches that have not performed a metadata decode yet, including existing unused caches.
  *
  * Future tokenizer options may be added without changing this API signature.
  *
@@ -178,7 +179,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  * Future tokenizer options may be added without changing this API signature.
  * 
  * `track_timestamp_metadata` is also supported; see OrtxCreateTokenizerWithOptions.
- * Existing metadata caches keep their initial tracking setting.
+ * Caches that have performed a metadata decode keep their initial tracking setting.
  *
  */
 extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[], const char* option_values[], size_t num_options);
@@ -263,6 +264,9 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
  *
  * The decoded fragment is identical to OrtxDetokenizeCached. The metadata object is cache-owned,
  * never null on success. Read typed members directly; no lookup or reconstruction is needed.
+ * Tokenizer options configure tracking; results belong to the individual cache, not the
+ * shared tokenizer. Independent caches may decode concurrently while options are updated.
+ * Operations on one cache and reads of its borrowed output must be externally serialized.
  *
  * With track_timestamp_metadata enabled, timestampMetadata points to a borrowed OrtxTimestampMetadata.
  * Its words preserve whitespace/punctuation and half-open token spans [start, stop).

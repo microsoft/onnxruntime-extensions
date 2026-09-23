@@ -28,6 +28,7 @@
 #include "tokenizer_jsconfig.hpp"
 #include "case_encoder.h"
 #include "unicode.h"
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 
@@ -768,11 +769,18 @@ class SpmUgmDecoder {
     return {};
   }
 
-  std::string_view GetEncodedPiece(extTokenId_t id) const {
-    return static_cast<size_t>(id) < vocab_.size() ? std::string_view{vocab_[id]} : std::string_view{};
+  OrtxStatus GetWordPieceInfo(extTokenId_t id, TokenizerWordPieceInfo& info) const {
+    info = {};
+    info.encoded_piece = static_cast<size_t>(id) < vocab_.size() ? std::string_view{vocab_[id]} : std::string_view{};
+    info.is_special = special_token_ids_.count(id) != 0;
+    info.boundary_style = tokenizer_treat_whitespace_as_suffix_ ? WordBoundaryStyle::SuffixBpe
+                                                              : WordBoundaryStyle::SentencePiece;
+    info.ends_word = tokenizer_treat_whitespace_as_suffix_ &&
+                     info.encoded_piece.size() > spm_escaped_space.size() &&
+                     info.encoded_piece.compare(info.encoded_piece.size() - spm_escaped_space.size(),
+                                                spm_escaped_space.size(), spm_escaped_space) == 0;
+    return {};
   }
-  bool IsSpecialToken(extTokenId_t id) const { return special_token_ids_.count(id) != 0; }
-  bool TreatWhitespaceAsSuffix() const { return tokenizer_treat_whitespace_as_suffix_; }
 
   OrtxStatus Compute(const ortc::Tensor<int64_t>& ids, ortc::Tensor<std::string>& output, std::optional<bool> add_special_tokens) const {
     const int64_t* p_ids = ids.Data();

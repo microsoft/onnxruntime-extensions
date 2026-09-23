@@ -13,7 +13,7 @@
 #include "bpe_streaming.hpp"
 #include "c_api_utils.hpp"
 #include "minja.hpp"
-#include "tokenizer_word_grouping.h"
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 

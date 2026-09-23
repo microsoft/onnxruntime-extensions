@@ -157,6 +157,64 @@ TEST(CApiTest, MetadataCachesAreIndependentAcrossThreads) {
   EXPECT_EQ(second.get(), " the test.");
 }
 
+TEST(CApiTest, ConcurrentOptionUpdatesPreserveStreamTrackingSettings) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+  OrtxObjectPtr<OrtxDetokenizerCache> enabled;
+  OrtxObjectPtr<OrtxDetokenizerCache> disabled;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(enabled.ToBeAssigned())), kOrtxOK);
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(disabled.ToBeAssigned())), kOrtxOK);
+  const char* text = nullptr;
+  const OrtxMetadata* metadata = nullptr;
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), disabled.get(), 910, &text, &metadata), kOrtxOK);
+  EXPECT_EQ(metadata->timestampMetadata, nullptr);
+  EnableTimestampMetadata(tokenizer.get());
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), enabled.get(), 910, &text, &metadata), kOrtxOK);
+  ASSERT_NE(metadata->timestampMetadata, nullptr);
+
+  std::promise<void> start;
+  const auto ready = start.get_future().share();
+  const auto decode = [&tokenizer, ready](OrtxDetokenizerCache* cache, bool tracking) {
+    ready.wait();
+    std::string decoded = " This";
+    std::string completed;
+    const extTokenId_t ids[] = {338, 263, 1243};
+    for (size_t index = 0; index < 128; ++index) {
+      const char* fragment = nullptr;
+      const OrtxMetadata* result = nullptr;
+      ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, ids[index % 3],
+                                                &fragment, &result), kOrtxOK);
+      decoded += fragment;
+      ASSERT_EQ(result->timestampMetadata != nullptr, tracking);
+      if (tracking) {
+        for (const auto& word : MetadataWords(result)) completed += word.text;
+      }
+    }
+    const OrtxMetadata* trailing = nullptr;
+    ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &trailing), kOrtxOK);
+    ASSERT_EQ(trailing->timestampMetadata != nullptr, tracking);
+    if (tracking) {
+      for (const auto& word : MetadataWords(trailing)) completed += word.text;
+      EXPECT_EQ(completed, decoded);
+      EXPECT_EQ(trailing->timestampMetadata->first_pending_token_index, 129U);
+    }
+  };
+  auto enabled_stream = std::async(std::launch::async, decode, enabled.get(), true);
+  auto disabled_stream = std::async(std::launch::async, decode, disabled.get(), false);
+  auto updates = std::async(std::launch::async, [&tokenizer, ready] {
+    ready.wait();
+    const char* keys[] = {"track_timestamp_metadata"};
+    for (size_t index = 0; index < 128; ++index) {
+      const char* values[] = {index % 2 == 0 ? "false" : "true"};
+      ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK);
+    }
+  });
+  start.set_value();
+  enabled_stream.get();
+  disabled_stream.get();
+  updates.get();
+}
+
 TEST(CApiTest, ApiTest) {
   int ver = OrtxGetAPIVersion();
   EXPECT_GT(ver, 0);

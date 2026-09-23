@@ -12,6 +12,7 @@
 #endif
 
 #include "shared/api/tokenizer_impl.h"
+#include "shared/api/tokenizer_word_grouping.h"
 #include "bpe_utils.hpp"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
@@ -160,6 +161,27 @@ TEST(TokenizerWordGroupingTest, EmptyDecoderOutputRetainsContributingTokenSpan) 
   EXPECT_EQ(grouping.CompletedWords()[0].text, "é");
   EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
   EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
+}
+
+TEST(TokenizerWordGroupingTest, SkippedSpecialTokenDoesNotExtendBufferedWordSpan) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<special>", ort_extensions::WordBoundaryStyle::PrefixBpe, true, false}, "");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+  grouping.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+  grouping.Finalize();
+
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "\xC3\xA9");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 3u);
 }
 
 TEST(TokenizerWordGroupingTest, FinalizeDiscardsTrailingEmptyDecoderOutput) {

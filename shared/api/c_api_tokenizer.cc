@@ -8,29 +8,9 @@
 
 #include "c_api_utils.hpp"
 #include "tokenizer_impl.h"
+#include "tokenizer_stream_state.h"
 
 using namespace ort_extensions;
-
-enum class DetokenizerCacheMode {
-  Unset,
-  Text,
-  Metadata,
-};
-
-class DetokenizerCache : public OrtxObjectImpl {
- public:
-  DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
-  ~DetokenizerCache() override = default;
-
-  std::unique_ptr<TokenizerDecodingState> decoder_state_{};
-  std::string last_text_{};  // last detokenized text
-  std::unique_ptr<TokenizerWordGroupingState> word_grouping_cache_{};
-  std::optional<bool> track_timestamp_metadata_;
-  OrtxMetadata metadata_{};
-  std::vector<OrtxTimestampWordMetadata> word_views_;
-  OrtxTimestampMetadata detokenize_metadata_{};
-  DetokenizerCacheMode mode_{DetokenizerCacheMode::Unset};
-};
 
 template <>
 OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
@@ -482,34 +462,6 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
   return extError_t();
 }
 
-static extError_t SetDetokenizerCacheMode(DetokenizerCache& cache, DetokenizerCacheMode requested_mode) {
-  if (cache.mode_ == DetokenizerCacheMode::Unset) {
-    cache.mode_ = requested_mode;
-    return kOrtxOK;
-  }
-  if (cache.mode_ == requested_mode) {
-    return kOrtxOK;
-  }
-
-  ReturnableStatus::last_error_message_ =
-      "Cannot mix OrtxDetokenizeCached and OrtxDetokenizeCachedWithMetadata on the same cache. "
-      "Destroy and recreate the detokenizer cache to switch modes.";
-  return kOrtxErrorInvalidArgument;
-}
-
-static void UpdateTimestampMetadataView(DetokenizerCache& cache) {
-  if (cache.metadata_.timestampMetadata) {
-    cache.word_views_.clear();
-    cache.word_views_.reserve(cache.word_grouping_cache_->CompletedWords().size());
-    for (const auto& word : cache.word_grouping_cache_->CompletedWords()) {
-      cache.word_views_.push_back({word.text.c_str(), word.start_token_index,
-                                   word.stop_token_index});
-    }
-    cache.detokenize_metadata_ = {cache.word_views_.data(), cache.word_views_.size(),
-                                  cache.word_grouping_cache_->FirstPendingTokenIndex()};
-  }
-}
-
 static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
                                        extTokenId_t next_id, const char** text_out,
                                        const OrtxMetadata** metadata_out) {
@@ -532,17 +484,17 @@ static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetok
 
   const auto requested_mode = metadata_out == nullptr ? DetokenizerCacheMode::Text
                                                        : DetokenizerCacheMode::Metadata;
-  const extError_t mode_status = SetDetokenizerCacheMode(*cache_ptr, requested_mode);
+  const extError_t mode_status = cache_ptr->SetMode(requested_mode);
   if (mode_status != kOrtxOK) {
     return mode_status;
   }
 
   cache_ptr->last_text_.clear();
 
-  if (metadata_out != nullptr && !cache_ptr->track_timestamp_metadata_.has_value()) {
-    cache_ptr->track_timestamp_metadata_ = ParseBoolOption(token_ptr->GetOption("track_timestamp_metadata"), false);
+  if (metadata_out != nullptr && !cache_ptr->HasTimestampTrackingSetting()) {
+    cache_ptr->ConfigureTimestampTracking(ParseBoolOption(token_ptr->GetOption("track_timestamp_metadata"), false));
   }
-  const bool track_words = metadata_out != nullptr && cache_ptr->track_timestamp_metadata_.value_or(false);
+  const bool track_words = metadata_out != nullptr && cache_ptr->TracksTimestamps();
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
   bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
@@ -560,14 +512,9 @@ static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetok
     *text_out = cache_ptr->last_text_.c_str();
     if (metadata_out != nullptr) {
       if (track_words) {
-        if (!cache_ptr->word_grouping_cache_) {
-          cache_ptr->word_grouping_cache_ = std::make_unique<TokenizerWordGroupingState>();
-          cache_ptr->metadata_.timestampMetadata = &cache_ptr->detokenize_metadata_;
-        }
-        cache_ptr->word_grouping_cache_->Consume(piece_info, cache_ptr->last_text_);
-        UpdateTimestampMetadataView(*cache_ptr);
+        cache_ptr->ConsumeTimestamp(piece_info, cache_ptr->last_text_);
       }
-      *metadata_out = &cache_ptr->metadata_;
+      *metadata_out = &cache_ptr->Metadata();
     }
   }
 
@@ -601,14 +548,11 @@ extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
   ReturnableStatus status(cache_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindDetokenizerCache));
   if (!status.IsOk()) return status.Code();
 
-  const extError_t mode_status = SetDetokenizerCacheMode(*cache_ptr, DetokenizerCacheMode::Metadata);
+  const extError_t mode_status = cache_ptr->SetMode(DetokenizerCacheMode::Metadata);
   if (mode_status != kOrtxOK) return mode_status;
 
-  if (cache_ptr->metadata_.timestampMetadata) {
-    cache_ptr->word_grouping_cache_->Finalize();
-    UpdateTimestampMetadataView(*cache_ptr);
-  }
-  *metadata_out = &cache_ptr->metadata_;
+  cache_ptr->FinalizeMetadata();
+  *metadata_out = &cache_ptr->Metadata();
   return kOrtxOK;
 }
 

@@ -187,22 +187,7 @@ OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, Tokenize
 
 OrtxStatus TokenizerImpl::GetWordPieceInfo(extTokenId_t id, TokenizerWordPieceInfo& info) const {
   return std::visit([&](auto& detokenizer) -> OrtxStatus {
-    using Decoder = std::decay_t<decltype(detokenizer)>;
-    if constexpr (std::is_same_v<Decoder, bpe_decoder_t>) {
-      return detokenizer->GetWordPieceInfo(id, info);
-    } else {
-      info = {};
-      info.encoded_piece = detokenizer->GetEncodedPiece(id);
-      info.is_special = detokenizer->IsSpecialToken(id);
-      info.boundary_style = detokenizer->TreatWhitespaceAsSuffix()
-                                ? WordBoundaryStyle::SuffixBpe
-                                : WordBoundaryStyle::SentencePiece;
-      info.ends_word = detokenizer->TreatWhitespaceAsSuffix() &&
-                       info.encoded_piece.size() > spm_escaped_space.size() &&
-                       info.encoded_piece.compare(info.encoded_piece.size() - spm_escaped_space.size(),
-                                                  spm_escaped_space.size(), spm_escaped_space) == 0;
-      return {};
-    }
+    return detokenizer->GetWordPieceInfo(id, info);
   }, detokenizer_);
 }
 
