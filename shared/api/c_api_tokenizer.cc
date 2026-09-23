@@ -11,11 +11,6 @@
 
 using namespace ort_extensions;
 
-struct StreamingWordGroupingCache {
-  TokenizerWordGroupingState state;
-  std::vector<OrtxDetokenizedWord> word_views;
-};
-
 enum class DetokenizerCacheMode {
   Unset,
   Text,
@@ -29,7 +24,11 @@ class DetokenizerCache : public OrtxObjectImpl {
 
   std::unique_ptr<TokenizerDecodingState> decoder_state_{};
   std::string last_text_{};  // last detokenized text
-  std::unique_ptr<StreamingWordGroupingCache> word_grouping_cache_{};
+  std::unique_ptr<TokenizerWordGroupingState> word_grouping_cache_{};
+  std::optional<bool> track_timestamp_metadata_;
+  OrtxMetadata metadata_{};
+  std::vector<OrtxTimestampWordMetadata> word_views_;
+  OrtxTimestampMetadata detokenize_metadata_{};
   DetokenizerCacheMode mode_{DetokenizerCacheMode::Unset};
 };
 
@@ -68,6 +67,7 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
   static const std::unordered_set<std::string> valid_keys = {
       "add_special_tokens",
       "skip_special_tokens",
+      "track_timestamp_metadata",
       "chat_template_kwargs"
   };
 
@@ -97,6 +97,13 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
     if (valid_keys.find(key) == valid_keys.end()) {
       ReturnableStatus::last_error_message_ =
           "Invalid tokenizer option key: " + key;
+      return {};
+    }
+
+    if (key == "track_timestamp_metadata" && std::string(values[i]) != "true" &&
+        std::string(values[i]) != "false" && std::string(values[i]) != "1" &&
+        std::string(values[i]) != "0") {
+      ReturnableStatus::last_error_message_ = "track_timestamp_metadata must be true, false, 1, or 0.";
       return {};
     }
 
@@ -490,9 +497,22 @@ static extError_t SetDetokenizerCacheMode(DetokenizerCache& cache, DetokenizerCa
   return kOrtxErrorInvalidArgument;
 }
 
+static void UpdateTimestampMetadataView(DetokenizerCache& cache) {
+  if (cache.metadata_.timestampMetadata) {
+    cache.word_views_.clear();
+    cache.word_views_.reserve(cache.word_grouping_cache_->CompletedWords().size());
+    for (const auto& word : cache.word_grouping_cache_->CompletedWords()) {
+      cache.word_views_.push_back({word.text.c_str(), word.start_token_index,
+                                   word.stop_token_index});
+    }
+    cache.detokenize_metadata_ = {cache.word_views_.data(), cache.word_views_.size(),
+                                  cache.word_grouping_cache_->FirstPendingTokenIndex()};
+  }
+}
+
 static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
                                        extTokenId_t next_id, const char** text_out,
-                                       OrtxDetokenizeMetadata* metadata_out) {
+                                       const OrtxMetadata** metadata_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -519,11 +539,16 @@ static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetok
 
   cache_ptr->last_text_.clear();
 
+  if (metadata_out != nullptr && !cache_ptr->track_timestamp_metadata_.has_value()) {
+    cache_ptr->track_timestamp_metadata_ = ParseBoolOption(token_ptr->GetOption("track_timestamp_metadata"), false);
+  }
+  const bool track_words = metadata_out != nullptr && cache_ptr->track_timestamp_metadata_.value_or(false);
+
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
   bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
   TokenizerWordPieceInfo piece_info;
-  if (metadata_out != nullptr) {
-    *metadata_out = {};
+  if (metadata_out != nullptr) *metadata_out = nullptr;
+  if (track_words) {
     status = ReturnableStatus(token_ptr->GetWordPieceInfo(next_id, piece_info));
     if (!status.IsOk()) return status.Code();
   }
@@ -534,21 +559,15 @@ static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetok
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
     if (metadata_out != nullptr) {
-      if (!cache_ptr->word_grouping_cache_) {
-        cache_ptr->word_grouping_cache_ = std::make_unique<StreamingWordGroupingCache>();
+      if (track_words) {
+        if (!cache_ptr->word_grouping_cache_) {
+          cache_ptr->word_grouping_cache_ = std::make_unique<TokenizerWordGroupingState>();
+          cache_ptr->metadata_.timestampMetadata = &cache_ptr->detokenize_metadata_;
+        }
+        cache_ptr->word_grouping_cache_->Consume(piece_info, cache_ptr->last_text_);
+        UpdateTimestampMetadataView(*cache_ptr);
       }
-      auto& grouping = *cache_ptr->word_grouping_cache_;
-      grouping.state.Consume(piece_info, cache_ptr->last_text_);
-      const auto& words = grouping.state.CompletedWords();
-      grouping.word_views.clear();
-      grouping.word_views.reserve(words.size());
-      for (const auto& word : words) {
-        grouping.word_views.push_back({word.text.c_str(), word.start_token_index,
-                                       word.stop_token_index});
-      }
-      metadata_out->words = grouping.word_views.data();
-      metadata_out->word_count = grouping.word_views.size();
-      metadata_out->first_pending_token_index = grouping.state.FirstPendingTokenIndex();
+      *metadata_out = &cache_ptr->metadata_;
     }
   }
 
@@ -564,7 +583,7 @@ extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* t
                                                           OrtxDetokenizerCache* cache,
                                                           extTokenId_t next_id,
                                                           const char** text_out,
-                                                          OrtxDetokenizeMetadata* metadata_out) {
+                                                          const OrtxMetadata** metadata_out) {
   if (metadata_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -573,7 +592,7 @@ extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* t
 }
 
 extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
-    OrtxDetokenizerCache* cache, OrtxDetokenizeMetadata* metadata_out) {
+    OrtxDetokenizerCache* cache, const OrtxMetadata** metadata_out) {
   if (cache == nullptr || metadata_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -585,20 +604,11 @@ extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
   const extError_t mode_status = SetDetokenizerCacheMode(*cache_ptr, DetokenizerCacheMode::Metadata);
   if (mode_status != kOrtxOK) return mode_status;
 
-  *metadata_out = {};
-  if (!cache_ptr->word_grouping_cache_) return kOrtxOK;
-  auto& grouping = *cache_ptr->word_grouping_cache_;
-  grouping.state.Finalize();
-  const auto& words = grouping.state.CompletedWords();
-  grouping.word_views.clear();
-  grouping.word_views.reserve(words.size());
-  for (const auto& word : words) {
-    grouping.word_views.push_back({word.text.c_str(), word.start_token_index,
-                                   word.stop_token_index});
+  if (cache_ptr->metadata_.timestampMetadata) {
+    cache_ptr->word_grouping_cache_->Finalize();
+    UpdateTimestampMetadataView(*cache_ptr);
   }
-  metadata_out->words = grouping.word_views.data();
-  metadata_out->word_count = grouping.word_views.size();
-  metadata_out->first_pending_token_index = grouping.state.FirstPendingTokenIndex();
+  *metadata_out = &cache_ptr->metadata_;
   return kOrtxOK;
 }
 

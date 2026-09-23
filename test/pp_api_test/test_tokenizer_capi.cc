@@ -7,14 +7,155 @@
 #include <locale.h>
 #include <numeric>
 #include <algorithm>
+#include <future>
 #include "gtest/gtest.h"
 
 #include "c_only_test.h"
 #include "ortx_cpp_helper.h"
 #include "nlohmann/json.hpp"
 #include "ugm_kernels.hpp"
+#include "../../shared/api/tokenizer_word_grouping.h"
 
 using namespace ort_extensions;
+
+static void EnableTimestampMetadata(OrtxTokenizer* tokenizer) {
+  const char* keys[] = {"track_timestamp_metadata"};
+  const char* values[] = {"true"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer, keys, values, 1), kOrtxOK);
+}
+
+static const OrtxTimestampMetadata* DetokenizeMetadata(const OrtxMetadata* metadata) {
+  EXPECT_NE(metadata, nullptr);
+  if (!metadata) return nullptr;
+  return metadata->timestampMetadata;
+}
+
+static std::vector<CompletedTokenizerWord> MetadataWords(const OrtxMetadata* metadata) {
+  const auto* payload = DetokenizeMetadata(metadata);
+  EXPECT_NE(payload, nullptr);
+  std::vector<CompletedTokenizerWord> words;
+  if (!payload) return words;
+  for (size_t index = 0; index < payload->word_count; ++index) {
+    const auto& word = payload->words[index];
+    words.push_back({word.text, word.start_token_index, word.stop_token_index});
+  }
+  return words;
+}
+
+TEST(CApiTest, TypedMetadataWrapper) {
+  const std::string text(" word");
+  const OrtxTimestampWordMetadata word{text.c_str(), 0, 1};
+  const OrtxTimestampMetadata payload{&word, 1, 1};
+  const OrtxMetadata metadata{&payload};
+  const auto* typed = DetokenizeMetadata(&metadata);
+  ASSERT_EQ(typed, &payload);
+  EXPECT_EQ(typed->words, &word);
+  EXPECT_EQ(typed->words[0].text, text.c_str());
+  EXPECT_EQ(std::string(typed->words[0].text), text);
+  EXPECT_EQ(DetokenizeMetadata(&metadata), typed);
+  const OrtxTimestampMetadata* from_c = nullptr;
+  ASSERT_EQ(get_detokenize_metadata(&metadata, &from_c), kOrtxOK);
+  EXPECT_EQ(from_c, typed);
+  const OrtxMetadata empty{};
+  EXPECT_EQ(empty.timestampMetadata, nullptr);
+  ASSERT_EQ(get_detokenize_metadata(&empty, &from_c), kOrtxOK);
+  EXPECT_EQ(from_c, nullptr);
+}
+
+TEST(CApiTest, MetadataTrackingIsOptInAndSnapshotted) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+  OrtxObjectPtr<OrtxDetokenizerCache> disabled;
+  OrtxObjectPtr<OrtxDetokenizerCache> enabled;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(disabled.ToBeAssigned())), kOrtxOK);
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(enabled.ToBeAssigned())), kOrtxOK);
+  const char* text = nullptr;
+  const OrtxMetadata* metadata = nullptr;
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), disabled.get(), 910, &text, &metadata), kOrtxOK);
+  EXPECT_STREQ(text, " This");
+  EXPECT_EQ(DetokenizeMetadata(metadata), nullptr);
+  EnableTimestampMetadata(tokenizer.get());
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), disabled.get(), 338, &text, &metadata), kOrtxOK);
+  EXPECT_EQ(DetokenizeMetadata(metadata), nullptr);
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), enabled.get(), 910, &text, &metadata), kOrtxOK);
+  EXPECT_TRUE(MetadataWords(metadata).empty());
+  const char* keys[] = {"track_timestamp_metadata"};
+  const char* invalid[] = {"maybe"};
+  EXPECT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, invalid, 1), kOrtxErrorInvalidArgument);
+  const char* values[] = {"false"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK);
+  ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), enabled.get(), 338, &text, &metadata), kOrtxOK);
+  const auto* view = DetokenizeMetadata(metadata);
+  ASSERT_NE(view, nullptr);
+  EXPECT_EQ(DetokenizeMetadata(metadata), view);
+  EXPECT_EQ(DetokenizeMetadata(metadata)->words, view->words);
+  ASSERT_EQ(MetadataWords(metadata).size(), 1U);
+  EXPECT_EQ(MetadataWords(metadata)[0].text, " This");
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(enabled.get(), &metadata), kOrtxOK);
+  ASSERT_EQ(MetadataWords(metadata).size(), 1U);
+  EXPECT_EQ(MetadataWords(metadata)[0].text, " is");
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(enabled.get(), &metadata), kOrtxOK);
+  EXPECT_TRUE(MetadataWords(metadata).empty());
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(disabled.get(), &metadata), kOrtxOK);
+  EXPECT_EQ(DetokenizeMetadata(metadata), nullptr);
+}
+
+TEST(CApiTest, DisabledTimestampMetadataPreservesTextAndNullPayload) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+  const char* keys[] = {"track_timestamp_metadata"};
+  const char* values[] = {"false"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK);
+  OrtxObjectPtr<OrtxDetokenizerCache> plain_cache;
+  OrtxObjectPtr<OrtxDetokenizerCache> metadata_cache;
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(plain_cache.ToBeAssigned())), kOrtxOK);
+  ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(metadata_cache.ToBeAssigned())), kOrtxOK);
+  const OrtxMetadata* metadata = nullptr;
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(metadata_cache.get(), &metadata), kOrtxOK);
+  ASSERT_NE(metadata, nullptr);
+  EXPECT_EQ(metadata->timestampMetadata, nullptr);
+  for (const auto token_id : {1, 910, 338, 263, 1243, 29889, 278}) {
+    const char* plain_text = nullptr;
+    const char* metadata_text = nullptr;
+    ASSERT_EQ(OrtxDetokenizeCached(tokenizer.get(), plain_cache.get(), token_id, &plain_text), kOrtxOK);
+    ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), metadata_cache.get(), token_id,
+                                              &metadata_text, &metadata), kOrtxOK);
+    EXPECT_STREQ(metadata_text, plain_text);
+    ASSERT_NE(metadata, nullptr);
+    EXPECT_EQ(metadata->timestampMetadata, nullptr);
+  }
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(metadata_cache.get(), &metadata), kOrtxOK);
+  ASSERT_NE(metadata, nullptr);
+  EXPECT_EQ(metadata->timestampMetadata, nullptr);
+  ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(metadata_cache.get(), &metadata), kOrtxOK);
+  ASSERT_NE(metadata, nullptr);
+  EXPECT_EQ(metadata->timestampMetadata, nullptr);
+}
+
+TEST(CApiTest, MetadataCachesAreIndependentAcrossThreads) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+  EnableTimestampMetadata(tokenizer.get());
+  const auto decode = [&tokenizer](std::vector<extTokenId_t> ids) {
+    OrtxObjectPtr<OrtxDetokenizerCache> cache;
+    EXPECT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, static_cast<OrtxDetokenizerCache**>(cache.ToBeAssigned())), kOrtxOK);
+    std::string transcript;
+    for (const auto token_id : ids) {
+      const char* text = nullptr;
+      const OrtxMetadata* metadata = nullptr;
+      EXPECT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache.get(), token_id, &text, &metadata), kOrtxOK);
+      for (const auto& word : MetadataWords(metadata)) transcript += word.text;
+    }
+    const OrtxMetadata* metadata = nullptr;
+    EXPECT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache.get(), &metadata), kOrtxOK);
+    for (const auto& word : MetadataWords(metadata)) transcript += word.text;
+    return transcript;
+  };
+  auto first = std::async(std::launch::async, decode, std::vector<extTokenId_t>{910, 338, 263, 1243});
+  auto second = std::async(std::launch::async, decode, std::vector<extTokenId_t>{278, 1243, 29889});
+  EXPECT_EQ(first.get(), " This is a test");
+  EXPECT_EQ(second.get(), " the test.");
+}
 
 TEST(CApiTest, ApiTest) {
   int ver = OrtxGetAPIVersion();
@@ -57,6 +198,7 @@ TEST(CApiTest, StreamApiTest) {
   extError_t err = OrtxCreate(kOrtxKindTokenizer, &tokenizer, "data/llama2");
   EXPECT_EQ(err, kOrtxOK);
 
+  EnableTimestampMetadata(tokenizer);
   OrtxDetokenizerCache* detok_cache = NULL;
   err = OrtxCreate(kOrtxKindDetokenizerCache, &detok_cache);
   EXPECT_EQ(err, kOrtxOK);
@@ -72,7 +214,7 @@ TEST(CApiTest, StreamApiTest) {
     EXPECT_EQ(err, kOrtxOK);
 
     const char* token_with_metadata = NULL;
-    OrtxDetokenizeMetadata metadata{};
+    const OrtxMetadata* metadata = nullptr;
     err = OrtxDetokenizeCachedWithMetadata(tokenizer, metadata_cache, token_ids[i],
                                            &token_with_metadata, &metadata);
     EXPECT_EQ(err, kOrtxOK);
@@ -94,6 +236,7 @@ TEST(CApiTest, StreamApiTest) {
 TEST(CApiTest, StreamingWordEventsPreserveExactText) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  EnableTimestampMetadata(tokenizer.get());
   OrtxDetokenizerCache* cache = nullptr;
   ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK) << OrtxGetLastErrorMessage();
 
@@ -103,25 +246,23 @@ TEST(CApiTest, StreamingWordEventsPreserveExactText) {
   std::vector<std::pair<size_t, size_t>> spans;
   for (const auto token_id : token_ids) {
     const char* text = nullptr;
-    OrtxDetokenizeMetadata metadata{};
+    const OrtxMetadata* metadata = nullptr;
     ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, token_id, &text, &metadata),
               kOrtxOK)
         << OrtxGetLastErrorMessage();
     transcript += text;
-    for (size_t index = 0; index < metadata.word_count; ++index) {
-      words.emplace_back(metadata.words[index].text);
-      spans.emplace_back(metadata.words[index].start_token_index,
-                         metadata.words[index].stop_token_index);
+    for (const auto& word : MetadataWords(metadata)) {
+      words.emplace_back(word.text);
+      spans.emplace_back(word.start_token_index, word.stop_token_index);
     }
   }
 
-  OrtxDetokenizeMetadata trailing{};
+  const OrtxMetadata* trailing = nullptr;
   ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &trailing), kOrtxOK)
       << OrtxGetLastErrorMessage();
-  for (size_t index = 0; index < trailing.word_count; ++index) {
-    words.emplace_back(trailing.words[index].text);
-    spans.emplace_back(trailing.words[index].start_token_index,
-                       trailing.words[index].stop_token_index);
+  for (const auto& word : MetadataWords(trailing)) {
+    words.emplace_back(word.text);
+    spans.emplace_back(word.start_token_index, word.stop_token_index);
   }
 
   EXPECT_EQ(transcript, " This is a test. the");
@@ -141,7 +282,7 @@ TEST(CApiTest, DetokenizerCacheRejectsSwitchFromTextToMetadata) {
   ASSERT_EQ(OrtxDetokenizeCached(tokenizer.get(), cache, 910, &text), kOrtxOK)
       << OrtxGetLastErrorMessage();
 
-  OrtxDetokenizeMetadata metadata{};
+  const OrtxMetadata* metadata = nullptr;
   EXPECT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 338, &text, &metadata),
             kOrtxErrorInvalidArgument);
   EXPECT_STREQ(OrtxGetLastErrorMessage(),
@@ -157,11 +298,12 @@ TEST(CApiTest, DetokenizerCacheRejectsSwitchFromTextToMetadata) {
 TEST(CApiTest, DetokenizerCacheRejectsSwitchFromMetadataToText) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/llama2");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  EnableTimestampMetadata(tokenizer.get());
   OrtxDetokenizerCache* cache = nullptr;
   ASSERT_EQ(OrtxCreate(kOrtxKindDetokenizerCache, &cache), kOrtxOK) << OrtxGetLastErrorMessage();
 
   const char* text = nullptr;
-  OrtxDetokenizeMetadata metadata{};
+  const OrtxMetadata* metadata = nullptr;
   ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 910, &text, &metadata),
             kOrtxOK)
       << OrtxGetLastErrorMessage();
@@ -174,7 +316,8 @@ TEST(CApiTest, DetokenizerCacheRejectsSwitchFromMetadataToText) {
   EXPECT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, 338, &text, &metadata),
             kOrtxOK)
       << OrtxGetLastErrorMessage();
-  EXPECT_EQ(metadata.first_pending_token_index, 1U);
+  ASSERT_NE(DetokenizeMetadata(metadata), nullptr);
+  EXPECT_EQ(DetokenizeMetadata(metadata)->first_pending_token_index, 1U);
   OrtxDisposeOnly(cache);
 }
 
@@ -360,6 +503,7 @@ TEST(OrtxTokenizerTest, T5Tokenizer) {
 TEST(CApiTest, StreamingWordEventsSupportUnigram) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/t5-small");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  EnableTimestampMetadata(tokenizer.get());
 
   const char* input[] = {"This is a test."};
   OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
@@ -375,20 +519,20 @@ TEST(CApiTest, StreamingWordEventsSupportUnigram) {
   std::vector<std::string> words;
   for (size_t token_index = 0; token_index < token_count; ++token_index) {
     const char* text = nullptr;
-    OrtxDetokenizeMetadata metadata{};
+    const OrtxMetadata* metadata = nullptr;
     ASSERT_EQ(OrtxDetokenizeCachedWithMetadata(tokenizer.get(), cache, ids[token_index], &text, &metadata),
               kOrtxOK)
         << OrtxGetLastErrorMessage();
     transcript += text;
-    for (size_t word_index = 0; word_index < metadata.word_count; ++word_index) {
-      words.emplace_back(metadata.words[word_index].text);
+    for (const auto& word : MetadataWords(metadata)) {
+      words.emplace_back(word.text);
     }
   }
 
-  OrtxDetokenizeMetadata trailing{};
+  const OrtxMetadata* trailing = nullptr;
   ASSERT_EQ(OrtxFinalizeDetokenizeCachedWithMetadata(cache, &trailing), kOrtxOK);
-  for (size_t word_index = 0; word_index < trailing.word_count; ++word_index) {
-    words.emplace_back(trailing.words[word_index].text);
+  for (const auto& word : MetadataWords(trailing)) {
+    words.emplace_back(word.text);
   }
 
   EXPECT_EQ(std::accumulate(words.begin(), words.end(), std::string{}), transcript);
