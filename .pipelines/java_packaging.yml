@@ -13,6 +13,8 @@ stages:
     pool: {name: 'onnxruntime-Win-CPU-2022'}
 
     steps:
+    - template: templates/setup-maven-feed.yml
+
     - task: PowerShell@2
       displayName: 'Set version'
       inputs:
@@ -62,6 +64,8 @@ stages:
     pool: {name: 'Azure-Pipelines-EO-Ubuntu-2004-aiinfra'}
 
     steps:
+    - template: templates/setup-maven-feed.yml
+
     - task: PowerShell@2
       displayName: 'Set version'
       inputs:
@@ -110,6 +114,8 @@ stages:
       vmImage: 'macOS-14'
 
     steps:
+    - template: templates/setup-maven-feed.yml
+
     - task: PowerShell@2
       displayName: 'Set version'
       inputs:

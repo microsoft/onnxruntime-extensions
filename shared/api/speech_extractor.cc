@@ -5,6 +5,7 @@
 
 #include "audio/audio_decoder.h"
 #include "speech_features.hpp"
+#include "gemma4_audio_features.hpp"
 
 using namespace ort_extensions;
 
@@ -13,7 +14,10 @@ Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
     {"AudioDecoderEx", []() { return CreateKernelInstance(&AudioDecoder::ComputeNoOpt2); }},
     {"STFTNorm", []() { return CreateKernelInstance(&SpeechFeatures::STFTNorm); }},
     {"LogMelSpectrum", []() { return CreateKernelInstance(&LogMel::Compute); }},
-    {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }}};
+    {"NemoLogMel", []() { return CreateKernelInstance(&NemoLogMel::Compute); }},
+    {"PerFeatureNormalize", []() { return CreateKernelInstance(&PerFeatureNormalize::Compute); }},
+    {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }},
+    {"Gemma4LogMel", []() { return CreateKernelInstance(&Gemma4LogMel::Compute); }}};
 
 SpeechFeatureExtractor::SpeechFeatureExtractor() : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
 

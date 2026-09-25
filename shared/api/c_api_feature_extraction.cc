@@ -4,7 +4,13 @@
 #include "speech_extractor.h"
 
 #include "c_api_utils.hpp"
+#include <cstring>
+#include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
 #include <math/energy_stft_segmentation.hpp>
+#include "audio/audio_decoder.h"
 
 using namespace ort_extensions;
 
@@ -164,4 +170,131 @@ extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, 
   }
 
   return status.Code();
+}
+
+namespace {
+
+// Build the attribute map used by AudioDecoder::Init for both single and batch decode entry
+// points. `target_sample_rate` of 0 means "keep native rate"; positive values trigger
+// resampling. `stereo_to_mono` is a boolean (0/1) controlling channel downmix.
+std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>>
+MakeDecoderAttrs(int64_t target_sample_rate, int stereo_to_mono) {
+  std::unordered_map<std::string, std::variant<std::int64_t, std::vector<std::int64_t>>> attrs;
+  if (target_sample_rate > 0) {
+    attrs["target_sample_rate"] = target_sample_rate;
+  } else {
+    // 0 = keep native rate: pass empty downsample list to disable resampling
+    attrs["target_sample_rates"] = std::vector<std::int64_t>{};
+  }
+  attrs["stereo_to_mono"] = static_cast<int64_t>(stereo_to_mono ? 1 : 0);
+  attrs["max_samples"] = int64_t{0};  // No truncation
+  return attrs;
+}
+
+// Decode a single audio buffer using an already-initialized decoder. Result tensors:
+//   [0] = float32 PCM, [1] = int64 sample rate.
+ReturnableStatus DecodeOne(AudioDecoder& decoder, const AudioRawData& audio_bytes,
+                           std::unique_ptr<TensorResult>& out) {
+  std::vector<int64_t> input_shape = {1, static_cast<int64_t>(audio_bytes.size())};
+  ortc::Tensor<uint8_t> input_tensor(&CppAllocator::Instance());
+  auto* input_data = input_tensor.Allocate(input_shape);
+  std::memcpy(input_data, audio_bytes.data(), audio_bytes.size());
+
+  auto pcm_tensor = std::make_unique<ortc::Tensor<float>>(&CppAllocator::Instance());
+  auto sr_tensor = std::make_unique<ortc::Tensor<int64_t>>(&CppAllocator::Instance());
+  ReturnableStatus status = decoder.ComputeNoOpt2(input_tensor, *pcm_tensor, *sr_tensor);
+  if (!status.IsOk()) {
+    return status;
+  }
+
+  auto ts_result = std::make_unique<TensorResult>();
+  std::vector<std::unique_ptr<ortc::TensorBase>> tensors;
+  tensors.push_back(std::move(pcm_tensor));
+  tensors.push_back(std::move(sr_tensor));
+  ts_result->SetTensors(std::move(tensors));
+  out = std::move(ts_result);
+  return status;
+}
+
+}  // namespace
+
+extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index, int64_t target_sample_rate,
+                                         int stereo_to_mono, OrtxTensorResult** result) {
+  if (raw_audios == nullptr || result == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  if (target_sample_rate < 0) {
+    ReturnableStatus::last_error_message_ = "target_sample_rate must be >= 0";
+    *result = nullptr;
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto* audios_obj = static_cast<RawAudiosObject*>(raw_audios);
+  if (index >= audios_obj->num_audios_) {
+    ReturnableStatus::last_error_message_ = "Audio index out of range";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  AudioDecoder decoder;
+  ReturnableStatus status = decoder.Init(MakeDecoderAttrs(target_sample_rate, stereo_to_mono));
+  if (!status.IsOk()) {
+    *result = nullptr;
+    return status.Code();
+  }
+
+  std::unique_ptr<TensorResult> ts_result;
+  status = DecodeOne(decoder, audios_obj->audios_[index], ts_result);
+  if (!status.IsOk()) {
+    *result = nullptr;
+    return status.Code();
+  }
+
+  *result = static_cast<OrtxTensorResult*>(ts_result.release());
+  return kOrtxOK;
+}
+
+extError_t ORTX_API_CALL OrtxDecodeAudios(OrtxRawAudios* raw_audios, int64_t target_sample_rate,
+                                          int stereo_to_mono, OrtxTensorResult** results, size_t num_results) {
+  if (raw_audios == nullptr || results == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  if (target_sample_rate < 0) {
+    ReturnableStatus::last_error_message_ = "target_sample_rate must be >= 0";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  auto* audios_obj = static_cast<RawAudiosObject*>(raw_audios);
+  if (num_results != audios_obj->num_audios_) {
+    ReturnableStatus::last_error_message_ = "num_results must match number of audios";
+    return kOrtxErrorInvalidArgument;
+  }
+
+  // Pre-zero the output array so callers can rely on nullptr for unfilled slots on failure.
+  for (size_t i = 0; i < num_results; ++i) {
+    results[i] = nullptr;
+  }
+
+  AudioDecoder decoder;
+  ReturnableStatus status = decoder.Init(MakeDecoderAttrs(target_sample_rate, stereo_to_mono));
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+
+  for (size_t i = 0; i < num_results; ++i) {
+    std::unique_ptr<TensorResult> ts_result;
+    status = DecodeOne(decoder, audios_obj->audios_[i], ts_result);
+    if (!status.IsOk()) {
+      // Fail-fast: free anything already produced and clear the array.
+      for (size_t j = 0; j < i; ++j) {
+        OrtxDisposeOnly(results[j]);
+        results[j] = nullptr;
+      }
+      return status.Code();
+    }
+    results[i] = static_cast<OrtxTensorResult*>(ts_result.release());
+  }
+
+  return kOrtxOK;
 }

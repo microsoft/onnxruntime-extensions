@@ -786,6 +786,55 @@ TEST(OrtxTokenizerTest, Qwen3ChatTemplate) {
   ASSERT_EQ(std::string(text), expected_decoder_output);
 }
 
+TEST(OrtxTokenizerTest, Qwen3PreservesRawToolSchema) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Qwen3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([{"role":"user","content":"Plan a trip."}])";
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "plan_trip",
+          "description": "Plan a trip.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "destination": {
+                "type": "string",
+                "enum": ["Paris", "Tokyo"]
+              },
+              "days": {
+                "type": "array",
+                "items": {"type": "integer"}
+              }
+            },
+            "required": ["destination", "days"]
+          }
+        }
+      }
+    ])";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), tools_json.c_str(),
+                                   templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+  EXPECT_NE(output.find("\"type\": \"function\""), std::string::npos);
+  EXPECT_NE(output.find("\"function\": {"), std::string::npos);
+  EXPECT_NE(output.find("\"required\": [\"destination\", \"days\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"enum\": [\"Paris\", \"Tokyo\"]"), std::string::npos);
+  EXPECT_NE(output.find("\"items\": {\"type\": \"integer\"}"), std::string::npos);
+}
+
 TEST(OrtxTokenizerTest, Phi4MiniChatTemplateWithMinjaTools) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-mini");
   ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
@@ -1051,7 +1100,7 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIToolType) {
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"sign\": {\"type\": \"str\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}}\n"
+                                "{\"type\": \"tool\", \"name\": \"get_horoscope\", \"description\": \"Get today's horoscope for an astrological sign.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"sign\": {\"type\": \"string\", \"description\": \"An astrological sign like Taurus or Aquarius\"}}, \"required\": [\"sign\"]}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1128,14 +1177,14 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionTypeArrayType) {
   const char* text_ptr = nullptr;
   OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
 
-  // "includePattern" with type ["string", "null"] should be normalized to "str"
+  // Qwen serializes the complete schema, including nullable array types.
   std::string expected_output = "<|im_start|>system\n"
                                 "You are an AI programming assistant.\n\n"
                                 "# Tools\n\n"
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"grep_search\", \"description\": \"Search for a pattern in files.\", \"parameters\": {\"query\": {\"type\": \"str\", \"description\": \"The search query.\"}, \"includePattern\": {\"type\": \"str\", \"description\": \"Glob pattern to filter files.\"}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"grep_search\", \"description\": \"Search for a pattern in files.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"query\": {\"type\": \"string\", \"description\": \"The search query.\"}, \"includePattern\": {\"type\": [\"string\", \"null\"], \"description\": \"Glob pattern to filter files.\"}}, \"required\": [\"query\"], \"additionalProperties\": false}}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1228,8 +1277,8 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
                                 "You may call one or more functions to assist with the user query.\n\n"
                                 "You are provided with function signatures within <tools></tools> XML tags:\n"
                                 "<tools>\n"
-                                "{\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"location\": {\"type\": \"str\", \"description\": \"The name of the city or location.\"}}}\n"
-                                "{\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"city\": {\"type\": \"str\", \"description\": \"The name of the city to find attractions for.\"}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"get_weather\", \"description\": \"Get the current weather for a given location.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"location\": {\"type\": \"string\", \"description\": \"The name of the city or location.\"}}, \"required\": [\"location\"]}}}\n"
+                                "{\"type\": \"function\", \"function\": {\"name\": \"get_tourist_attractions\", \"description\": \"Get a list of top tourist attractions for a given city.\", \"parameters\": {\"type\": \"object\", \"properties\": {\"city\": {\"type\": \"string\", \"description\": \"The name of the city to find attractions for.\"}}, \"required\": [\"city\"]}}}\n"
                                 "</tools>\n\n"
                                 "For each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n"
                                 "<tool_call>\n"
@@ -1240,4 +1289,1587 @@ TEST(OrtxTokenizerTest, Qwen2_5_ChatTemplateWithOAIFunctionType) {
                                 "<|im_start|>assistant\n";
 
   ASSERT_EQ(std::string(text_ptr), expected_output);
+}
+
+// ============================================================================
+// GPT-OSS / Harmony format tests
+// ============================================================================
+
+/*
+  Test GPT-OSS (Harmony) chat template basic message formatting.
+  Verifies that messages are rendered with Harmony special tokens:
+  <|start|>, <|end|>, <|message|>, <|channel|>
+  and that the system message is auto-generated.
+*/
+TEST(OrtxTokenizerTest, GptOssChatTemplateBasic) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "Hello, how are you?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Verify system message is auto-generated with Harmony tokens
+  EXPECT_NE(output.find("<|start|>system<|message|>"), std::string::npos)
+      << "Missing system message start token";
+  EXPECT_NE(output.find("# Valid channels: analysis, commentary, final."), std::string::npos)
+      << "Missing channel instruction in system message";
+
+  // Verify developer message contains user's system content
+  EXPECT_NE(output.find("<|start|>developer<|message|>"), std::string::npos)
+      << "Missing developer message start";
+  EXPECT_NE(output.find("# Instructions\n\nYou are a helpful assistant."), std::string::npos)
+      << "Missing developer instructions";
+  EXPECT_NE(output.find("<|end|>"), std::string::npos)
+      << "Missing end token";
+
+  // Verify user message
+  EXPECT_NE(output.find("<|start|>user<|message|>Hello, how are you?<|end|>"), std::string::npos)
+      << "Missing or malformed user message";
+
+  // Verify generation prompt
+  EXPECT_NE(output.find("<|start|>assistant"), std::string::npos)
+      << "Missing generation prompt";
+}
+
+/*
+  Test GPT-OSS (Harmony) chat template with tools passed separately.
+  Verifies that tools in OpenAI format [{"type":"function","function":{...}}]
+  are NOT normalized/unwrapped and are rendered as TypeScript namespace definitions.
+  This is the key test for the skip_tool_normalization fix.
+*/
+TEST(OrtxTokenizerTest, GptOssChatTemplateWithTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant with tool access."
+      },
+      {
+        "role": "user",
+        "content": "What's the weather in Seattle?"
+      }
+    ])";
+
+  // OpenAI format tools - the template expects this exact format and does tool.function internally
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather for a location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city name"
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Verify tools are rendered in TypeScript namespace format (proving template accessed tool.function correctly)
+  EXPECT_NE(output.find("namespace functions {"), std::string::npos)
+      << "Missing TypeScript namespace declaration - tools not rendered correctly";
+  EXPECT_NE(output.find("// Get current weather for a location."), std::string::npos)
+      << "Missing tool description in TypeScript format";
+  EXPECT_NE(output.find("type get_weather = ("), std::string::npos)
+      << "Missing tool type declaration";
+  EXPECT_NE(output.find("location"), std::string::npos)
+      << "Missing parameter name";
+  EXPECT_NE(output.find("} // namespace functions"), std::string::npos)
+      << "Missing namespace closing";
+
+  // Verify the tools section is in the developer message
+  EXPECT_NE(output.find("<|start|>developer<|message|>"), std::string::npos)
+      << "Tools should be in developer message";
+  EXPECT_NE(output.find("# Tools"), std::string::npos)
+      << "Missing '# Tools' header";
+
+  // Verify user message and generation prompt are still correct
+  EXPECT_NE(output.find("<|start|>user<|message|>What's the weather in Seattle?<|end|>"), std::string::npos)
+      << "Missing user message";
+  EXPECT_NE(output.find("<|start|>assistant"), std::string::npos)
+      << "Missing generation prompt";
+}
+
+/*
+  Test GPT-OSS (Harmony) chat template with tool calls in assistant messages.
+  Verifies the full tool-calling conversation flow:
+  1. User asks a question
+  2. Assistant responds with a tool_call (rendered with Harmony tool call tokens)
+  3. Tool returns a response (rendered with Harmony tool response format)
+  4. Assistant gives final answer
+*/
+TEST(OrtxTokenizerTest, GptOssChatTemplateWithToolCalls) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+
+  // Full tool-calling conversation:
+  // user -> assistant (with tool_call) -> tool (response) -> assistant (final answer)
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "What's the weather in Seattle?"
+      },
+      {
+        "role": "assistant",
+        "content": "I'll check the weather for you.",
+        "tool_calls": [
+          {
+            "name": "get_weather",
+            "arguments": {"location": "Seattle", "unit": "celsius"}
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "content": "{\"temperature\": 15, \"condition\": \"cloudy\"}"
+      },
+      {
+        "role": "assistant",
+        "content": "The weather in Seattle is 15 degrees C and cloudy."
+      }
+    ])";
+
+  // Also provide tools definition so the template renders the namespace
+  std::string tools_json = R"JSON(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather for a location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city name"
+              },
+              "unit": {
+                "type": "string",
+                "description": "Temperature unit (celsius or fahrenheit)"
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ])JSON";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), false, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Verify assistant message with tool call uses Harmony tool call format:
+  // <|start|>assistant<|channel|>analysis<|message|>{content}<|end|>
+  // <|start|>assistant to=functions.{name}<|channel|>commentary json<|message|>{args}<|end|>
+  EXPECT_NE(output.find("<|start|>assistant<|channel|>analysis<|message|>I'll check the weather for you."), std::string::npos)
+      << "Missing assistant analysis channel with content before tool call";
+  EXPECT_NE(output.find("<|start|>assistant to=functions.get_weather<|channel|>commentary json<|message|>"), std::string::npos)
+      << "Missing tool call routing header";
+
+  // Verify tool call arguments are serialized
+  EXPECT_NE(output.find("location"), std::string::npos)
+      << "Missing tool call argument 'location'";
+  EXPECT_NE(output.find("Seattle"), std::string::npos)
+      << "Missing tool call argument value 'Seattle'";
+
+  // Verify tool response uses Harmony format:
+  // <|start|>functions.{name} to=assistant<|channel|>commentary<|message|>{content}<|end|>
+  EXPECT_NE(output.find("<|start|>functions.get_weather to=assistant<|channel|>commentary<|message|>"), std::string::npos)
+      << "Missing tool response routing header";
+
+  // Verify final assistant message
+  EXPECT_NE(output.find("<|start|>assistant<|message|>The weather in Seattle is"), std::string::npos)
+      << "Missing final assistant message";
+}
+
+/*
+  Test GPT-OSS (Harmony) chat template with multiple tools.
+  Verifies that multiple tool definitions are all rendered correctly in the namespace.
+*/
+TEST(OrtxTokenizerTest, GptOssChatTemplateMultipleTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "Help me plan a trip."
+      }
+    ])";
+
+  // Multiple tools in OpenAI format
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather for a location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city name"
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      },
+      {
+        "type": "function",
+        "function": {
+          "name": "search_flights",
+          "description": "Search for available flights.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "origin": {
+                "type": "string",
+                "description": "Departure city"
+              },
+              "destination": {
+                "type": "string",
+                "description": "Arrival city"
+              }
+            },
+            "required": ["origin", "destination"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Both tools should be rendered in the namespace
+  EXPECT_NE(output.find("type get_weather = ("), std::string::npos)
+      << "Missing first tool (get_weather)";
+  EXPECT_NE(output.find("// Get current weather for a location."), std::string::npos)
+      << "Missing first tool description";
+  EXPECT_NE(output.find("type search_flights = ("), std::string::npos)
+      << "Missing second tool (search_flights)";
+  EXPECT_NE(output.find("// Search for available flights."), std::string::npos)
+      << "Missing second tool description";
+
+  // Verify parameters are rendered for both tools
+  EXPECT_NE(output.find("location"), std::string::npos)
+      << "Missing get_weather parameter";
+  EXPECT_NE(output.find("origin"), std::string::npos)
+      << "Missing search_flights origin parameter";
+  EXPECT_NE(output.find("destination"), std::string::npos)
+      << "Missing search_flights destination parameter";
+
+  // Verify single namespace wraps both
+  EXPECT_NE(output.find("namespace functions {"), std::string::npos)
+      << "Missing namespace opening";
+  EXPECT_NE(output.find("} // namespace functions"), std::string::npos)
+      << "Missing namespace closing";
+}
+
+/*
+  Qwen2.5 serializes each tool with `tool | tojson`, so it must receive the complete
+  OpenAI schema rather than the lossy flat representation produced by NormalizeTools().
+*/
+TEST(OrtxTokenizerTest, Qwen2_5_PreservesRawToolSchema) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/qwen2.5");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Qwen tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "What time is it?"
+      }
+    ])";
+
+  // Include schema features that NormalizeTools() discards.
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_time",
+          "description": "Get the current time.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "timezone": {
+                "type": "string",
+                "description": "The timezone",
+                "enum": ["UTC", "America/Los_Angeles"]
+              },
+              "days": {
+                "type": "array",
+                "items": {
+                  "type": "integer"
+                }
+              }
+            },
+            "required": ["timezone", "days"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), tools_json.c_str(),
+                                   templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  EXPECT_NE(output.find("<tools>"), std::string::npos) << "Qwen should render tools in <tools> XML tags";
+  EXPECT_NE(output.find("\"type\": \"function\""), std::string::npos)
+      << "OpenAI tool wrapper should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"function\": {"), std::string::npos)
+      << "Function object should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"required\": [\"timezone\", \"days\"]"), std::string::npos)
+      << "Required parameters should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"enum\": [\"UTC\", \"America/Los_Angeles\"]"), std::string::npos)
+      << "Enum values should be preserved. Output: " << output;
+  EXPECT_NE(output.find("\"items\": {\"type\": \"integer\"}"), std::string::npos)
+      << "Array item schema should be preserved. Output: " << output;
+}
+
+/*
+  Test GPT-OSS tools with an EXPLICIT template_str parameter (matches genai Python code path).
+  GenAI reads chat_template.jinja and passes it as template_str to OrtxApplyChatTemplate,
+  whereas our earlier tests used template_str=nullptr (uses the built-in from tokenizer_config.json).
+  This test verifies skip_tool_normalization works when template_str is explicitly provided.
+*/
+TEST(OrtxTokenizerTest, GptOssToolsWithExplicitTemplateStr) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  // Read chat_template.jinja file (same as what genai does)
+  std::ifstream jinja_file("data/gpt-oss/chat_template.jinja");
+  ASSERT_TRUE(jinja_file.is_open()) << "Could not open data/gpt-oss/chat_template.jinja";
+  std::string template_str((std::istreambuf_iterator<char>(jinja_file)),
+                            std::istreambuf_iterator<char>());
+  ASSERT_FALSE(template_str.empty()) << "Template file is empty";
+  ASSERT_NE(template_str.find("tool.function"), std::string::npos)
+      << "GPT-OSS template should contain 'tool.function'";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "What's the weather in Seattle?"
+      }
+    ])";
+
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get current weather for a location.",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": {
+                "type": "string",
+                "description": "The city name"
+              }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ])";
+
+  // KEY DIFFERENCE: pass template_str explicitly (not nullptr)
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), template_str.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Same expectations as GptOssChatTemplateWithTools - tools should render as TypeScript namespace
+  EXPECT_NE(output.find("namespace functions {"), std::string::npos)
+      << "Missing TypeScript namespace declaration.\nFull output:\n" << output;
+  EXPECT_NE(output.find("// Get current weather for a location."), std::string::npos)
+      << "Missing tool description in TypeScript format.\nFull output:\n" << output;
+  EXPECT_NE(output.find("type get_weather = ("), std::string::npos)
+      << "Missing tool type declaration.\nFull output:\n" << output;
+  EXPECT_NE(output.find("location"), std::string::npos)
+      << "Missing parameter name.\nFull output:\n" << output;
+  EXPECT_NE(output.find("} // namespace functions"), std::string::npos)
+      << "Missing namespace closing.\nFull output:\n" << output;
+}
+
+/*
+  Test that tools JSON is passed through RAW (not normalized) when skip_tool_normalization fires.
+  Uses a minimal template that dumps the tools JSON so we can inspect the keys directly.
+  This is the definitive test: if tools are raw, tool[0] will have keys "type" and "function".
+  If normalized, tool[0] will have keys "name", "description", "parameters" (no "type"/"function").
+*/
+TEST(OrtxTokenizerTest, GptOssToolsNotNormalized) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+
+  // Minimal template that contains "tool.function" to trigger skip_normalization,
+  // and dumps the first tool's keys so we can verify they're raw
+  std::string minimal_template = R"({% for tool in tools %}{% for k, v in tool.items() %}KEY={{k}} {% endfor %}{% endfor %}<!-- tool.function -->)";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), minimal_template.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // If skip_normalization works, tools are raw: keys should be "type" and "function"
+  EXPECT_NE(output.find("KEY=type"), std::string::npos)
+      << "Raw tools should have 'type' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=function"), std::string::npos)
+      << "Raw tools should have 'function' key. Output: " << output;
+  // Should NOT have normalized keys at top level
+  EXPECT_EQ(output.find("KEY=description"), std::string::npos)
+      << "Raw tools should NOT have 'description' at top level (it's inside .function). Output: " << output;
+}
+
+/*
+  Counterpart: verify tools ARE normalized when template does NOT contain "tool.function".
+  Uses same minimal template approach but without the "tool.function" marker.
+*/
+TEST(OrtxTokenizerTest, ToolsNormalizedWhenNoToolDotFunction) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+
+  // Template WITHOUT "tool.function" - normalization SHOULD happen
+  std::string minimal_template = R"({% for tool in tools %}{% for k, v in tool.items() %}KEY={{k}} {% endfor %}{% endfor %})";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), minimal_template.c_str(),
+    messages_json.c_str(), tools_json.c_str(),
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  std::string output(text_ptr);
+
+  // Normalization should have unwrapped: keys should be "name", "description", "parameters"
+  EXPECT_NE(output.find("KEY=name"), std::string::npos)
+      << "Normalized tools should have 'name' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=description"), std::string::npos)
+      << "Normalized tools should have 'description' key. Output: " << output;
+  EXPECT_NE(output.find("KEY=parameters"), std::string::npos)
+      << "Normalized tools should have 'parameters' key. Output: " << output;
+  // Should NOT have the wrapper keys
+  EXPECT_EQ(output.find("KEY=type"), std::string::npos)
+      << "Normalized tools should NOT have 'type' key. Output: " << output;
+  EXPECT_EQ(output.find("KEY=function"), std::string::npos)
+      << "Normalized tools should NOT have 'function' key. Output: " << output;
+}
+
+/*
+  Verify that minja supports Jinja2 implicit concatenation of adjacent string
+  literals, e.g. {{ "foo" "bar" }} -> "foobar". This mirrors Python/Jinja2
+  semantics and is used by real templates (e.g. google/gemma-4-E2B-it's
+  chat_template.jinja splits a long raise_exception() message across adjacent
+  string literals). Without this support, minja::Parser::parse() throws and the
+  whole template becomes unusable.
+*/
+TEST(OrtxTokenizerTest, AdjacentStringLiteralConcatenation) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/gpt-oss");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create GPT-OSS tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Adjacent literals on one line, across a newline, and with mixed quotes.
+  std::string tmpl = "{{ \"Hello, \" \"world\" '!' }}"
+                     "{{ \"a\"\n\"b\"\n\"c\" }}";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), tmpl.c_str(),
+    messages_json.c_str(), nullptr,
+    templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Adjacent string literals should parse. Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  ASSERT_EQ(std::string(text_ptr), "Hello, world!abc");
+}
+
+// ============================================================================
+// Transformers v5 format tests
+// ============================================================================
+
+/*
+  Test real SmolLM3-3B chat template from HuggingFace (HuggingFaceTB/SmolLM3-3B).
+  This model ships with:
+  - chat_template.jinja as a separate file (v5 pattern) — NOT inline in tokenizer_config.json
+  - No add_bos_token / add_eos_token in tokenizer_config.json
+  - Uses <|im_start|>/<|im_end|> chat format
+  Files downloaded from: https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+*/
+TEST(OrtxTokenizerV5Test, SmolLM3_V5_ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/v5/smollm3");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create SmolLM3 tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template for SmolLM3." << std::endl;
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // The SmolLM3 template should produce an <|im_start|>-based format.
+  // Verify the output contains the expected structural tokens.
+  std::string output(text_ptr);
+  EXPECT_TRUE(output.find("<|im_start|>") != std::string::npos) << "Expected <|im_start|> in chat output";
+  EXPECT_TRUE(output.find("How should I explain the Internet?") != std::string::npos) << "Expected user message in chat output";
+  EXPECT_TRUE(output.find("<|im_start|>assistant") != std::string::npos) << "Expected assistant prompt in chat output";
+
+  // Also verify tokenization of the templated text works
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u) << "Tokenized output should not be empty.";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+}
+
+/*
+  Test synthetic Qwen2.5 v5 chat template with .jinja file and no inline template.
+  Uses real tokenizer.json from Qwen/Qwen2.5-0.5B-Instruct with a synthetic
+  tokenizer_config.json simulating Transformers v5 output (tokenizer_class=TokenizersBackend).
+  See comments in test/data/v5/qwen2.5-synthetic/tokenizer_config.json.
+*/
+TEST(OrtxTokenizerV5Test, Qwen2_5_SyntheticV5_ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/v5/qwen2.5-synthetic");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create synthetic v5 qwen2.5 tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "system",
+        "content": "You are a helpful assistant."
+      },
+      {
+        "role": "user",
+        "content": "How should I explain the Internet?"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+  if (err != kOrtxOK) {
+    std::cout << "Failed to apply chat template for synthetic v5 qwen2.5." << std::endl;
+    std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+  }
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  err = OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  // The chat template from the .jinja file should produce Qwen-style output
+  std::string expected_output = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+                                "<|im_start|>user\nHow should I explain the Internet?<|im_end|>\n"
+                                "<|im_start|>assistant\n";
+
+  ASSERT_EQ(std::string(text_ptr), expected_output);
+
+  // Verify tokenization works
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+  const char* input[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input, 1, token_ids.ToBeAssigned());
+  ASSERT_EQ(token_ids.Code(), kOrtxOK);
+
+  size_t length = 0;
+  const extTokenId_t* ids = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids.get(), 0, &ids, &length);
+  ASSERT_GT(length, 0u) << "Tokenized output should not be empty.";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text;
+  OrtxDetokenize(tokenizer.get(), token_ids.get(), decoded_text.ToBeAssigned());
+  EXPECT_EQ(decoded_text.Code(), kOrtxOK);
+}
+
+// ============================================================================
+// Gemma 4 chat template tests
+// ============================================================================
+
+/*
+  Test Gemma 4 chat template (google/gemma-4-E2B-it).
+  Gemma 4 uses <|turn>role\n...<turn|>\n format (different from Gemma 3's
+  <start_of_turn>...<end_of_turn>). Chat template loaded from separate
+  chat_template.jinja file (v5-era layout).
+  Files downloaded from: https://huggingface.co/google/gemma-4-E2B-it
+*/
+TEST(OrtxTokenizerTest, Gemma4ChatTemplate) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  // Test 1: Simple text-only message
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "user",
+          "content": "What is the meaning of life?"
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+
+    if (err != kOrtxOK) {
+      std::cout << "Error: " << OrtxGetLastErrorMessage() << std::endl;
+    }
+    ASSERT_EQ(err, kOrtxOK);
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>user\nWhat is the meaning of life?<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Test 2: Image + text (multimodal)
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "image"
+            },
+            {
+              "type": "text",
+              "text": "What is the password?"
+            }
+          ]
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>user\n<|image|>What is the password?<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Test 3: System message + user message
+  {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    std::string messages_json = R"(
+      [
+        {
+          "role": "system",
+          "content": "You are a helpful assistant."
+        },
+        {
+          "role": "user",
+          "content": "Hello!"
+        }
+      ])";
+
+    auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), nullptr, templated_text.ToBeAssigned(), true, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+    std::string expected = "<bos><|turn>system\nYou are a helpful assistant.<turn|>\n"
+                           "<|turn>user\nHello!<turn|>\n<|turn>model\n";
+    ASSERT_EQ(std::string(text_ptr), expected);
+  }
+
+  // Verify tokenization of templated text works
+  OrtxObjectPtr<OrtxTensorResult> final_text;
+  std::string messages_json = R"(
+    [
+      {
+        "role": "user",
+        "content": "Hello!"
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+    tokenizer.get(), nullptr,
+    messages_json.c_str(), nullptr, final_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> final_tensor;
+  OrtxTensorResultGetAt(final_text.get(), 0, final_tensor.ToBeAssigned());
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(final_tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  OrtxObjectPtr<OrtxTokenId2DArray> token_ids2;
+  const char* input2[] = { text_ptr };
+  OrtxTokenize(tokenizer.get(), input2, 1, token_ids2.ToBeAssigned());
+  ASSERT_EQ(token_ids2.Code(), kOrtxOK);
+
+  size_t length2 = 0;
+  const extTokenId_t* ids2 = nullptr;
+  OrtxTokenId2DArrayGetItem(token_ids2.get(), 0, &ids2, &length2);
+  ASSERT_GT(length2, 0u) << "Tokenized output should not be empty.";
+
+  // Verify that the first token is BOS (id=2) and the sequence contains
+  // expected structural tokens from the chat template.
+  EXPECT_EQ(ids2[0], 2) << "First token should be BOS";
+  // The rendered template starts with <bos> which tokenizes to id=2, and our
+  // tokenizer also prepends BOS, so we expect the sequence to start with BOS.
+  // Structural tokens: <|turn>=105, user=2364, \n=107
+  bool found_turn = false;
+  for (size_t i = 0; i < length2; ++i) {
+    if (ids2[i] == 105) { found_turn = true; break; }
+  }
+  EXPECT_TRUE(found_turn) << "Expected <|turn> token (id=105) in chat output";
+
+  // Verify round-trip detokenization
+  OrtxObjectPtr<OrtxStringArray> decoded_text2;
+  OrtxDetokenize(tokenizer.get(), token_ids2.get(), decoded_text2.ToBeAssigned());
+  EXPECT_EQ(decoded_text2.Code(), kOrtxOK);
+}
+
+// Test that string slicing with step != 1 and out-of-range indices does not
+// read out of bounds (previously caused a heap-buffer-overflow read).
+TEST(OrtxTokenizerTest, MinjaStringSliceOOBClamped) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Slice with step=2 and end far beyond string length.
+  // Previously this would read past the string buffer.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[0:65536:2] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[0:65536:2] == 'ac'
+    EXPECT_STREQ(text, "ac");
+  }
+
+  // Negative step with start beyond string length.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[100:0:-1] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[100:0:-1] == 'cb'
+    EXPECT_STREQ(text, "cb");
+  }
+
+  // Negative index wrapping that would remain negative without clamping.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 'abc'[-100:2:1] }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+    // Python: 'abc'[-100:2:1] == 'ab'
+    EXPECT_STREQ(text, "ab");
+  }
+}
+
+TEST(OrtxTokenizerTest, MinjaParserRecursionDepthLimit) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // A deeply nested template that would previously cause a stack overflow.
+  // Generate ~200 levels of nesting via repeated '{' dictionary openers.
+  std::string deep_template = "{{ ";
+  for (int i = 0; i < 200; ++i) {
+    deep_template += "{";
+  }
+  deep_template += " }}";
+
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), deep_template.c_str(),
+      messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+  // Should fail gracefully with an error, not crash with a stack overflow.
+  EXPECT_NE(err, kOrtxOK);
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateDivisionByZero) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create tokenizer, stopping the test.";
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+
+  // Division by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 1/0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected division by zero to return an error.";
+  }
+
+  // Modulo by zero should fail gracefully, not crash with SIGFPE.
+  {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), "{{ 2%0 }}",
+        messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+    EXPECT_NE(err, kOrtxOK) << "Expected modulo by zero to return an error.";
+  }
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateAcceptsTypedTemplateKwargsOption) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      R"({% if enable_thinking is defined and not enable_thinking %}NO_THINK{% else %}THINK{% endif %}|{{ reasoning_effort }}|{{ level }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  const std::string template_kwargs =
+      R"({"enable_thinking":false,"reasoning_effort":"low","level":2})";
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* values[] = {template_kwargs.c_str()};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+      result.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+  const char* text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr), kOrtxOK);
+  EXPECT_STREQ(text, "NO_THINK|low|2");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionCannotOverrideCoreContext) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      R"({{ messages[0].content }}|{% if add_generation_prompt %}GEN{% else %}NO_GEN{% endif %}|{% if tools is defined %}TOOLS{% else %}NO_TOOLS{% endif %})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  const std::string template_kwargs =
+      R"({"messages":[{"role":"user","content":"Override"}],"add_generation_prompt":false,"tools":[{"name":"override"}]})";
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* values[] = {template_kwargs.c_str()};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+      result.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+  const char* text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr), kOrtxOK);
+  EXPECT_STREQ(text, "Hello|GEN|NO_TOOLS");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionRejectsInvalidJson) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* empty_value[] = {""};
+  auto empty_string = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, empty_value, 1);
+  EXPECT_EQ(empty_string, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Invalid chat_template_kwargs JSON.");
+
+  const char* invalid_value[] = {"{"};
+  auto invalid_json = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, invalid_value, 1);
+  EXPECT_EQ(invalid_json, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "Invalid chat_template_kwargs JSON.");
+
+  const char* non_object_value[] = {"[]"};
+  auto non_object = OrtxUpdateTokenizerOptions(tokenizer.get(), keys, non_object_value, 1);
+  EXPECT_EQ(non_object, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "chat_template_kwargs must be a JSON object.");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateRejectsNullTokenizer) {
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+
+  auto err = OrtxApplyChatTemplate(
+      nullptr, "{{ messages[0].content }}", messages_json.c_str(), nullptr,
+      result.ToBeAssigned(), true, false);
+  EXPECT_EQ(err, kOrtxErrorInvalidArgument);
+  EXPECT_STREQ(OrtxGetLastErrorMessage(), "tokenizer is null");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateKwargsOptionCanBeCleared) {
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* populated_values[] = {R"({"enable_thinking":false})"};
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(
+      OrtxCreateTokenizerWithOptions, "data/phi-4-base", keys, populated_values, 1);
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      R"({% if enable_thinking is defined %}SET{% else %}UNSET{% endif %}|{{ messages[0].content }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> configured_result;
+  OrtxObjectPtr<OrtxTensorResult> empty_options_result;
+
+  ASSERT_EQ(OrtxApplyChatTemplate(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                configured_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  const char* cleared_values[] = {"{}"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, cleared_values, 1), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  ASSERT_EQ(OrtxApplyChatTemplate(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                empty_options_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> configured_tensor;
+  OrtxObjectPtr<OrtxTensor> empty_options_tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(configured_result.get(), 0, configured_tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxTensorResultGetAt(empty_options_result.get(), 0, empty_options_tensor.ToBeAssigned()), kOrtxOK);
+  const char* configured_text = nullptr;
+  const char* empty_options_text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(configured_tensor.get(),
+                              reinterpret_cast<const void**>(&configured_text), nullptr, nullptr),
+            kOrtxOK);
+  ASSERT_EQ(OrtxGetTensorData(empty_options_tensor.get(),
+                              reinterpret_cast<const void**>(&empty_options_text), nullptr, nullptr),
+            kOrtxOK);
+  EXPECT_STREQ(configured_text, "SET|Hello");
+  EXPECT_STREQ(empty_options_text, "UNSET|Hello");
+}
+
+TEST(OrtxTokenizerTest, ChatTemplateWithOptionsRemainsPerCall) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const char* keys[] = {"chat_template_kwargs"};
+  const char* persistent_values[] = {R"({"mode":"persistent"})"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, persistent_values, 1), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+
+  const std::string template_str = R"({{ mode }})";
+  const std::string messages_json = R"([{"role":"user","content":"Hello"}])";
+  OrtxObjectPtr<OrtxTensorResult> per_call_result;
+  ASSERT_EQ(OrtxApplyChatTemplateWithOptions(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                R"({"mode":"per-call"})", per_call_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensorResult> persistent_result;
+  ASSERT_EQ(OrtxApplyChatTemplate(
+                tokenizer.get(), template_str.c_str(), messages_json.c_str(), nullptr,
+                persistent_result.ToBeAssigned(), true, false),
+            kOrtxOK);
+
+  OrtxObjectPtr<OrtxTensor> per_call_tensor;
+  OrtxObjectPtr<OrtxTensor> persistent_tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(per_call_result.get(), 0, per_call_tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxTensorResultGetAt(persistent_result.get(), 0, persistent_tensor.ToBeAssigned()), kOrtxOK);
+  const char* per_call_text = nullptr;
+  const char* persistent_text = nullptr;
+  ASSERT_EQ(OrtxGetTensorData(per_call_tensor.get(),
+                              reinterpret_cast<const void**>(&per_call_text), nullptr, nullptr),
+            kOrtxOK);
+  ASSERT_EQ(OrtxGetTensorData(persistent_tensor.get(),
+                              reinterpret_cast<const void**>(&persistent_text), nullptr, nullptr),
+            kOrtxOK);
+  EXPECT_STREQ(per_call_text, "per-call");
+  EXPECT_STREQ(persistent_text, "persistent");
+}
+
+namespace {
+std::string RenderMinjaExpr(OrtxTokenizer* tokenizer, const std::string& template_str,
+                            const char* template_kwargs = nullptr, const char* tools = nullptr) {
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer, template_str.c_str(), messages_json.c_str(), tools, template_kwargs, result.ToBeAssigned(), false,
+      false);
+  EXPECT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+  if (err != kOrtxOK) {
+    return {};
+  }
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  auto tensor_status = OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  EXPECT_EQ(tensor_status, kOrtxOK);
+  if (tensor_status != kOrtxOK) {
+    return {};
+  }
+  const char* text = nullptr;
+  auto data_status = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+  EXPECT_EQ(data_status, kOrtxOK);
+  if (data_status != kOrtxOK) {
+    return {};
+  }
+  return text != nullptr ? std::string(text) : std::string();
+}
+
+std::string RenderMinjaError(OrtxTokenizer* tokenizer, const std::string& template_str) {
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer, template_str.c_str(), messages_json.c_str(), nullptr, nullptr, result.ToBeAssigned(), false, false);
+  EXPECT_NE(err, kOrtxOK);
+  const char* message = OrtxGetLastErrorMessage();
+  return message != nullptr ? std::string(message) : std::string();
+}
+}  // namespace
+
+TEST(OrtxTokenizerTest, MinjaIsDefinedUndefinedPredicates) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ tools is defined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ tools is undefined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ tools is not defined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ tools is not undefined }}"), "False");
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages is defined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages is undefined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages is not defined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages is not undefined }}"), "True");
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].nonexistent_field is defined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].nonexistent_field is undefined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].nonexistent_field is not defined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].nonexistent_field is not undefined }}"), "False");
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].role is defined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].role is undefined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].role is not defined }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ messages[0].role is not undefined }}"), "True");
+}
+
+TEST(OrtxTokenizerTest, MinjaIsTrueFalsePredicates) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ true is true }}|{{ true is false }}|"
+                                             "{{ false is true }}|{{ false is false }}"),
+            "True|False|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", R"({"value":true})"),
+            "True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", R"({"value":false})"),
+            "False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}",
+                            R"({"value":true})"),
+            "False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}",
+                            R"({"value":false})"),
+            "True|False");
+
+  for (const char* kwargs : {
+           R"({"value":1})",
+           R"({"value":"true"})",
+           R"({"value":[]})",
+           R"({"value":{}})",
+           R"({"value":null})",
+           R"({})",
+       }) {
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is true }}|{{ value is false }}", kwargs),
+              "False|False");
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not true }}|{{ value is not false }}", kwargs),
+              "True|True");
+  }
+}
+
+TEST(OrtxTokenizerTest, MinjaBooleanIdentityWorksInControlFlow) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      "{% if enable_thinking is undefined or enable_thinking is true %}"
+      "thinking{% else %}not-thinking{% endif %}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":true})"), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":false})"), "not-thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value   is   false %}false{% else %}other{% endif %}",
+                            R"({"value":false})"),
+            "false");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsSingletonPredicates) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ true is sameas true }}|{{ true is sameas false }}|"
+                                             "{{ false is sameas true }}|{{ false is sameas false }}|"
+                                             "{{ none is sameas none }}"),
+            "True|False|False|True|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":true})"),
+            "True|False|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":false})"),
+            "False|True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}",
+                            R"({"value":null})"),
+            "False|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is not sameas true }}|"
+                                             "{{ value is not sameas false }}|"
+                                             "{{ value is not sameas none }}",
+                            R"({"value":false})"),
+            "True|False|True");
+
+  for (const char* kwargs : {
+           R"({"value":1})",
+           R"({"value":"true"})",
+           R"({"value":[]})",
+           R"({"value":{}})",
+           R"({})",
+       }) {
+    EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                               "{{ value is sameas none }}",
+                              kwargs),
+              "False|False|False");
+  }
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% macro value() %}text{% endmacro %}"
+                                             "{{ value is sameas true }}|{{ value is sameas false }}|"
+                                             "{{ value is sameas none }}|{{ value is not sameas true }}|"
+                                             "{{ value is not sameas false }}|{{ value is not sameas none }}"),
+            "False|False|False|True|True|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsWorksInControlFlow) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string template_str =
+      "{% if enable_thinking is undefined or enable_thinking is sameas true %}"
+      "thinking{% else %}not-thinking{% endif %}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":true})"), "thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), template_str, R"({"enable_thinking":false})"), "not-thinking");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value  is not  sameas  none %}set{% else %}none{% endif %}",
+                            R"({"value":null})"),
+            "none");
+}
+
+TEST(OrtxTokenizerTest, MinjaSameAsRejectsUnsupportedSyntax) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string expected_error = "'sameas' expects one of: true, false, none";
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas }}").find(expected_error), std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas value }}").find(expected_error), std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas undefined }}").find(expected_error),
+            std::string::npos);
+  EXPECT_NE(RenderMinjaError(tokenizer.get(), "{{ true is sameas(true) }}").find(expected_error), std::string::npos);
+}
+
+TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedKwargs) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is defined }}|{{ value is undefined }}|{{ value is none }}"),
+            "False|True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is defined }}|{{ value is undefined }}|{{ value is none }}",
+                            R"({"value":null})"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value is defined }}|{{ value is undefined }}|{{ value is none }}",
+                            R"({"value":"set"})"),
+            "True|False|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ value.child is defined }}|{{ value.child is undefined }}|{{ value.child is none }}",
+                            R"({"value":{"child":null}})"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ value.missing is defined }}|{{ value.missing is undefined }}",
+                            R"({"value":{"child":null}})"),
+            "False|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaDefinedDistinguishesNullFromUndefinedTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string expression = "{{ tools is defined }}|{{ tools is undefined }}|{{ tools is none }}";
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), expression), "False|True|False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), expression, nullptr, "null"), "True|False|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaUndefinedWorksInControlFlow) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if tools is undefined %}no tools{% else %}tools{% endif %}"),
+            "no tools");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{% if value is undefined %}missing{% else %}present{% endif %}",
+                            R"({"value":null})"),
+            "present");
+}
+
+TEST(OrtxTokenizerTest, MinjaMutatorsReturnDefinedNone) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(
+                tokenizer.get(),
+                "{% set values = [] %}{% set result = values.append(1) %}"
+                "{{ result is defined }}|{{ result is undefined }}|{{ result is none }}"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(
+                tokenizer.get(),
+                "{% set values = [] %}{% set result = values.insert(0, 1) %}"
+                "{{ result is defined }}|{{ result is undefined }}|{{ result is none }}"),
+            "True|False|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaNoneAndNullLiteralsAreDefinedNullValues) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ none is defined }}|{{ none is undefined }}|{{ none is none }}"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ None is defined }}|{{ None is undefined }}|{{ None is none }}"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ null is defined }}|{{ null is undefined }}|{{ null is none }}"),
+            "True|False|True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% set value = none %}{{ value is defined }}|{{ value is undefined }}|"
+                            "{{ value is none }}"),
+            "True|False|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaUndefinedAwareFiltersPreserveExplicitNull) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ missing | default('fallback') }}"), "fallback");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ value | default('fallback') }}", R"({"value":null})"), "");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ values | map(attribute='value', default='fallback') | list }}",
+                            R"({"values":[{"value":null},{}]})"),
+            "[null, 'fallback']");
+}
+
+TEST(OrtxTokenizerTest, MinjaSortSupportsAttribute) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'type': 'text'}, {'type': 'image'}] | sort(attribute='type') | "
+                            "map(attribute='type') | join(',') }}"),
+            "image,text");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ ['zebra', 'apple'] | sort | join(',') }}"), "apple,zebra");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'first', 'type': 'text'}, {'id': 'image', 'type': 'image'}, "
+                            "{'id': 'second', 'type': 'text'}] | sort(attribute='type', reverse=true) | "
+                            "map(attribute='id') | join(',') }}"),
+            "first,second,image");
+
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto error = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ 'not an array' | sort }}", messages_json.c_str(), nullptr, nullptr,
+      result.ToBeAssigned(), false, false);
+  EXPECT_NE(error, kOrtxOK);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("sort expects an array, got: 'not an array'"),
+            std::string::npos);
+}
+
+TEST(OrtxTokenizerTest, MinjaSortHandlesMissingKeysReverseAndCaseSensitivity) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'null', 'type': none}, {'id': 'missing'}, {'id': 'a', 'type': 'a'}, "
+                            "{'id': 'b', 'type': 'b'}] | sort(attribute='type') | map(attribute='id') | join(',') }}"),
+            "null,missing,a,b");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ [{'id': 'first', 'type': 'b'}, {'id': 'second', 'type': 'a'}, "
+                            "{'id': 'third', 'type': 'b'}] | sort(attribute='type', reverse=true) | "
+                            "map(attribute='id') | join(',') }}"),
+            "first,third,second");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ ['Zebra', 'apple'] | sort | join(',') }}"),
+            "apple,Zebra");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{{ ['Zebra', 'apple'] | sort(case_sensitive=true) | join(',') }}"),
+            "Zebra,apple");
+}
+
+TEST(OrtxTokenizerTest, MinjaUndefinedAndFalseyValuesWorkInCollections) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ [missing] == [missing] }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ [none] == [none] }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ [false, 0, ''] == [false, 0, ''] }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ none in [none] }}"), "True");
+}
+
+TEST(OrtxTokenizerTest, MinjaOutOfRangeArraySubscriptIsUndefined) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ values[1] }}|{{ values[-1] }}", R"({"values":["a","b"]})"),
+            "b|b");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ values[99] is undefined }}|{{ values[-99] is undefined }}",
+                            R"({"values":["a","b"]})"),
+            "True|True");
+}
+
+TEST(OrtxTokenizerTest, MinjaUndefinedAndNullRemainDistinctObjectKeys) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ missing in {none: 1} }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ {none: 1}[missing] is undefined }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ missing in {missing: 1} }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ {missing: 1}[missing] }}"), "1");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ {missing: 1} == {none: 1} }}"), "False");
+}
+
+TEST(OrtxTokenizerTest, MinjaNotInSupportsObjectMembership) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ 'x' in {'x': 1} }}"), "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ 'x' not in {'x': 1} }}"), "False");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(), "{{ 'y' not in {'x': 1} }}"), "True");
+}
+
+TEST(OrtxTokenizerTest, MinjaUndefinedObjectKeysSurviveEnumeration) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% for key in {missing: 1} %}{{ key is undefined }}{% endfor %}"),
+            "True");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% for key, value in {missing: 1}.items() %}"
+                            "{{ key is undefined }}={{ value }}{% endfor %}"),
+            "True=1");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% for pair in items({missing: 1}) %}"
+                            "{{ pair[0] is undefined }}={{ pair[1] }}{% endfor %}"),
+            "True=1");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% for pair in {missing: 1} | dictsort %}"
+                            "{{ pair[0] is undefined }}={{ pair[1] }}{% endfor %}"),
+            "True=1");
+}
+
+TEST(OrtxTokenizerTest, MinjaToJsonRejectsUndefinedObjectKeys) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  const std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplateWithOptions(
+      tokenizer.get(), "{{ {missing: 1} | tojson }}", messages_json.c_str(), nullptr, nullptr, result.ToBeAssigned(),
+      false, false);
+
+  EXPECT_NE(err, kOrtxOK);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("Undefined values cannot be serialized as object keys"),
+            std::string::npos);
 }

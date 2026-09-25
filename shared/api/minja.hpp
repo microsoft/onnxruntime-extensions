@@ -12,6 +12,8 @@
 // SPDX-License-Identifier: MIT
 #pragma once
 
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -57,17 +59,38 @@ namespace minja
     using FilterType = std::function<Value(const std::shared_ptr<Context> &, ArgumentsValue &)>;
 
   private:
-    using ObjectType = nlohmann::ordered_map<json, Value>; // Only contains primitive keys
+    // Contains hashable Minja keys. Undefined uses an internal object-shaped sentinel that is converted at the
+    // Value boundary and cannot be constructed as a user key.
+    using ObjectType = nlohmann::ordered_map<json, Value>;
     using ArrayType = std::vector<Value>;
 
     std::shared_ptr<ArrayType> array_;
     std::shared_ptr<ObjectType> object_;
     std::shared_ptr<CallableType> callable_;
     json primitive_;
+    bool undefined_ = true;
 
-    Value(const std::shared_ptr<ArrayType> &array) : array_(array) {}
-    Value(const std::shared_ptr<ObjectType> &object) : object_(object) {}
-    Value(const std::shared_ptr<CallableType> &callable) : object_(std::make_shared<ObjectType>()), callable_(callable) {}
+    Value(const std::shared_ptr<ArrayType> &array) : array_(array), undefined_(false) {}
+    Value(const std::shared_ptr<ObjectType> &object) : object_(object), undefined_(false) {}
+    Value(const std::shared_ptr<CallableType> &callable) : object_(std::make_shared<ObjectType>()), callable_(callable), undefined_(false) {}
+
+    static const json &undefined_object_key()
+    {
+      // Objects and arrays are not hashable Minja values, so this object-shaped sentinel cannot collide with a
+      // valid user key while keeping the existing JSON-backed ordered map representation.
+      static const json undefined_key = json::object({{"__minja_undefined_key__", true}});
+      return undefined_key;
+    }
+
+    const json &object_key() const
+    {
+      return undefined_ ? undefined_object_key() : primitive_;
+    }
+
+    static Value from_object_key(const json &key)
+    {
+      return key == undefined_object_key() ? Value() : Value(key);
+    }
 
     /* Python-style string repr */
     static void dump_string(const json &primitive, std::ostringstream &out, char string_quote = '\'')
@@ -145,6 +168,8 @@ namespace minja
         {
           if (it != begin)
             print_sub_sep();
+          if (to_json && it->first == undefined_object_key())
+            throw std::runtime_error("Undefined values cannot be serialized as object keys");
           if (it->first.is_string())
           {
             dump_string(it->first, out, string_quote);
@@ -179,14 +204,14 @@ namespace minja
 
   public:
     Value() {}
-    Value(const bool &v) : primitive_(v) {}
-    Value(const int64_t &v) : primitive_(v) {}
-    Value(const double &v) : primitive_(v) {}
-    Value(const std::nullptr_t &) {}
-    Value(const std::string &v) : primitive_(v) {}
-    Value(const char *v) : primitive_(std::string(v)) {}
+    Value(const bool &v) : primitive_(v), undefined_(false) {}
+    Value(const int64_t &v) : primitive_(v), undefined_(false) {}
+    Value(const double &v) : primitive_(v), undefined_(false) {}
+    Value(const std::nullptr_t &) : undefined_(false) {}
+    Value(const std::string &v) : primitive_(v), undefined_(false) {}
+    Value(const char *v) : primitive_(std::string(v)), undefined_(false) {}
 
-    Value(const json &v)
+    Value(const json &v) : undefined_(false)
     {
       if (v.is_object())
       {
@@ -219,7 +244,7 @@ namespace minja
       std::vector<Value> res;
       for (const auto &item : *object_)
       {
-        res.push_back(item.first);
+        res.push_back(from_object_key(item.first));
       }
       return res;
     }
@@ -296,7 +321,7 @@ namespace minja
       {
         if (!index.is_hashable())
           throw std::runtime_error("Unashable type: " + index.dump());
-        auto it = object_->find(index.primitive_);
+        auto it = object_->find(index.object_key());
         if (it == object_->end())
           throw std::runtime_error("Key not found: " + index.dump());
         auto ret = it->second;
@@ -316,14 +341,19 @@ namespace minja
         {
           return Value();
         }
-        auto index = key.get<int>();
-        return array_->at(index < 0 ? array_->size() + index : index);
+        auto index = key.get<int64_t>();
+        const auto array_size = static_cast<int64_t>(array_->size());
+        if (index < 0)
+          index += array_size;
+        if (index < 0 || index >= array_size)
+          return Value();
+        return array_->at(static_cast<size_t>(index));
       }
       else if (object_)
       {
         if (!key.is_hashable())
           throw std::runtime_error("Unashable type: " + dump());
-        auto it = object_->find(key.primitive_);
+        auto it = object_->find(key.object_key());
         if (it == object_->end())
           return Value();
         return it->second;
@@ -336,7 +366,7 @@ namespace minja
         throw std::runtime_error("Value is not an object: " + dump());
       if (!key.is_hashable())
         throw std::runtime_error("Unashable type: " + dump());
-      (*object_)[key.primitive_] = value;
+      (*object_)[key.object_key()] = value;
     }
     Value call(const std::shared_ptr<Context> &context, ArgumentsValue &args) const
     {
@@ -349,6 +379,7 @@ namespace minja
     bool is_array() const { return !!array_; }
     bool is_callable() const { return !!callable_; }
     bool is_null() const { return !object_ && !array_ && primitive_.is_null() && !callable_; }
+    bool is_undefined() const { return undefined_; }
     bool is_boolean() const { return primitive_.is_boolean(); }
     bool is_number_integer() const { return primitive_.is_number_integer(); }
     bool is_number_float() const { return primitive_.is_number_float(); }
@@ -387,7 +418,7 @@ namespace minja
       {
         for (auto &item : *object_)
         {
-          Value key(item.first);
+          Value key = from_object_key(item.first);
           callback(key);
         }
       }
@@ -468,6 +499,8 @@ namespace minja
 
     bool operator==(const Value &other) const
     {
+      if (undefined_ || other.undefined_)
+        return undefined_ && other.undefined_;
       if (callable_ || other.callable_)
       {
         if (callable_.get() != other.callable_.get())
@@ -481,7 +514,7 @@ namespace minja
           return false;
         for (size_t i = 0; i < array_->size(); ++i)
         {
-          if (!(*array_)[i].to_bool() || !(*other.array_)[i].to_bool() || (*array_)[i] != (*other.array_)[i])
+          if ((*array_)[i] != (*other.array_)[i])
             return false;
         }
         return true;
@@ -494,7 +527,8 @@ namespace minja
           return false;
         for (const auto &item : *object_)
         {
-          if (!item.second.to_bool() || !other.object_->count(item.first) || item.second != other.object_->at(item.first))
+          auto other_item = other.object_->find(item.first);
+          if (other_item == other.object_->end() || item.second != other_item->second)
             return false;
         }
         return true;
@@ -530,7 +564,7 @@ namespace minja
       {
         for (const auto &item : *array_)
         {
-          if (item.to_bool() && item == value)
+          if (item == value)
             return true;
         }
         return false;
@@ -539,7 +573,7 @@ namespace minja
       {
         if (!value.is_hashable())
           throw std::runtime_error("Unashable type: " + value.dump());
-        return object_->find(value.primitive_) != object_->end();
+        return object_->find(value.object_key()) != object_->end();
       }
       else
       {
@@ -567,9 +601,17 @@ namespace minja
       if (!index.is_hashable())
         throw std::runtime_error("Unashable type: " + dump());
       if (is_array())
-        return array_->at(index.get<int>());
+      {
+        auto array_index = index.get<int64_t>();
+        const auto array_size = static_cast<int64_t>(array_->size());
+        if (array_index < 0)
+          array_index += array_size;
+        if (array_index < 0 || array_index >= array_size)
+          throw std::out_of_range("Array index out of range: " + index.dump());
+        return array_->at(static_cast<size_t>(array_index));
+      }
       if (is_object())
-        return object_->at(index.primitive_);
+        return object_->at(index.object_key());
       throw std::runtime_error("Value is not an array or object: " + dump());
     }
     const Value &at(size_t index) const
@@ -680,14 +722,24 @@ namespace minja
     }
     Value operator/(const Value &rhs) const
     {
-      if (is_number_integer() && rhs.is_number_integer())
-        return get<int64_t>() / rhs.get<int64_t>();
-      else
-        return get<double>() / rhs.get<double>();
+      if (is_number_integer() && rhs.is_number_integer()) {
+        const auto denom = rhs.get<int64_t>();
+        if (denom == 0)
+          throw std::runtime_error("Division by zero");
+        return get<int64_t>() / denom;
+      } else {
+        const auto denom = rhs.get<double>();
+        if (denom == 0.0)
+          throw std::runtime_error("Division by zero");
+        return get<double>() / denom;
+      }
     }
     Value operator%(const Value &rhs) const
     {
-      return get<int64_t>() % rhs.get<int64_t>();
+      const auto denom = rhs.get<int64_t>();
+      if (denom == 0)
+        throw std::runtime_error("Modulo by zero");
+      return get<int64_t>() % denom;
     }
   };
 
@@ -1708,7 +1760,11 @@ namespace minja
         if (target_value.is_string())
         {
           std::string s = target_value.get<std::string>();
-          
+          int64_t n = static_cast<int64_t>(s.size());
+          // Clamp start/end to valid range per Python slice semantics.
+          start = std::clamp(start, step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+          end   = std::clamp(end,   step > 0 ? (int64_t)0 : (int64_t)-1, step > 0 ? n : n - 1);
+
           std::string result;
           if (start < end && step == 1) {
             result = s.substr(start, end - start);
@@ -1810,7 +1866,9 @@ namespace minja
       In,
       NotIn,
       Is,
-      IsNot
+      IsNot,
+      SameAs,
+      SameAsNot
     };
 
   private:
@@ -1831,7 +1889,7 @@ namespace minja
 
       auto do_eval = [&](const Value &l) -> Value
       {
-        if (op == Op::Is || op == Op::IsNot)
+        if (op == Op::Is || op == Op::IsNot || op == Op::SameAs || op == Op::SameAsNot)
         {
           auto t = expr_cast<VariableExpr *>(right.get());
           if (!t)
@@ -1840,8 +1898,15 @@ namespace minja
           auto eval = [&]()
           {
             const auto &name = t->get_name();
+            if ((op == Op::SameAs || op == Op::SameAsNot) &&
+                name != "none" && name != "true" && name != "false")
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
             if (name == "none")
-              return l.is_null();
+              return l.is_null() && !l.is_undefined();
+            if (name == "true")
+              return l.is_boolean() && l.get<bool>();
+            if (name == "false")
+              return l.is_boolean() && !l.get<bool>();
             if (name == "boolean")
               return l.is_boolean();
             if (name == "integer")
@@ -1859,11 +1924,13 @@ namespace minja
             if (name == "sequence")
               return l.is_array();
             if (name == "defined")
-              return !l.is_null();
+              return !l.is_undefined();
+            if (name == "undefined")
+              return l.is_undefined();
             throw std::runtime_error("Unknown type for 'is' operator: " + name);
           };
           auto value = eval();
-          return Value(op == Op::Is ? value : !value);
+          return Value(op == Op::Is || op == Op::SameAs ? value : !value);
         }
 
         if (op == Op::And)
@@ -1895,9 +1962,14 @@ namespace minja
         case Op::MulMul:
           return std::pow(l.get<double>(), r.get<double>());
         case Op::DivDiv:
-          return l.get<int64_t>() / r.get<int64_t>();
+        {
+          const auto denom = r.get<int64_t>();
+          if (denom == 0)
+            throw std::runtime_error("Division by zero");
+          return l.get<int64_t>() / denom;
+        }
         case Op::Mod:
-          return l.get<int64_t>() % r.get<int64_t>();
+          return l % r;
         case Op::Eq:
           return l == r;
         case Op::Ne:
@@ -1913,14 +1985,14 @@ namespace minja
         case Op::In:
           return (r.is_array() || r.is_object()) && r.contains(l);
         case Op::NotIn:
-          return !(r.is_array() && r.contains(l));
+          return !((r.is_array() || r.is_object()) && r.contains(l));
         default:
           break;
         }
         throw std::runtime_error("Unknown binary operator");
       };
 
-      if (l.is_callable())
+      if (l.is_callable() && op != Op::SameAs && op != Op::SameAsNot)
       {
         return Value::callable([l, do_eval](const std::shared_ptr<Context> &context, ArgumentsValue &args)
                                {
@@ -2072,7 +2144,7 @@ namespace minja
         {
           vargs.expectArgs("append method", {1, 1}, {0, 0});
           obj.push_back(vargs.args[0]);
-          return Value();
+          return Value(nullptr);
         }
         else if (method->get_name() == "pop")
         {
@@ -2086,7 +2158,7 @@ namespace minja
           if (index < 0 || index > (int64_t)obj.size())
             throw std::runtime_error("Index out of range for insert method");
           obj.insert(index, vargs.args[1]);
-          return Value();
+          return Value(nullptr);
         }
       }
       else if (obj.is_object())
@@ -2272,6 +2344,18 @@ namespace minja
   private:
     using CharIterator = std::string::const_iterator;
 
+    static constexpr size_t MAX_PARSE_DEPTH = 100;
+    size_t parse_depth_ = 0;
+
+    struct DepthGuard {
+      size_t& depth;
+      DepthGuard(size_t& d, size_t max) : depth(d) {
+        if (++depth > max)
+          throw std::runtime_error("Template parsing exceeded maximum nesting depth");
+      }
+      ~DepthGuard() { --depth; }
+    };
+
     std::shared_ptr<std::string> template_str;
     CharIterator start, end, it;
     Options options;
@@ -2431,9 +2515,18 @@ namespace minja
       {
         auto str = parseString();
         if (str)
+        {
+          // Jinja2 (like Python) implicitly concatenates adjacent string
+          // literals, e.g. {{ "foo" "bar" }} -> "foobar". parseString()
+          // skips leading whitespace and returns nullptr when the next
+          // token is not a string literal, so loop to merge any run of
+          // consecutive literals into a single constant.
+          for (auto next = parseString(); next; next = parseString())
+            *str += *next;
           return std::make_shared<Value>(*str);
+        }
       }
-      static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|None\b)");
+      static std::regex prim_tok(R"(true\b|True\b|false\b|False\b|none\b|None\b)");
       auto token = consumeToken(prim_tok);
       if (!token.empty())
       {
@@ -2441,7 +2534,7 @@ namespace minja
           return std::make_shared<Value>(true);
         if (token == "false" || token == "False")
           return std::make_shared<Value>(false);
-        if (token == "None")
+        if (token == "none" || token == "None")
           return std::make_shared<Value>(nullptr);
         throw std::runtime_error("Unknown constant token: " + token);
       }
@@ -2526,6 +2619,7 @@ namespace minja
 
     std::shared_ptr<Expression> parseExpression(bool allow_if_expr = true)
     {
+      DepthGuard guard(parse_depth_, MAX_PARSE_DEPTH);
       auto left = parseLogicalOr();
       if (it == end)
         return left;
@@ -2636,6 +2730,25 @@ namespace minja
           auto identifier = parseIdentifier();
           if (!identifier)
             throw std::runtime_error("Expected identifier after 'is' keyword");
+
+          auto test = expr_cast<VariableExpr *>(identifier.get());
+          if (test && test->get_name() == "sameas")
+          {
+            auto singleton = parseIdentifier();
+            if (!singleton)
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
+            auto singleton_identifier = expr_cast<VariableExpr *>(singleton.get());
+            if (!singleton_identifier ||
+                (singleton_identifier->get_name() != "true" &&
+                 singleton_identifier->get_name() != "false" &&
+                 singleton_identifier->get_name() != "none"))
+              throw std::runtime_error("'sameas' expects one of: true, false, none");
+
+            return std::make_shared<BinaryOpExpr>(
+                left->location,
+                std::move(left), std::move(singleton),
+                negated ? BinaryOpExpr::Op::SameAsNot : BinaryOpExpr::Op::SameAs);
+          }
 
           return std::make_shared<BinaryOpExpr>(
               left->location,
@@ -2911,7 +3024,7 @@ namespace minja
 
         static std::regex null_regex(R"(null\b)");
         if (!consumeToken(null_regex).empty())
-          return std::make_shared<LiteralExpr>(location, Value());
+          return std::make_shared<LiteralExpr>(location, Value(nullptr));
 
         auto identifier = parseIdentifier();
         if (identifier)
@@ -3663,7 +3776,7 @@ namespace minja
         boolean = bv.get<bool>();
       }
     }
-    return boolean ? (value.to_bool() ? value : default_value) : value.is_null() ? default_value : value; }));
+    return boolean ? (value.to_bool() ? value : default_value) : value.is_undefined() ? default_value : value; }));
     auto escape = simple_function("escape", {"text"}, [](const std::shared_ptr<Context> &, Value &args)
                                   { return Value(html_escape(args.at("text").get<std::string>())); });
     globals.set("e", escape);
@@ -3693,6 +3806,42 @@ namespace minja
       res.push_back(Value::array({key, value.at(key)}));
     }
     return res; }));
+    globals.set("sort", simple_function("sort", {"items", "reverse", "case_sensitive", "attribute"}, [](const std::shared_ptr<Context> &, Value &args)
+                                        {
+    auto & items = args.at("items");
+    if (!items.is_array()) throw std::runtime_error("sort expects an array, got: " + items.dump());
+    std::vector<Value> result;
+    result.reserve(items.size());
+    for (size_t i = 0; i < items.size(); ++i) {
+      result.push_back(items.at(i));
+    }
+    auto attribute = args.get<std::string>("attribute", "");
+    auto reverse = args.get<bool>("reverse", false);
+    auto case_sensitive = args.get<bool>("case_sensitive", false);
+    std::stable_sort(result.begin(), result.end(), [attribute, reverse, case_sensitive](const Value &left, const Value &right) {
+      Value left_item = left;
+      Value right_item = right;
+      Value left_key = attribute.empty() ? left_item : left_item.get(attribute);
+      Value right_key = attribute.empty() ? right_item : right_item.get(attribute);
+      const auto left_missing = left_key.is_null() || left_key.is_undefined();
+      const auto right_missing = right_key.is_null() || right_key.is_undefined();
+      if (left_missing || right_missing) {
+        if (left_missing && right_missing) return false;
+        return reverse ? right_missing : left_missing;
+      }
+      if (!case_sensitive && left_key.is_string() && right_key.is_string()) {
+        auto normalize = [](std::string value) {
+          std::transform(value.begin(), value.end(), value.begin(), [](unsigned char c) {
+            return static_cast<char>(std::tolower(c));
+          });
+          return value;
+        };
+        left_key = normalize(left_key.get<std::string>());
+        right_key = normalize(right_key.get<std::string>());
+      }
+      return reverse ? right_key < left_key : left_key < right_key;
+    });
+    return Value::array(result); }));
     globals.set("join", simple_function("join", {"items", "d"}, [](const std::shared_ptr<Context> &, Value &args)
                                         {
     auto do_join = [](Value & items, const std::string & sep) {
@@ -3813,7 +3962,7 @@ namespace minja
       for (size_t i = 0, n = items.size(); i < n; i++) {
         auto & item = items.at(i);
         auto attr = item.get(attr_name);
-        res.push_back(attr.is_null() ? default_value : attr);
+        res.push_back(attr.is_undefined() ? default_value : attr);
       }
     } else if (args.kwargs.empty() && args.args.size() >= 2) {
       auto fn = context->get(args.args[1]);

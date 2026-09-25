@@ -164,18 +164,20 @@ struct KernelTrieDetokenizer {
   OrtStatusPtr Compute(const ortc::Tensor<int64_t>& tokens, ortc::Tensor<std::string>& text) const {
     const int64_t* p_ids = tokens.Data();
     const auto& ids_dim = tokens.Shape();
-    std::vector<int64_t> output_dim = {1};
-    if (ids_dim.size() > 1) {
-      output_dim.resize(ids_dim.size() - 1);
-      std::copy(ids_dim.begin(), ids_dim.begin() + ids_dim.size() - 1, output_dim.begin());
+    if (ids_dim.size() < 1 || ids_dim.size() > 2) {
+      ORTX_CXX_API_THROW("[TrieDetokenizer]: ids tensor must be rank 1 or 2", ORT_INVALID_ARGUMENT);
     }
+    // Treat rank-1 [N] as [1, N]
+    int64_t seq_len = ids_dim.size() == 2 ? ids_dim[1] : ids_dim[0];
+    int64_t batch = ids_dim.size() == 2 ? ids_dim[0] : 1;
+    std::vector<int64_t> output_dim = {batch};
 
     std::vector<std::string> output(output_dim[0]);
     bool failed = false;
     for (auto n = 0; n < output_dim[0]; n++) {
       std::vector<int> ids;
-      for (auto i = 0; i < ids_dim[1]; i++) {
-        ids.push_back(ort_extensions::narrow<int>(p_ids[n * ids_dim[1] + i]));
+      for (int64_t i = 0; i < seq_len; i++) {
+        ids.push_back(ort_extensions::narrow<int>(p_ids[n * seq_len + i]));
       }
       auto raw_string = tokenizer->decodeBytes(ids);
       if (ustring::ValidateUTF8(raw_string) > 0) {

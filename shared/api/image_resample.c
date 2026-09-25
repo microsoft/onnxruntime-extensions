@@ -705,25 +705,33 @@ precompute_coeffs(
     /* determine support size (length of resampling filter) */
     support = filterp->support * filterscale;
 
-    /* maximum number of coeffs */
+    /* maximum number of coeffs - guard against support values that would
+       overflow int when computing ksize */
+    if (support >= (double)(INT_MAX / 2)) {
+        ImagingError_MemoryError();
+        return 0;
+    }
     ksize = (int)ceil(support) * 2 + 1;
 
-    // check for overflow
-    if (outSize > INT_MAX / (ksize * (int)sizeof(double))) {
+    /* check for overflow using size_t arithmetic to avoid signed int overflow
+       in the check itself */
+    if (ksize <= 0 ||
+        (size_t)ksize > SIZE_MAX / sizeof(double) ||
+        (size_t)outSize > SIZE_MAX / ((size_t)ksize * sizeof(double))) {
         ImagingError_MemoryError();
         return 0;
     }
 
     /* coefficient buffer */
     /* malloc check ok, overflow checked above */
-    kk = malloc(outSize * ksize * sizeof(double));
+    kk = malloc((size_t)outSize * (size_t)ksize * sizeof(double));
     if (!kk) {
         ImagingError_MemoryError();
         return 0;
     }
 
     /* malloc check ok, ksize*sizeof(double) > 2*sizeof(int) */
-    bounds = malloc(outSize * 2 * sizeof(int));
+    bounds = malloc((size_t)outSize * 2 * sizeof(int));
     if (!bounds) {
         free(kk);
         ImagingError_MemoryError();
@@ -1052,6 +1060,24 @@ ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]) {
     struct filter *filterp;
     ResampleFunction ResampleHorizontal;
     ResampleFunction ResampleVertical;
+
+    /* Validate output size */
+    if (xsize <= 0 || ysize <= 0) {
+        return (Imaging)ImagingError_ValueError("invalid output size");
+    }
+
+    /* Validate box coordinates: must be finite, properly ordered, and within image bounds */
+    if (!isfinite(box[0]) || !isfinite(box[1]) ||
+        !isfinite(box[2]) || !isfinite(box[3])) {
+        return (Imaging)ImagingError_ValueError("invalid box (non-finite)");
+    }
+    if (box[0] >= box[2] || box[1] >= box[3]) {
+        return (Imaging)ImagingError_ValueError("invalid box coordinates");
+    }
+    if (box[0] < 0 || box[1] < 0 ||
+        box[2] > (float)imIn->xsize || box[3] > (float)imIn->ysize) {
+        return (Imaging)ImagingError_ValueError("box exceeds image bounds");
+    }
 
     if (strcmp(imIn->mode, "P") == 0 || strcmp(imIn->mode, "1") == 0) {
         return (Imaging)ImagingError_ModeError();

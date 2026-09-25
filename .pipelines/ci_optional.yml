@@ -75,7 +75,7 @@ stages:
 
             ./gradlew connectedDebugAndroidTest --no-daemon -DortExtensionsAarLocalPath="${ORT_EXTENSIONS_AAR_PATH}"
           displayName: Build and run onnxruntime-extensions Android test with Android Emulator
-  
+
   - job: AndroidCpp
     pool:
       vmImage: 'macOS-14'
@@ -125,7 +125,7 @@ stages:
 
   - job: OrtNightlyCPU
     pool:
-      name: 'onnxruntime-extensions-Windows-CPU'
+      name: 'onnxruntime-Win-CPU-2022'
 
     steps:
     - task: UsePythonVersion@0

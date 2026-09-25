@@ -31,6 +31,12 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"BaichuanTokenizer", TokenType::kBPE},
   {"GPTNeoXTokenizer", TokenType::kBPE},
 
+  // HuggingFace Transformers v5 backend class names
+  {"TokenizersBackend", TokenType::kBPE},
+  {"PythonBackend", TokenType::kBPE},
+  {"MistralCommonBackend", TokenType::kBPE},
+  {"SentencePieceBackend", TokenType::kUnigram},
+
   {"", TokenType::kUnigram},
   {"T5Tokenizer", TokenType::kUnigram},
   {"ChatGLMTokenizer", TokenType::kUnigram},
@@ -101,8 +107,26 @@ class TokenJsonConfig final {
       pad_token_ = json_config.value("pad_token", "");
     }
 
-    add_bos_token_ = json_config.value("add_bos_token", false);
-    add_eos_token_ = json_config.value("add_eos_token", false);
+    // In Transformers v5, add_bos_token/add_eos_token may be absent from
+    // tokenizer_config.json. Use std::optional to distinguish "absent" from
+    // "explicitly false" so the caller can apply per-class defaults.
+    auto bos_iter = json_config.find("add_bos_token");
+    if (bos_iter != json_config.end() && bos_iter->is_boolean()) {
+      add_bos_token_ = bos_iter->get<bool>();
+      add_bos_token_explicit_ = true;
+    } else {
+      add_bos_token_ = false;
+      add_bos_token_explicit_ = false;
+    }
+
+    auto eos_iter = json_config.find("add_eos_token");
+    if (eos_iter != json_config.end() && eos_iter->is_boolean()) {
+      add_eos_token_ = eos_iter->get<bool>();
+      add_eos_token_explicit_ = true;
+    } else {
+      add_eos_token_ = false;
+      add_eos_token_explicit_ = false;
+    }
     return {};
   }
 
@@ -221,8 +245,15 @@ class TokenJsonConfig final {
         }
     }
 
-    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer 
-    added_tokens_decoder = std::make_shared<json>(json_config.value("added_tokens_decoder", json::object()));
+    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer.
+    // In Transformers v5, added_tokens_decoder may be absent from tokenizer_config.json
+    // when a tokenizer.json file is present (data is consolidated into tokenizer.json).
+    auto atd_iter = json_config.find("added_tokens_decoder");
+    if (atd_iter != json_config.end() && atd_iter->is_object()) {
+      added_tokens_decoder = std::make_shared<json>(*atd_iter);
+    } else {
+      added_tokens_decoder = std::make_shared<json>(json::object());
+    }
 
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
@@ -262,9 +293,36 @@ class TokenJsonConfig final {
 
   const std::string& GetVocabDataFile() const { return vocab_path_; }
 
+  // Peek at the tokenizer.json to determine the actual model type.
+  // Returns "BPE", "Unigram", "WordPiece", etc., or empty string on failure.
+  std::string PeekModelType() const {
+    std::unique_ptr<std::istream> vocab_stream;
+    auto status = const_cast<TokenJsonConfig*>(this)->OpenVocabFile(vocab_stream);
+    if (!status.IsOk()) {
+      return "";
+    }
+    json tok_json = json::parse(*vocab_stream, nullptr, false, true);
+    if (tok_json.is_discarded()) {
+      return "";
+    }
+    auto model_node = tok_json.find("model");
+    if (model_node == tok_json.end()) {
+      return "";
+    }
+    auto type_node = model_node->find("type");
+    if (type_node == model_node->end() || !type_node->is_string()) {
+      return "";
+    }
+    return type_node->get<std::string>();
+  }
+
  public:
   bool add_bos_token_{};
   bool add_eos_token_{};
+  // Track whether add_bos/eos_token were explicitly set in the config.
+  // In Transformers v5, these fields are no longer saved in tokenizer_config.json.
+  bool add_bos_token_explicit_{};
+  bool add_eos_token_explicit_{};
   bool clean_up_tokenization_spaces_{};
   double model_max_length_{};
 

@@ -10,6 +10,8 @@
 
 #include <set>
 #include <list>
+#include <vector>
+#include <memory>
 #include <unordered_map>
 #include <iostream>
 #include <utility>
@@ -66,6 +68,29 @@ class BpeModel {
       if (pre_tokenizer_types_.count(pre_token_type) == 0) {
         return {kOrtxErrorNotImplemented, std::string("Unsupported pretokenizer type!") + pre_token_type};
       }
+
+      // Handle top-level Split pre-tokenizer (not nested in a Sequence/pretokenizers array).
+      // E.g., chatglm3 has: {"type": "Split", "pattern": {"String": "<!dummy-prefix!>"}}
+      // A Split on a literal String that never appears in normal text is effectively a no-op.
+      if (pre_token_type == "Split") {
+        auto iter_pattern = node_pre_tokenizer->find("pattern");
+        if (iter_pattern != node_pre_tokenizer->end()) {
+          auto iter_regex = iter_pattern->find("Regex");
+          if (iter_regex != iter_pattern->end() && !iter_regex->is_null()) {
+            // Split with a Regex pattern — use it as the pre-tokenizer regex
+            pre_tokenizer_regex_ = iter_regex->get<std::string>();
+            bpe::PreTokenizerWithRegEx pre_tokenizer;
+            auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+            if (!status.IsOk()) {
+              return status;
+            }
+          } else {
+            // Split with a String pattern (no-op for tokenization — never matches normal text)
+            no_op_pretokenizer_ = true;
+          }
+        }
+        return {};
+      }
     }
 
     ORTX_JSON_RETURN_IF_NULL(node_pre_tokenizer, "pretokenizers", iter_node_list);
@@ -76,18 +101,17 @@ class BpeModel {
       if (pre_type == "Split") {
         ORTX_JSON_RETURN_IF_NULL(&node, "pattern", iter_pattern);
         ORTX_JSON_RETURN_IF_NULL(iter_pattern, "Regex", regex_str);
-        pre_tokenizer_regex_ = regex_str->get<std::string>();
-        // Validate the regex pattern
+        auto regex = NormalizeJsonRegexEscapes(regex_str->get<std::string>());
         bpe::PreTokenizerWithRegEx pre_tokenizer;
-        auto status = pre_tokenizer.Compile(pre_tokenizer_regex_);
+        auto status = pre_tokenizer.Compile(regex);
         if (!status.IsOk()) {
           return status;
         }
+        sequence_steps_.push_back({std::move(regex)});
       } else {
         if (pre_tokenizer_types_.count(pre_type) == 0) {
           return {kOrtxErrorNotImplemented, "Unsupported pretokenizer type!"};
         }
-        ; // TODO: implement other pretokenizer types
       }
     }
 
@@ -161,7 +185,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
@@ -237,7 +261,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
@@ -275,7 +299,7 @@ class BpeModel {
       if (i > static_cast<uint32_t>((std::numeric_limits<int32_t>::max)())) {
         continue;  // safe purpose.
       }
-      if (i > id2token_map_.size()) {
+      if (i >= id2token_map_.size()) {
         id2token_map_.resize(static_cast<size_t>(i) + 1);
       }
       id2token_map_[i] = t;
@@ -379,53 +403,93 @@ class BpeModel {
     return final_result;
   }
 
-  void PerformBPE(std::list<std::pair<uint32_t, uint32_t>>& vals) const {
-    while (vals.size() >= 2) {
-      auto pos_it = vals.end();
+  void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
+    if (vals.size() < 2) return;
+
+    // Flat-array linked list for cache-friendly traversal.
+    // Each node stores token_id, byte_length, and prev/next indices.
+    // Nodes are indexed [0..n-1]; next == -1 marks the end of the list.
+    struct BpeListNode {
+      uint32_t token_id;
+      uint32_t byte_len;
+      int32_t prev;  // -1 = no prev (head)
+      int32_t next;  // -1 = no next (tail)
+    };
+
+    const size_t n = vals.size();
+    // Stack buffer for common case (pre-tokens up to 128 chars); heap fallback for longer.
+    constexpr size_t kStackSize = 128;
+    BpeListNode stack_buf[kStackSize];
+    std::unique_ptr<BpeListNode[]> heap_buf;
+    BpeListNode* nodes = stack_buf;
+    if (n > kStackSize) {
+      heap_buf = std::make_unique<BpeListNode[]>(n);
+      nodes = heap_buf.get();
+    }
+
+    // Initialize from vector (contiguous access, no linked-list traversal)
+    for (size_t idx = 0; idx < n; idx++) {
+      nodes[idx] = {vals[idx].first, vals[idx].second, static_cast<int32_t>(idx) - 1, static_cast<int32_t>(idx) + 1};
+    }
+    nodes[n - 1].next = -1;  // last node has no next
+
+    size_t active_count = n;
+
+    while (active_count >= 2) {
+      // Find the pair with minimum merge rank
+      int32_t best_idx = -1;
       uint32_t minval = (std::numeric_limits<uint32_t>::max)();
       uint32_t ori_id1 = 0, ori_id2 = 0;
       uint32_t aim_id = 0;
-      int token_length = 0;
-      for (auto it = vals.begin(); it != vals.end(); ++it) {
-        auto it2 = it;
-        ++it2;
-        if (it2 == vals.end()) {
-          break;
-        }
 
-        auto map_it = bpe_rank_.find(GetRankKey(it->first, it2->first));
-        if (map_it == bpe_rank_.end()) {
-          continue;
-        }
+      for (int32_t i = 0; i != -1; i = nodes[i].next) {
+        int32_t j = nodes[i].next;
+        if (j == -1) break;
+
+        auto map_it = bpe_rank_.find(GetRankKey(nodes[i].token_id, nodes[j].token_id));
+        if (map_it == bpe_rank_.end()) continue;
 
         if (minval > map_it->second.value) {
-          ori_id1 = it->first;
-          ori_id2 = it2->first;
+          ori_id1 = nodes[i].token_id;
+          ori_id2 = nodes[j].token_id;
           minval = map_it->second.value;
-          pos_it = it;
+          best_idx = i;
           aim_id = map_it->second.id;
         }
       }
 
-      if (pos_it == vals.end()) {
-        break;
-      }
+      if (best_idx == -1) break;
 
-      token_length = pos_it->second;
-      pos_it = vals.erase(pos_it);
-      pos_it->first = aim_id;
-      pos_it->second += token_length;
-      for (++pos_it; pos_it != vals.end(); ++pos_it) {
-        if (pos_it->first != ori_id1) continue;
-        auto it2 = pos_it;
-        ++it2;
-        if (it2 == vals.end()) break;
-        if (it2->first != ori_id2) continue;
-        token_length = pos_it->second;
-        pos_it = vals.erase(pos_it);
-        pos_it->first = aim_id;
-        pos_it->second += token_length;
+      // Merge all occurrences of (ori_id1, ori_id2) in one pass
+      for (int32_t i = best_idx; i != -1;) {
+        int32_t j = nodes[i].next;
+        if (j == -1) break;
+
+        if (nodes[i].token_id == ori_id1 && nodes[j].token_id == ori_id2) {
+          // Merge: replace node i's token with merged token, absorb j's byte length, remove j
+          nodes[i].token_id = aim_id;
+          nodes[i].byte_len += nodes[j].byte_len;
+
+          // Unlink j
+          int32_t after_j = nodes[j].next;
+          nodes[i].next = after_j;
+          if (after_j != -1) {
+            nodes[after_j].prev = i;
+          }
+          active_count--;
+
+          // Continue from i (the merged node might form a new pair with its new next)
+          // but don't advance — check i again with its new next
+          continue;
+        }
+        i = nodes[i].next;
       }
+    }
+
+    // Write back to list
+    vals.clear();
+    for (int32_t i = 0; i != -1; i = nodes[i].next) {
+      vals.emplace_back(nodes[i].token_id, nodes[i].byte_len);
     }
   }
 
@@ -450,12 +514,22 @@ class BpeModel {
 
   const std::string& GetEndOfWordSuffix() const { return end_of_word_suffix_; }
 
-  std::string GetPreTokenizerRegex(const std::string& model_name) const {
+  bool IsNoOpPretokenizer() const { return no_op_pretokenizer_; }
+
+  struct SequencePreTokenizerStep {
+    std::string regex;
+  };
+
+  bool HasSequencePreTokenizer() const { return !sequence_steps_.empty(); }
+
+  const std::vector<SequencePreTokenizerStep>& GetSequenceSteps() const { return sequence_steps_; }
+
+  std::string GetPreTokenizerRegex(const std::string& model_name, bool spm_model = false) const {
     if (!pre_tokenizer_regex_.empty()) {
       return pre_tokenizer_regex_;
     }
 
-    if (model_name == "Llama") {
+    if (model_name == "Llama" || spm_model) {
       return bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN;
     }
 
@@ -476,7 +550,7 @@ class BpeModel {
 
  private:
   std::string end_of_word_suffix_;
-  std::map<uint64_t, BpeNode> bpe_rank_;
+  std::unordered_map<uint64_t, BpeNode> bpe_rank_;
 
   std::unordered_map<std::string, uint32_t> vocab_map_;
   std::vector<std::string> id2token_map_;
@@ -485,8 +559,26 @@ class BpeModel {
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
   std::string pre_tokenizer_regex_;
+  bool no_op_pretokenizer_ = false;
+  std::vector<SequencePreTokenizerStep> sequence_steps_;
 
   std::set<std::string_view> pre_tokenizer_types_;
+
+  static std::string NormalizeJsonRegexEscapes(std::string regex) {
+    std::string normalized;
+    normalized.reserve(regex.size());
+    for (char ch : regex) {
+      switch (ch) {
+        case '\r': normalized += "\\r"; break;
+        case '\n': normalized += "\\n"; break;
+        case '\t': normalized += "\\t"; break;
+        case '\f': normalized += "\\f"; break;
+        case '\v': normalized += "\\v"; break;
+        default:   normalized += ch;    break;
+      }
+    }
+    return normalized;
+  }
 };
 
 }  // namespace ort_extensions

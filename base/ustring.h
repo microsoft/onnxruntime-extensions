@@ -163,14 +163,39 @@ class ustring : public std::u32string {
     return ucs32;
   }
 
+ public:
   static std::string ToUTF8(const u32string& ucs32) {
     std::string utf8;
-    utf8.reserve(ucs32.length() * 4);
+    utf8.reserve(ucs32.length() * 2);  // most chars are 1-2 bytes
+    char buf[4];
     for (char32_t codepoint : ucs32) {
-      utf8 += EncodeUTF8Char(codepoint);
+      size_t len = EncodeUTF8Char(buf, codepoint);
+      utf8.append(buf, len);
     }
 
     return utf8;
+  }
+
+  static std::string ToUTF8(const std::u32string_view& ucs32) {
+    std::string utf8;
+    utf8.reserve(ucs32.length() * 2);
+    char buf[4];
+    for (char32_t codepoint : ucs32) {
+      size_t len = EncodeUTF8Char(buf, codepoint);
+      utf8.append(buf, len);
+    }
+
+    return utf8;
+  }
+
+  // Write UTF-8 into an existing string (reuses its capacity to avoid heap allocations)
+  static void ToUTF8Into(const std::u32string_view& ucs32, std::string& utf8) {
+    utf8.clear();
+    char buf[4];
+    for (char32_t codepoint : ucs32) {
+      size_t len = EncodeUTF8Char(buf, codepoint);
+      utf8.append(buf, len);
+    }
   }
 };
 

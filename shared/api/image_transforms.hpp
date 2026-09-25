@@ -155,6 +155,10 @@ struct Resize {
     int w = static_cast<int>(dimensions[1]);
     int c = static_cast<int>(dimensions[2]);
 
+    if (c != 3) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: Expected 3-channel RGB input, got " + std::to_string(c) + " channels"};
+    }
+
     Imaging rgb_image = ImagingNew("RGB", w, h);
     for (int32_t i = 0; i < h; ++i) {
       for (int32_t j = 0; j < w; ++j) {
@@ -189,6 +193,9 @@ struct Resize {
 
     auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
     ImagingDelete(rgb_image);
+    if (output_image == nullptr) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
+    }
 
     auto* p_output_image = output.Allocate({height, width, c});
     for (auto i = height - height; i < height; ++i) {
@@ -306,9 +313,15 @@ struct Normalize {
     for (const auto& [key, value] : attrs) {
       if (key == "mean") {
         auto mean = std::get<std::vector<double>>(value);
+        if (mean.size() < 3) {
+          return {kOrtxErrorInvalidArgument, "[Normalize]: mean must have at least 3 values"};
+        }
         mean_ = {static_cast<float>(mean[0]), static_cast<float>(mean[1]), static_cast<float>(mean[2])};
       } else if (key == "std") {
         auto std = std::get<std::vector<double>>(value);
+        if (std.size() < 3) {
+          return {kOrtxErrorInvalidArgument, "[Normalize]: std must have at least 3 values"};
+        }
         std_ = {static_cast<float>(std[0]), static_cast<float>(std[1]), static_cast<float>(std[2])};
       } else if (key == "qwen2_5_vl" || key == "qwen3_vl") {
         qwen2_5_vl_ = std::get<int64_t>(value) != 0;
@@ -329,6 +342,13 @@ struct Normalize {
     int64_t H = dimensions[0];
     int64_t W = dimensions[1];
     int64_t C = dimensions[2];
+
+    if (C != static_cast<int64_t>(mean_.size()) || C != static_cast<int64_t>(std_.size())) {
+      return {kOrtxErrorInvalidArgument,
+              "[Normalize]: channel count " + std::to_string(C) +
+              " does not match mean/std size (mean=" + std::to_string(mean_.size()) +
+              ", std=" + std::to_string(std_.size()) + ")"};
+    }
 
     float* out = output.Allocate({H, W, C});
 
@@ -403,6 +423,10 @@ struct CenterCrop {
     auto w = dimensions[1];
     auto c = dimensions[2];
 
+    if (target_h_ > h || target_w_ > w) {
+      return {kOrtxErrorInvalidArgument, "[CenterCrop]: target dimensions exceed input image size"};
+    }
+
     auto* p_output_image = output.Allocate({target_h_, target_w_, c});
     auto s_h = (h - target_h_) / 2;
     auto s_w = (w - target_w_) / 2;
@@ -459,6 +483,12 @@ struct Permute3D {
       } else {
         return {kOrtxErrorInvalidArgument, "[Permute]: Invalid argument"};
       }
+    }
+
+    if (dims_.size() != 3 || dims_[0] < 0 || dims_[0] > 2 ||
+        dims_[1] < 0 || dims_[1] > 2 || dims_[2] < 0 || dims_[2] > 2 ||
+        dims_[0] == dims_[1] || dims_[0] == dims_[2] || dims_[1] == dims_[2]) {
+      return {kOrtxErrorInvalidArgument, "[Permute]: dims must be a permutation of {0, 1, 2}"};
     }
 
     return {};

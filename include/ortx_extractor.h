@@ -126,6 +126,58 @@ extError_t ORTX_API_CALL OrtxMergeSignalSegments(const OrtxTensor* segments_tens
 extError_t ORTX_API_CALL OrtxFeatureExtraction(OrtxFeatureExtractor* extractor, OrtxRawAudios* audio,
                                                OrtxTensorResult** result);
 
+/**
+ * @brief Decode raw audio bytes to float32 PCM samples.
+ *
+ * Decodes the audio at the given index from an OrtxRawAudios object into
+ * float32 PCM samples (mono). The result contains two tensors:
+ *   [0] = float32 PCM samples of shape [1, num_samples]
+ *   [1] = int64 sample rate of shape [1]
+ *
+ * Note: this entry point constructs and initializes a fresh AudioDecoder on every call. For
+ * decoding many audios at once, prefer OrtxDecodeAudios, which amortizes decoder
+ * initialization across the whole batch.
+ *
+ * @param raw_audios         An OrtxRawAudios object containing one or more audio buffers.
+ * @param index              Index of the audio to decode (0-based).
+ * @param target_sample_rate Target sample rate for resampling. Set to 0 to keep the native rate.
+ * @param stereo_to_mono     If non-zero, multi-channel audio is downmixed to mono. If zero,
+ *                           channels are preserved (PCM tensor shape becomes [num_channels,
+ *                           num_samples]).
+ * @param result             Output: OrtxTensorResult with [pcm, sample_rate] tensors.
+ *
+ * @return An extError_t value indicating success or error status.
+ */
+extError_t ORTX_API_CALL OrtxDecodeAudio(OrtxRawAudios* raw_audios, size_t index, int64_t target_sample_rate,
+                                         int stereo_to_mono, OrtxTensorResult** result);
+
+/**
+ * @brief Decode all raw audio buffers in an OrtxRawAudios container to float32 PCM samples.
+ *
+ * Batch variant of OrtxDecodeAudio: initializes the decoder once and decodes every audio in
+ * the container, producing one OrtxTensorResult per audio. Each result has the same layout as
+ * OrtxDecodeAudio:
+ *   [0] = float32 PCM samples of shape [1, num_samples]
+ *   [1] = int64 sample rate of shape [1]
+ *
+ * Failure semantics: fail-fast. On error, any results already produced are freed and every
+ * entry in `results` is set to nullptr.
+ *
+ * @param raw_audios         An OrtxRawAudios object containing one or more audio buffers.
+ * @param target_sample_rate Target sample rate for resampling. Set to 0 to keep the native rate.
+ * @param stereo_to_mono     If non-zero, multi-channel audio is downmixed to mono. If zero,
+ *                           channels are preserved (PCM tensor shape becomes [num_channels,
+ *                           num_samples]).
+ * @param results            Caller-allocated array of size `num_results`; on success each entry
+ *                           is set to a new OrtxTensorResult* that the caller must dispose.
+ * @param num_results        Size of the `results` array; must equal the number of audios in
+ *                           `raw_audios`.
+ *
+ * @return An extError_t value indicating success or error status.
+ */
+extError_t ORTX_API_CALL OrtxDecodeAudios(OrtxRawAudios* raw_audios, int64_t target_sample_rate,
+                                          int stereo_to_mono, OrtxTensorResult** results, size_t num_results);
+
 #ifdef __cplusplus
 }
 #endif

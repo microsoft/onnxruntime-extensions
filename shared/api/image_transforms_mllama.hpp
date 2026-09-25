@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <limits>
 #include <vector>
 
 #include "ortx_processor.h"
@@ -265,21 +266,77 @@ struct Llama3ImageTransform {
     return aspect_ratios_ids;
   }
 
+  // Overflow-checked non-negative int64 multiplication. Returns true (and leaves *out
+  // untouched) if a * b would overflow int64_t, false otherwise. Callers are expected
+  // to have already validated a >= 0 and b >= 0.
+  static bool MulNoOverflow(int64_t a, int64_t b, int64_t* out) {
+    if (a == 0 || b == 0) {
+      *out = 0;
+      return false;
+    }
+    if (a > std::numeric_limits<int64_t>::max() / b) {
+      return true;
+    }
+    *out = a * b;
+    return false;
+  }
+
   OrtxStatus DoPad(const ortc::Tensor<uint8_t>& image, const std::pair<int64_t, int64_t>& aspect_ratio,
                    ortc::Tensor<uint8_t>& padded_image) const {
     auto& dimensions = image.Shape();
     auto [image_height, image_width] = std::make_tuple(dimensions[0], dimensions[1]);
     auto [num_tiles_height, num_tiles_width] = aspect_ratio;
-    auto padded_height = num_tiles_height * tile_size_.first;
-    auto padded_width = num_tiles_width * tile_size_.second;
-    auto pad_size = std::make_pair(padded_height - image_height, padded_width - image_width);
     auto channels = dimensions[2];
+
+    // Non-negativity / positivity sanity checks. num_tiles_* and tile_size_ are guaranteed > 0 by
+    // Init and by GetOptimalTiledCanvas, but re-check defensively because the arithmetic below
+    // must not receive zero or negative operands.
+    if (image_height < 0 || image_width < 0 || channels <= 0 ||
+        num_tiles_height <= 0 || num_tiles_width <= 0) {
+      return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: invalid image or tile shape"};
+    }
+
+    // Guard every product used for allocation and memcpy sizing against int64_t overflow.
+    // Without these checks a config with very large max_image_tiles and size values could wrap
+    // padded_height * padded_width * channels to a small positive number, under-allocating the
+    // destination buffer while the per-row memcpy still writes the full image_width * channels
+    // bytes.
+    int64_t padded_height = 0;
+    int64_t padded_width = 0;
+    int64_t plane_size = 0;
+    int64_t total_bytes = 0;
+    if (MulNoOverflow(num_tiles_height, tile_size_.first, &padded_height) ||
+        MulNoOverflow(num_tiles_width, tile_size_.second, &padded_width) ||
+        MulNoOverflow(padded_height, padded_width, &plane_size) ||
+        MulNoOverflow(plane_size, channels, &total_bytes)) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: padded image dimensions exceed representable range"};
+    }
+
+    // Ensure total_bytes fits in size_t so the memset/memcpy sizes below do not silently
+    // truncate on platforms where size_t is 32-bit.
+    if (static_cast<uint64_t>(total_bytes) > std::numeric_limits<size_t>::max()) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: padded image size exceeds addressable memory"};
+    }
+
+    // Defense-in-depth: refuse to run if the resized image does not fit inside the padded canvas.
+    // Prevents the per-row memcpy below from overrunning the padded_image heap allocation.
+    if (image_height > padded_height || image_width > padded_width) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: resized image does not fit within padded canvas"};
+    }
+    auto pad_size = std::make_pair(padded_height - image_height, padded_width - image_width);
     auto* padded_image_data = padded_image.Allocate({padded_height, padded_width, channels});
-    std::memset(padded_image_data, 0, padded_height * padded_width * channels);
+    std::memset(padded_image_data, 0, static_cast<size_t>(total_bytes));
     auto* input_data = image.Data();
+    // Every intermediate offset below is bounded by total_bytes (checked above):
+    //   j * padded_width * channels < padded_height * padded_width * channels = total_bytes
+    //   image_width * channels     <= padded_width * channels                  <= total_bytes
+    // so none of these products can overflow int64_t either.
     for (int64_t j = 0; j < image_height; ++j) {
       std::memcpy(padded_image_data + j * padded_width * channels, input_data + j * image_width * channels,
-                  image_width * channels);
+                  static_cast<size_t>(image_width * channels));
     }
 
     return {};
@@ -327,12 +384,28 @@ struct Llama3ImageTransform {
         if (tile_size.size() != 2) {
           return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid tile size"};
         }
+        // DoResize uses only tile_size_.first for both axes while DoPad sizes the destination row
+        // stride from tile_size_.second. A non-square size therefore lets the row memcpy in DoPad
+        // overrun the padded_image heap allocation. Enforce squareness here.
+        if (tile_size[0] <= 0 || tile_size[1] <= 0 || tile_size[0] != tile_size[1]) {
+          return {kOrtxErrorInvalidArgument,
+                  "[Llama3ImageTransform]: tile size must be positive and square (tile_h == tile_w)"};
+        }
         tile_size_ = std::make_pair(tile_size[0], tile_size[1]);
       } else if (key == "interpolation") {
         interpolation_ = std::get<std::string>(value);
       } else {
         return {kOrtxErrorInvalidArgument, "[Llama3ImageTransform]: Invalid argument"};
       }
+    }
+
+    if (max_image_tiles_ <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: missing or non-positive 'max_image_tiles' attribute"};
+    }
+    if (tile_size_.first <= 0 || tile_size_.second <= 0) {
+      return {kOrtxErrorInvalidArgument,
+              "[Llama3ImageTransform]: missing or non-positive 'size' attribute"};
     }
 
     OrtxStatus status = normalize_.Init(normalizer_attrs);

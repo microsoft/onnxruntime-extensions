@@ -229,6 +229,27 @@ TEST(tokenizer_operators, test_bert_tokenizer) {
   TestInference(*ort_env, model_path.c_str(), inputs, outputs);
 }
 
+TEST(tokenizer_operators, test_bert_tokenizer_offset_mapping_alignment) {
+  auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
+  const std::filesystem::path model_path = "data/test_bert_tokenizer_offsets.onnx";
+
+  const std::vector<TestValue> truncated_inputs = {
+      TestValue{"text", std::vector<std::string>{"cat is playing toys"}, {1}}};
+  const std::vector<TestValue> truncated_outputs = {
+      TestValue{"input_ids", std::vector<int64_t>{2, 5, 6, 7, 3}, {5}},
+      TestValue{"offset_mapping", std::vector<int64_t>{0, 0, 0, 3, 4, 6, 7, 11, 0, 0}, {5, 2}}};
+  TestInference(*ort_env, model_path.c_str(), truncated_inputs, truncated_outputs);
+
+  const std::vector<TestValue> paired_inputs = {
+    TestValue{"text", std::vector<std::string>{"cat is playing", "the dog runs"}, {2}}};
+  const std::vector<TestValue> paired_outputs = {
+      TestValue{"input_ids", std::vector<int64_t>{2, 5, 6, 7, 8, 3, 10, 11, 12, 3}, {10}},
+      TestValue{"offset_mapping",
+          std::vector<int64_t>{0, 0, 0, 3, 4, 6, 7, 11, 11, 14, 0, 0, 0, 3, 4, 7, 8, 12, 0, 0},
+          {10, 2}}};
+  TestInference(*ort_env, model_path.c_str(), paired_inputs, paired_outputs);
+}
+
 TEST(tokenizer_opertors, test_bert_tokenizer_scalar) {
   auto ort_env = std::make_unique<Ort::Env>(ORT_LOGGING_LEVEL_WARNING, "Default");
 

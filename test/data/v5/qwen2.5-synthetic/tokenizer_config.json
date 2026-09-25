@@ -1,0 +1,10 @@
+{
+  "_comment_synthetic": "SYNTHETIC V5 TEST DATA: This file was manually crafted to simulate Transformers v5 save_pretrained() output. Base model: Qwen/Qwen2.5-0.5B-Instruct. Modifications: (1) Removed 'add_bos_token' - v5 no longer saves this field, (2) Removed 'added_tokens_decoder' - v5 only stores this when tokenizer.json is absent, (3) Removed 'chat_template' - v5 saves this as chat_template.jinja file instead, (4) Changed 'tokenizer_class' to 'TokenizersBackend' - v5 new backend class name for tokenizers-backed tokenizers. The tokenizer.json in this directory is the UNMODIFIED original from test/data/qwen2.5/. See: https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md",
+  "add_prefix_space": false,
+  "bos_token": null,
+  "clean_up_tokenization_spaces": false,
+  "eos_token": "<|im_end|>",
+  "model_max_length": 32768,
+  "tokenizer_class": "TokenizersBackend",
+  "unk_token": null
+}

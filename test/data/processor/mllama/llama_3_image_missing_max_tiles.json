@@ -1,0 +1,43 @@
+{
+  "_comment": "Regression fixture: 'max_image_tiles' attribute is intentionally omitted from the Llama3ImageTransform config. Without the post-parse validation in Init, max_image_tiles_ stays at its 0 default and DoResize later builds an empty possible_canvas_sizes vector, causing undefined behavior. OrtxCreateProcessor must reject this config.",
+  "processor": {
+    "name": "MllamaImageProcessor",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "domain": "com.microsoft.onnxruntime.extensions",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "RGB"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "llama3_image_transform",
+          "domain": "com.microsoft.onnxruntime.extensions",
+          "type": "Llama3ImageTransform",
+          "attrs": {
+            "size": [
+              560,
+              560
+            ],
+            "interpolation": "LINEAR",
+            "rescale/rescale_factor": 0.00392156862745098,
+            "normalize/mean": [
+              0.48145466,
+              0.4578275,
+              0.40821073
+            ],
+            "normalize/std": [
+              0.26862954,
+              0.26130258,
+              0.27577711
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
