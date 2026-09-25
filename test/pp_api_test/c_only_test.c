@@ -11,6 +11,10 @@
 #define strdup _strdup
 #endif
 
+extError_t get_detokenize_metadata(const OrtxMetadata* metadata, const OrtxTimestampMetadata** payload) {
+  *payload = metadata->timestampMetadata;
+  return kOrtxOK;
+}
 
 extError_t tokenize_text(OrtxTokenizer* tokenizer, const char* text, char** decoded_text) {
   OrtxTokenId2DArray* tok_2d_output = NULL;

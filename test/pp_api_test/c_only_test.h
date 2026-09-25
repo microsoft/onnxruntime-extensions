@@ -13,3 +13,8 @@
 extern "C"
 #endif  // __cplusplus
 extError_t tokenize_text(OrtxTokenizer* tokenizer, const char* text, char** decoded_text);
+
+#ifdef __cplusplus
+extern "C"
+#endif
+extError_t get_detokenize_metadata(const OrtxMetadata* metadata, const OrtxTimestampMetadata** payload);
