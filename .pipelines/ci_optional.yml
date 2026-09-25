@@ -155,7 +155,7 @@ stages:
 
   - job: WindowsPyCUDA
     pool:
-      name: 'onnxruntime-extensions-Win2022-GPU-A10'
+      name: 'onnxruntime-Win2022-GPU-A10'
     steps:
       - template: templates/set_winenv.yml
         parameters:
