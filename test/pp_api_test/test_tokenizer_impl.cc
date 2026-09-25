@@ -213,6 +213,150 @@ TEST(TokenizerWordGroupingTest, DelimiterBeforePunctuationStaysWithPreviousWord)
   EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
 }
 
+TEST(TokenizerWordGroupingTest, NonAsciiContinuationDoesNotStartWord) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"caf", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "caf");
+  grouping.Consume({"\xC3\x83\xC2\xA9", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "caf\xC3\xA9");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
+
+  ort_extensions::TokenizerWordGroupingState buffered;
+  buffered.Consume({"caf", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "caf");
+  buffered.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  buffered.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_TRUE(buffered.CompletedWords().empty());
+  buffered.Finalize();
+  ASSERT_EQ(buffered.CompletedWords().size(), 1u);
+  EXPECT_EQ(buffered.CompletedWords()[0].text, "caf\xC3\xA9");
+  EXPECT_EQ(buffered.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(buffered.CompletedWords()[0].stop_token_index, 3u);
+}
+
+TEST(TokenizerWordGroupingTest, UnicodePunctuationStaysWithPreviousWord) {
+  for (const std::string punctuation : {"\xE3\x80\x82", "\xE2\x80\xA6"}) {
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({"hello", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "hello");
+    grouping.Consume({" ", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, " ");
+    grouping.Consume({punctuation, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, punctuation);
+    EXPECT_TRUE(grouping.CompletedWords().empty());
+    grouping.Consume({" world", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, " world");
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "hello " + punctuation);
+    EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+    EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
+  }
+}
+
+TEST(TokenizerWordGroupingTest, UnicodeWhitespacePreservesTextAndSpans) {
+  for (const std::string separator : {"\xC2\xA0", "\xE3\x80\x80", "\v", "\f"}) {
+    const std::string text = "first" + separator + "second" + separator + "third";
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({text, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, text);
+    ASSERT_EQ(grouping.CompletedWords().size(), 2u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "first");
+    EXPECT_EQ(grouping.CompletedWords()[1].text, separator + "second");
+    for (const auto& word : grouping.CompletedWords()) {
+      EXPECT_EQ(word.start_token_index, 0u);
+      EXPECT_EQ(word.stop_token_index, 1u);
+    }
+    grouping.Finalize();
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, separator + "third");
+    EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+    ort_extensions::TokenizerWordGroupingState fragmented;
+    fragmented.Consume({"first", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "first");
+    fragmented.Consume({separator, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, separator);
+    EXPECT_TRUE(fragmented.CompletedWords().empty());
+    fragmented.Consume({"second", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "second");
+    ASSERT_EQ(fragmented.CompletedWords().size(), 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].text, "first");
+    EXPECT_EQ(fragmented.CompletedWords()[0].stop_token_index, 1u);
+    EXPECT_EQ(fragmented.FirstPendingTokenIndex(), 1u);
+    fragmented.Finalize();
+    ASSERT_EQ(fragmented.CompletedWords().size(), 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].text, separator + "second");
+    EXPECT_EQ(fragmented.CompletedWords()[0].start_token_index, 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].stop_token_index, 3u);
+  }
+}
+
+TEST(TokenizerWordGroupingTest, ExplicitPrefixAndSuffixBoundaries) {
+  for (const auto style : {ort_extensions::WordBoundaryStyle::PrefixBpe,
+                           ort_extensions::WordBoundaryStyle::SentencePiece}) {
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({"first", style, false, false}, "first");
+    grouping.Consume({"marked", style, false, false, true}, "second");
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "first");
+    EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 1u);
+    grouping.Finalize();
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "second");
+    EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 1u);
+  }
+  ort_extensions::TokenizerWordGroupingState suffix;
+  suffix.Consume({"caf", ort_extensions::WordBoundaryStyle::SuffixBpe, false, false}, "caf");
+  suffix.Consume({"ending", ort_extensions::WordBoundaryStyle::SuffixBpe, false, true}, "\xC3\xA9 ");
+  ASSERT_EQ(suffix.CompletedWords().size(), 1u);
+  EXPECT_EQ(suffix.CompletedWords()[0].text, "caf\xC3\xA9 ");
+  EXPECT_EQ(suffix.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(suffix.CompletedWords()[0].stop_token_index, 2u);
+}
+
+TEST(TokenizerWordGroupingTest, TokenizerFactsUseWhitespacePrefixes) {
+  for (const auto& fixture : std::vector<std::pair<std::string, std::string>>{
+           {"data/tokenizer/phi-3-small-cvt", "\xC4\xA0world"},
+           {"data/llama2", "\xE2\x96\x81world"},
+           {"data/tokenizer/fairseq/xlm-roberta-base", "\xE2\x96\x81world"}}) {
+    ort_extensions::TokenizerImpl tokenizer;
+    auto status = tokenizer.Load(fixture.first);
+    ASSERT_TRUE(status.IsOk()) << status.ToString();
+    extTokenId_t token_id{};
+    ASSERT_TRUE(tokenizer.Token2Id(fixture.second, token_id).IsOk());
+    ort_extensions::TokenizerWordPieceInfo info;
+    ASSERT_TRUE(tokenizer.GetWordPieceInfo(token_id, info).IsOk());
+    EXPECT_EQ(info.encoded_piece, fixture.second);
+    EXPECT_TRUE(info.starts_word);
+  }
+
+  ort_extensions::TokenizerImpl tokenizer;
+  auto status = tokenizer.Load("data/tokenizer/phi-3-small-cvt");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  extTokenId_t accent_id{};
+  ASSERT_TRUE(tokenizer.Token2Id("\xC3\x83\xC2\xA9", accent_id).IsOk());
+  ort_extensions::TokenizerWordPieceInfo accent;
+  ASSERT_TRUE(tokenizer.GetWordPieceInfo(accent_id, accent).IsOk());
+  EXPECT_EQ(accent.encoded_piece, "\xC3\x83\xC2\xA9");
+  EXPECT_FALSE(accent.starts_word);
+
+  std::vector<std::vector<extTokenId_t>> ids;
+  ASSERT_TRUE(tokenizer.BatchEncode({"caf\xC3\xA9 world"}, ids, false).IsOk());
+  ASSERT_EQ(ids.size(), 1u);
+  ASSERT_GT(ids[0].size(), 2u);
+  ort_extensions::TokenizerWordGroupingState grouping;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> cache;
+  std::vector<std::string> words;
+  std::string transcript;
+  for (const auto token_id : ids[0]) {
+    ort_extensions::TokenizerWordPieceInfo info;
+    ASSERT_TRUE(tokenizer.GetWordPieceInfo(token_id, info).IsOk());
+    std::string text;
+    ASSERT_TRUE(tokenizer.Id2Token(token_id, text, cache).IsOk());
+    transcript += text;
+    grouping.Consume(info, text);
+    for (const auto& word : grouping.CompletedWords()) words.push_back(word.text);
+  }
+  grouping.Finalize();
+  for (const auto& word : grouping.CompletedWords()) words.push_back(word.text);
+  EXPECT_EQ(transcript, "caf\xC3\xA9 world");
+  EXPECT_EQ(words, (std::vector<std::string>{"caf\xC3\xA9", " world"}));
+}
+
 TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/tokenizer/phi-3-small-cvt");

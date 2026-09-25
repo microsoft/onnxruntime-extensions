@@ -29,6 +29,7 @@ struct TokenizerWordPieceInfo {
   WordBoundaryStyle boundary_style{WordBoundaryStyle::SentencePiece};
   bool is_special{};
   bool ends_word{};
+  bool starts_word{};
 };
 
 struct AddedToken final {

@@ -2,24 +2,29 @@
 // Licensed under the MIT License.
 
 #include "tokenizer_word_grouping.h"
+#include "string_utils.h"
 
 #include <algorithm>
-#include <cctype>
 
 namespace ort_extensions {
 namespace {
 
+bool IsWhitespace(char32_t value) {
+  return IsSpace(value) || value == U'\v' || value == U'\f';
+}
+
 bool IsWhitespace(std::string_view text) {
-  return !text.empty() && std::all_of(text.begin(), text.end(), [](unsigned char value) {
-           return std::isspace(value) != 0;
-         });
+  const ustring codepoints{text};
+  return !codepoints.empty() && std::all_of(codepoints.begin(), codepoints.end(), [](char32_t value) {
+    return IsWhitespace(value);
+  });
 }
 
 bool IsPunctuation(std::string_view text) {
   bool found = false;
-  for (const unsigned char value : text) {
-    if (std::isspace(value)) continue;
-    if (value > 0x7f || std::ispunct(value) == 0) return false;
+  for (const auto value : ustring(text)) {
+    if (IsWhitespace(value)) continue;
+    if (!IsPunct(value)) return false;
     found = true;
   }
   return found;
@@ -79,19 +84,22 @@ void TokenizerWordGroupingState::Consume(const TokenizerWordPieceInfo& piece,
   const size_t output_start_token_index = buffered_output_start_token_index_.value_or(token_index);
   buffered_output_start_token_index_.reset();
 
-  bool first_part = true;
-  for (size_t offset = 0; offset < decoded_text.size();) {
-    const bool whitespace = std::isspace(static_cast<unsigned char>(decoded_text[offset])) != 0;
-    size_t stop = offset + 1;
-    while (stop < decoded_text.size() &&
-           (std::isspace(static_cast<unsigned char>(decoded_text[stop])) != 0) == whitespace) {
-      ++stop;
-    }
-    const bool starts_word = first_part && piece.boundary_style != WordBoundaryStyle::SuffixBpe &&
-                             piece.encoded_piece != decoded_text;
+  const ustring codepoints{decoded_text};
+  size_t offset = 0;
+  for (size_t index = 0; index < codepoints.size();) {
+    const bool first_part = index == 0;
+    const bool whitespace = IsWhitespace(codepoints[index]);
+    size_t stop = offset;
+    do {
+      size_t width = ustring::UTF8Len(decoded_text[stop]);
+      if (width > decoded_text.size() - stop || static_cast<unsigned char>(decoded_text[stop]) >= 0xF8)
+        width = 1;
+      stop += width;
+      ++index;
+    } while (index < codepoints.size() && IsWhitespace(codepoints[index]) == whitespace);
+    const bool starts_word = first_part && piece.starts_word;
     ConsumeTextPart(decoded_text.substr(offset, stop - offset), output_start_token_index,
             token_index + 1, starts_word);
-    first_part = false;
     offset = stop;
   }
 

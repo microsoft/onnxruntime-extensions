@@ -792,6 +792,8 @@ class SpmUgmDecoder {
     info.is_special = special_token_ids_.count(id) != 0;
     info.boundary_style = tokenizer_treat_whitespace_as_suffix_ ? WordBoundaryStyle::SuffixBpe
                                                               : WordBoundaryStyle::SentencePiece;
+    info.starts_word = !info.is_special && !tokenizer_treat_whitespace_as_suffix_ &&
+               info.encoded_piece.substr(0, spm_escaped_space.size()) == spm_escaped_space;
     info.ends_word = tokenizer_treat_whitespace_as_suffix_ &&
                      info.encoded_piece.size() > spm_escaped_space.size() &&
                      info.encoded_piece.compare(info.encoded_piece.size() - spm_escaped_space.size(),

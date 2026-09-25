@@ -59,6 +59,16 @@ class BpeStreamingDecoder : public KernelBpeDecoder {
     } else if (static_cast<size_t>(id) < arr_vocab_.size()) {
       info.encoded_piece = arr_vocab_[id];
     }
+    if (!info.is_special && !added_tokens_.count(id) && !info.encoded_piece.empty()) {
+      if (spm_model_) {
+        info.starts_word = info.encoded_piece.substr(0, ort_extensions::spm_escaped_space.size()) == ort_extensions::spm_escaped_space;
+      } else if (end_of_word_suffix_.empty()) {
+        const auto prefix = ustring(info.encoded_piece).front();
+        const auto decoded = byte_decoder_.find(prefix);
+        const auto value = decoded != byte_decoder_.end() ? decoded->second : prefix;
+        info.starts_word = value == ' ' || (value >= '\t' && value <= '\r');
+      }
+    }
     info.ends_word = !spm_model_ && !end_of_word_suffix_.empty() &&
                      info.encoded_piece.size() >= end_of_word_suffix_.size() &&
                      info.encoded_piece.compare(info.encoded_piece.size() - end_of_word_suffix_.size(),
