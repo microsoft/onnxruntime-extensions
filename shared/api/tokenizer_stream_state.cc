@@ -37,6 +37,15 @@ void DetokenizerCache::ConfigureTimestampTracking(bool enabled) {
   if (!track_timestamp_metadata_.has_value()) track_timestamp_metadata_ = enabled;
 }
 
+extError_t DetokenizerCache::ConfigureMetadata(const OrtxMetadataConfig& config) {
+  if (mode_ != DetokenizerCacheMode::Unset) {
+    ReturnableStatus::last_error_message_ = "Metadata configuration must be set before decoding or finalization";
+    return kOrtxErrorInvalidArgument;
+  }
+  track_timestamp_metadata_ = config.track_timestamp_metadata;
+  return kOrtxOK;
+}
+
 void DetokenizerCache::ConsumeTimestamp(const TokenizerWordPieceInfo& piece, std::string_view text) {
   if (!TracksTimestamps()) return;
   if (!timestamp_state_) timestamp_state_ = std::make_unique<TimestampState>();

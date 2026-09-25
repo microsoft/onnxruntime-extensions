@@ -17,6 +17,18 @@ OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
   return Create<DetokenizerCache>();
 }
 
+extError_t ORTX_API_CALL OrtxSetDetokenizerCacheMetadataConfig(
+    OrtxDetokenizerCache* cache, const OrtxMetadataConfig* config) {
+  if (!cache || !config) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  auto* cache_ptr = static_cast<DetokenizerCache*>(cache);
+  ReturnableStatus status(cache_ptr->IsInstanceOf(kOrtxKindDetokenizerCache));
+  if (!status.IsOk()) return status.Code();
+  return cache_ptr->ConfigureMetadata(*config);
+}
+
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path) {
   // test if the tokenizer_path is a valid directory
   if (tokenizer_path == nullptr) {

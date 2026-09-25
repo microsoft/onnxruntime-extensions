@@ -52,6 +52,11 @@ typedef struct OrtxMetadata {
   const OrtxTimestampMetadata* timestampMetadata;
 } OrtxMetadata;
 
+/** Producer settings for an individual detokenizer cache. */
+typedef struct OrtxMetadataConfig {
+  bool track_timestamp_metadata;
+} OrtxMetadataConfig;
+
 struct OrtxTokenizerBlob {
   const char* config_json_blob;
   const char* vocab_json_blob;
@@ -84,6 +89,15 @@ struct OrtxTokenizerBlob {
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** Configure metadata producers before the first decode or finalize on this cache.
+ * Settings are copied and override tokenizer-level metadata options for this cache.
+ * Reconfiguration after decoding or finalization returns kOrtxErrorInvalidArgument
+ * without changing the cache. Before either operation, settings may be replaced.
+ * Without this call, metadata options are captured from the tokenizer on first metadata decode.
+ */
+extError_t ORTX_API_CALL OrtxSetDetokenizerCacheMetadataConfig(
+  OrtxDetokenizerCache* cache, const OrtxMetadataConfig* config);
 
 /** \brief Create a tokenizer object with the specified tokenizer path
  *
@@ -130,6 +144,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  *   - Enables exact-text word events and token spans in cached metadata decoding.
  *   - Snapshotted on the first metadata decode, not cache creation. Updates affect
  *     caches that have not performed a metadata decode yet, including existing unused caches.
+ *   - Explicit OrtxSetDetokenizerCacheMetadataConfig settings take precedence over this option.
  *
  * Future tokenizer options may be added without changing this API signature.
  *

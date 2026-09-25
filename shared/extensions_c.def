@@ -33,3 +33,4 @@ EXPORTS
  OrtxDisposeOnly @31
  OrtxDetokenizeCachedWithMetadata @32
  OrtxFinalizeDetokenizeCachedWithMetadata @33
+ OrtxSetDetokenizerCacheMetadataConfig @34

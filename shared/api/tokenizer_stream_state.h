@@ -23,6 +23,7 @@ class DetokenizerCache : public OrtxObjectImpl {
   ~DetokenizerCache() override;
 
   extError_t SetMode(DetokenizerCacheMode requested_mode);
+  extError_t ConfigureMetadata(const OrtxMetadataConfig& config);
   bool HasTimestampTrackingSetting() const { return track_timestamp_metadata_.has_value(); }
   void ConfigureTimestampTracking(bool enabled);
   bool TracksTimestamps() const { return track_timestamp_metadata_.value_or(false); }
