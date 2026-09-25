@@ -36,6 +36,13 @@ class HFTokenizerConverter(CustomOpConverter):
         return attrs
 
     @staticmethod
+    def normalize_merges(sorted_merges):
+        # merges data can be a list of string or list of list of string
+        if all(isinstance(v_, (list, tuple)) for v_ in sorted_merges):
+            return [" ".join(v if v != "\n" else "<0x0A>" for v in v_) for v_ in sorted_merges]
+        return [v_.replace("\n", "<0x0A>") for v_ in sorted_merges]
+
+    @staticmethod
     def convert_json_vocab(hf_tokenizer):
         filenames = getattr(hf_tokenizer, "vocab_files_names", None)
         if filenames is None:
@@ -54,15 +61,9 @@ class HFTokenizerConverter(CustomOpConverter):
         # get vocab object from json file
         vocab = tokenizer_json.get("model", {}).get("vocab", {})
         sorted_merges = tokenizer_json.get("model", {}).get("merges", [])
-        
+
         attrs = {"vocab": json.dumps(vocab, separators=(",", ":"))}
-
-        # merges data can be a list of string or list of list of string
-        if (all(isinstance(v_,(list,tuple)))  for v_ in sorted_merges) :
-            sorted_merges = [ " ".join(v if v != "\n" else "<0x0A>" for v in v_ ) for v_ in sorted_merges]
-        else : 
-            sorted_merges = [v_.replace("\n", "<0x0A>") for v_ in sorted_merges]
-
+        sorted_merges = HFTokenizerConverter.normalize_merges(sorted_merges)
         attrs["merges"] = "\n".join(sorted_merges)
         if hf_tokenizer.added_tokens_encoder:
             token_map = [f"{_k}={_v}" for _k,
