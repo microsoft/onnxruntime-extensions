@@ -3,6 +3,10 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
   # If extensions wasn't built in ORT, we create fetchcontent the same 3rd party library as ORT
   # So extensions is always consistent on the 3rd party libraries whether its build in ORT or not
 
+  set(protobuf_patches
+    "${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch"
+    "${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_s390x.patch")
+
   # TOOD: migrate to external abseil library
   # include(abseil-cpp)
   message(STATUS "Fetch protobuf")
@@ -11,7 +15,7 @@ if(NOT _ONNXRUNTIME_EMBEDDED)
     GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
     GIT_TAG v21.12
     EXCLUDE_FROM_ALL
-    PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${PROJECT_SOURCE_DIR}/cmake/externals/protobuf_cmake.patch
+    PATCH_COMMAND git checkout . && git apply --ignore-space-change --ignore-whitespace ${protobuf_patches}
   )
   
   set(protobuf_BUILD_TESTS OFF CACHE BOOL "Build tests")
