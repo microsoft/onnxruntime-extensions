@@ -162,5 +162,57 @@ class TestRaggedTensorToDenseValidation(unittest.TestCase):
         self.assertEqual(result[0].shape[0], 2)
 
 
+class TestStringRaggedTensorToDenseValidation(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        nodes = [
+            helper.make_node(
+                "StringRaggedTensorToDense",
+                inputs=["unused", "values", "offsets", "default_value"],
+                outputs=["out"],
+                domain="ai.onnx.contrib",
+            ),
+        ]
+        inputs = [
+            helper.make_tensor_value_info("unused", onnx_proto.TensorProto.INT64, [0]),
+            helper.make_tensor_value_info("values", onnx_proto.TensorProto.STRING, [None]),
+            helper.make_tensor_value_info("offsets", onnx_proto.TensorProto.INT64, [None]),
+            helper.make_tensor_value_info("default_value", onnx_proto.TensorProto.STRING, [1]),
+        ]
+        output = helper.make_tensor_value_info("out", onnx_proto.TensorProto.STRING, [None, None])
+        graph = helper.make_graph(nodes, "test_string_ragged", inputs, [output])
+        cls.model = make_onnx_model(graph)
+
+        so = _ort.SessionOptions()
+        so.register_custom_ops_library(_get_library_path())
+        cls.so = so
+
+    def _run(self, values, offsets):
+        sess = _ort.InferenceSession(self.model.SerializeToString(), self.so, providers=["CPUExecutionProvider"])
+        return sess.run(None, {
+            "unused": np.array([], dtype=np.int64),
+            "values": np.array(values, dtype=object),
+            "offsets": np.array(offsets, dtype=np.int64),
+            "default_value": np.array(["missing"], dtype=object),
+        })
+
+    def test_invalid_offsets(self):
+        cases = [
+            ([], "must not be empty"),
+            ([0, 4], "out of valid range"),
+            ([0, -1, 3], "out of valid range"),
+            ([0, 3, 1], "monotonic non-decreasing"),
+        ]
+        for offsets, message in cases:
+            with self.subTest(offsets=offsets):
+                with self.assertRaises(Exception) as ctx:
+                    self._run(["a", "b", "c"], offsets)
+                self.assertIn(message, str(ctx.exception))
+
+    def test_valid_offsets_and_empty_row(self):
+        result = self._run(["a", "b", "c"], [0, 2, 2, 3])
+        self.assertEqual(result[0].tolist(), [["a", "b"], ["missing", "missing"], ["c", "missing"]])
+
+
 if __name__ == "__main__":
     unittest.main()
