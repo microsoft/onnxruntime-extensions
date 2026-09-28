@@ -179,9 +179,16 @@ OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>
   return {};
 }
 
-OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens = true) const {
+OrtxStatus TokenizerImpl::Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state,
+                                   bool skip_special_tokens) const {
   return std::visit([&](auto& detokenizer) {
     return detokenizer->Id2Token(id, token, state, skip_special_tokens); }, detokenizer_);
+}
+
+OrtxStatus TokenizerImpl::GetWordPieceInfo(extTokenId_t id, TokenizerWordPieceInfo& info) const {
+  return std::visit([&](auto& detokenizer) -> OrtxStatus {
+    return detokenizer->GetWordPieceInfo(id, info);
+  }, detokenizer_);
 }
 
 static std::map<std::string, std::string> LANGUAGES = {

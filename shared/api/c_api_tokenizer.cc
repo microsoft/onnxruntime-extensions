@@ -8,21 +8,25 @@
 
 #include "c_api_utils.hpp"
 #include "tokenizer_impl.h"
+#include "tokenizer_stream_state.h"
 
 using namespace ort_extensions;
-
-class DetokenizerCache : public OrtxObjectImpl {
- public:
-  DetokenizerCache() : OrtxObjectImpl(extObjectKind_t::kOrtxKindDetokenizerCache) {}
-  ~DetokenizerCache() override = default;
-
-  std::unique_ptr<TokenizerDecodingState> decoder_state_{};
-  std::string last_text_{};  // last detokenized text
-};
 
 template <>
 OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
   return Create<DetokenizerCache>();
+}
+
+extError_t ORTX_API_CALL OrtxSetDetokenizerCacheMetadataConfig(
+    OrtxDetokenizerCache* cache, const OrtxMetadataConfig* config) {
+  if (!cache || !config) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  auto* cache_ptr = static_cast<DetokenizerCache*>(cache);
+  ReturnableStatus status(cache_ptr->IsInstanceOf(kOrtxKindDetokenizerCache));
+  if (!status.IsOk()) return status.Code();
+  return cache_ptr->ConfigureMetadata(*config);
 }
 
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path) {
@@ -55,6 +59,7 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
   static const std::unordered_set<std::string> valid_keys = {
       "add_special_tokens",
       "skip_special_tokens",
+      "track_timestamp_metadata",
       "chat_template_kwargs"
   };
 
@@ -84,6 +89,13 @@ static std::unordered_map<std::string, std::string> BuildOptionsMap(const char* 
     if (valid_keys.find(key) == valid_keys.end()) {
       ReturnableStatus::last_error_message_ =
           "Invalid tokenizer option key: " + key;
+      return {};
+    }
+
+    if (key == "track_timestamp_metadata" && std::string(values[i]) != "true" &&
+        std::string(values[i]) != "false" && std::string(values[i]) != "1" &&
+        std::string(values[i]) != "0") {
+      ReturnableStatus::last_error_message_ = "track_timestamp_metadata must be true, false, 1, or 0.";
       return {};
     }
 
@@ -462,8 +474,9 @@ extError_t ORTX_API_CALL OrtxTokenId2DArrayGetItem(const OrtxTokenId2DArray* tok
   return extError_t();
 }
 
-extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
-                                              extTokenId_t next_id, const char** text_out) {
+static extError_t DetokenizeCachedImpl(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
+                                       extTokenId_t next_id, const char** text_out,
+                                       const OrtxMetadata** metadata_out) {
   if (tokenizer == nullptr || cache == nullptr || text_out == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
     return kOrtxErrorInvalidArgument;
@@ -481,18 +494,78 @@ extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, Or
     return status.Code();
   }
 
+  const auto requested_mode = metadata_out == nullptr ? DetokenizerCacheMode::Text
+                                                       : DetokenizerCacheMode::Metadata;
+  const extError_t mode_status = cache_ptr->SetMode(requested_mode);
+  if (mode_status != kOrtxOK) {
+    return mode_status;
+  }
+
   cache_ptr->last_text_.clear();
+
+  if (metadata_out != nullptr && !cache_ptr->HasTimestampTrackingSetting()) {
+    cache_ptr->ConfigureTimestampTracking(ParseBoolOption(token_ptr->GetOption("track_timestamp_metadata"), false));
+  }
+  const bool track_words = metadata_out != nullptr && cache_ptr->TracksTimestamps();
 
   // If skip_special_tokens option exists, use its value, otherwise use default (true)
   bool skip_special_tokens = ParseBoolOption(token_ptr->GetOption("skip_special_tokens"), true);
+  TokenizerWordPieceInfo piece_info;
+  if (metadata_out != nullptr) *metadata_out = nullptr;
+  if (track_words) {
+    status = ReturnableStatus(token_ptr->GetWordPieceInfo(next_id, piece_info));
+    if (!status.IsOk()) return status.Code();
+  }
+
   status = ReturnableStatus(token_ptr->Id2Token(next_id, cache_ptr->last_text_,
-                                                  cache_ptr->decoder_state_, skip_special_tokens));
+                                                cache_ptr->decoder_state_, skip_special_tokens));
 
   if (status.IsOk()) {
     *text_out = cache_ptr->last_text_.c_str();
+    if (metadata_out != nullptr) {
+      if (track_words) {
+        cache_ptr->ConsumeTimestamp(piece_info, cache_ptr->last_text_);
+      }
+      *metadata_out = &cache_ptr->Metadata();
+    }
   }
 
   return status.Code();
+}
+
+extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
+                                              extTokenId_t next_id, const char** text_out) {
+  return DetokenizeCachedImpl(tokenizer, cache, next_id, text_out, nullptr);
+}
+
+extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* tokenizer,
+                                                          OrtxDetokenizerCache* cache,
+                                                          extTokenId_t next_id,
+                                                          const char** text_out,
+                                                          const OrtxMetadata** metadata_out) {
+  if (metadata_out == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  return DetokenizeCachedImpl(tokenizer, cache, next_id, text_out, metadata_out);
+}
+
+extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
+    OrtxDetokenizerCache* cache, const OrtxMetadata** metadata_out) {
+  if (cache == nullptr || metadata_out == nullptr) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  auto cache_ptr = static_cast<DetokenizerCache*>(cache);
+  ReturnableStatus status(cache_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindDetokenizerCache));
+  if (!status.IsOk()) return status.Code();
+
+  const extError_t mode_status = cache_ptr->SetMode(DetokenizerCacheMode::Metadata);
+  if (mode_status != kOrtxOK) return mode_status;
+
+  cache_ptr->FinalizeMetadata();
+  *metadata_out = &cache_ptr->Metadata();
+  return kOrtxOK;
 }
 
 static extError_t ApplyChatTemplateImpl(const TokenizerImpl* token_ptr, const char* template_str,
