@@ -109,6 +109,22 @@ Classes
 
     * pre_post_processing.step.Step
 
+`Grayscale(layout: str = 'BGR', name: Optional[str] = None)`
+:   Convert an image to grayscale.
+    
+    Input data can be uint8 or float.
+    
+    Input shape: {height, width, 3}
+    Output shape is the same.
+    
+    Args:
+        layout: Optional channel layout. "BGR" and "RGB" are supported. Defaults to "BGR".
+        name: Optional name of step. Defaults to 'Grayscale'.
+
+    ### Ancestors (in MRO)
+
+    * pre_post_processing.step.Step
+
 `ImageBytesToFloat(rescale_factor: float = 0.00392156862745098, name: Optional[str] = None)`
 :   Convert uint8 or float values in range 0..255 to floating point values in range 0..1
     

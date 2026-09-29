@@ -1,4 +1,4 @@
-Documentation was generated with pdoc3 (`pip install pdoc3`).
+Documentation was generated with pdoc3 (`pip install pdoc3==0.10.0`).
 From the parent directory:
   `python -m pdoc pdoc pre_post_processing -o ./pre_post_processing/docs --filter pre_post_processing`
 
