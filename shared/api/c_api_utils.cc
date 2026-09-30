@@ -7,12 +7,11 @@
 #include "file_sys.h"
 
 #include "tokenizer_impl.h"
+#include "tokenizer_stream_state.h"
 #include "image_processor.h"
 #include "speech_extractor.h"
 
 using namespace ort_extensions;
-
-class DetokenizerCache;  // forward definition in tokenizer_impl.cc
 
 thread_local std::string ReturnableStatus::last_error_message_;
 

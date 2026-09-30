@@ -28,6 +28,7 @@
 #include "tokenizer_jsconfig.hpp"
 #include "case_encoder.h"
 #include "unicode.h"
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 
@@ -780,7 +781,23 @@ class SpmUgmDecoder {
     unknown_token_ = tokenizer.unk_token_;
     special_token_ids_ = tokenizer.special_token_ids_;
     tokenizer_add_space_prefix_ = tokenizer.tokenizer_add_space_prefix_;
+    tokenizer_treat_whitespace_as_suffix_ = tokenizer.tokenizer_treat_whitespace_as_suffix_;
     case_encoding_ = tokenizer.case_encoder_ != nullptr;
+    return {};
+  }
+
+  OrtxStatus GetWordPieceInfo(extTokenId_t id, TokenizerWordPieceInfo& info) const {
+    info = {};
+    info.encoded_piece = static_cast<size_t>(id) < vocab_.size() ? std::string_view{vocab_[id]} : std::string_view{};
+    info.is_special = special_token_ids_.count(id) != 0;
+    info.boundary_style = tokenizer_treat_whitespace_as_suffix_ ? WordBoundaryStyle::SuffixBpe
+                                                              : WordBoundaryStyle::SentencePiece;
+    info.starts_word = !info.is_special && !tokenizer_treat_whitespace_as_suffix_ &&
+               info.encoded_piece.substr(0, spm_escaped_space.size()) == spm_escaped_space;
+    info.ends_word = tokenizer_treat_whitespace_as_suffix_ &&
+                     info.encoded_piece.size() > spm_escaped_space.size() &&
+                     info.encoded_piece.compare(info.encoded_piece.size() - spm_escaped_space.size(),
+                                                spm_escaped_space.size(), spm_escaped_space) == 0;
     return {};
   }
 
@@ -902,7 +919,10 @@ class SpmUgmDecoder {
     token = prefix + suffix;
   }
 
-  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state, bool skip_special_tokens /* only used by BPE; placeholder for UGM */ = true) const {
+  // TokenizerImpl dispatches BPE and Unigram decoders through one signature.
+  // Unigram decoding has historically skipped configured special IDs unconditionally.
+  OrtxStatus Id2Token(extTokenId_t id, std::string& token, TokenizerDecodingState** state,
+                      bool /*skip_special_tokens*/ = true) const {
     std::unique_ptr<TokenizerDecodingState> decoding_state;
     if (*state == nullptr) {
       decoding_state = std::make_unique<TokenizerDecodingState>();
@@ -1078,6 +1098,7 @@ class SpmUgmDecoder {
 
  private:
   bool tokenizer_add_space_prefix_ = true;
+  bool tokenizer_treat_whitespace_as_suffix_ = false;
   bool case_encoding_ = false;
   std::vector<std::string> vocab_;
   std::string unknown_token_ = "<unk>";
