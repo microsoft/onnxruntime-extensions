@@ -37,7 +37,7 @@ inline bool TemplateUsesGemmaToolDefinitionMacro(const std::string& tmpl) {
     }
     pos += tag_size;
     if (pos < end && !std::isspace(static_cast<unsigned char>(tmpl[pos])) &&
-        tmpl[pos] != '-' && tmpl[pos] != '+') {
+        !is_control_marker(tmpl[pos])) {
       return false;
     }
     skip_space(pos, end);
