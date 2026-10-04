@@ -1529,7 +1529,7 @@ namespace minja
         throw std::runtime_error("MacroNode.body is null");
       auto callable = Value::callable([&](const std::shared_ptr<Context> &context, ArgumentsValue &args)
                                       {
-            auto call_context = macro_context;
+            auto call_context = Context::make(Value::object(), macro_context);
             std::vector<bool> param_set(params.size(), false);
             for (size_t i = 0, n = args.args.size(); i < n; i++) {
                 auto & arg = args.args[i];
