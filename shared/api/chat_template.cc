@@ -3,6 +3,7 @@
 
 #include <cctype>
 
+#include "chat_template_utils.h"
 #include "tokenizer_impl.h"
 namespace ort_extensions {
 
@@ -346,117 +347,8 @@ static json NormalizeTools(const char* tools_str) {
  * trained on. The Gemma macro marker avoids treating bracket accesses to assistant
  * tool-call history as evidence that tool definitions should stay raw.
  */
-static bool TemplateUsesGemmaToolDefinitionMacro(const std::string& tmpl) {
-  const auto is_identifier_char = [](char c) {
-    return std::isalnum(static_cast<unsigned char>(c)) || c == '_';
-  };
-
-  for (size_t i = 0; i < tmpl.size();) {
-    if (i + 1 < tmpl.size() && tmpl[i] == '{' && tmpl[i + 1] == '#') {
-      const auto comment_end = tmpl.find("#}", i + 2);
-      if (comment_end == std::string::npos) {
-        return false;
-      }
-      i = comment_end + 2;
-      continue;
-    }
-    if (i + 1 >= tmpl.size() || tmpl[i] != '{' || (tmpl[i + 1] != '{' && tmpl[i + 1] != '%')) {
-      ++i;
-      continue;
-    }
-
-    const bool is_statement = tmpl[i + 1] == '%';
-    const size_t block_begin = i + 2;
-    size_t block_end = block_begin;
-    size_t brace_depth = 0;
-    char quote = '\0';
-    while (block_end + 1 < tmpl.size()) {
-      const char c = tmpl[block_end];
-      if (quote != '\0') {
-        if (c == '\\' && block_end + 1 < tmpl.size()) {
-          block_end += 2;
-          continue;
-        }
-        if (c == quote) {
-          quote = '\0';
-        }
-      } else if (c == '\'' || c == '"') {
-        quote = c;
-      } else if (!is_statement && c == '{') {
-        ++brace_depth;
-      } else if (!is_statement && c == '}') {
-        if (brace_depth > 0) {
-          --brace_depth;
-        } else if (tmpl[block_end + 1] == '}') {
-          break;
-        }
-      } else if (is_statement && c == '%' && tmpl[block_end + 1] == '}') {
-        break;
-      }
-      ++block_end;
-    }
-    if (block_end + 1 >= tmpl.size()) {
-      return false;
-    }
-
-    if (is_statement) {
-      size_t cursor = block_begin;
-      while (cursor < block_end && (tmpl[cursor] == '-' || std::isspace(static_cast<unsigned char>(tmpl[cursor])))) {
-        ++cursor;
-      }
-      if (block_end - cursor >= 5 && tmpl.compare(cursor, 5, "macro") == 0 &&
-          (cursor + 5 == block_end || !is_identifier_char(tmpl[cursor + 5]))) {
-        cursor += 5;
-        while (cursor < block_end && std::isspace(static_cast<unsigned char>(tmpl[cursor]))) {
-          ++cursor;
-        }
-        const size_t name_begin = cursor;
-        while (cursor < block_end && is_identifier_char(tmpl[cursor])) {
-          ++cursor;
-        }
-        if (tmpl.compare(name_begin, cursor - name_begin, "format_function_declaration") == 0) {
-          while (cursor < block_end && std::isspace(static_cast<unsigned char>(tmpl[cursor]))) {
-            ++cursor;
-          }
-          if (cursor < block_end && tmpl[cursor++] == '(') {
-            while (cursor < block_end && tmpl[cursor] != ')') {
-              if (tmpl[cursor] == '\'' || tmpl[cursor] == '"') {
-                const char argument_quote = tmpl[cursor++];
-                while (cursor < block_end && tmpl[cursor] != argument_quote) {
-                  if (tmpl[cursor] == '\\' && cursor + 1 < block_end) {
-                    cursor += 2;
-                  } else {
-                    ++cursor;
-                  }
-                }
-                if (cursor < block_end) {
-                  ++cursor;
-                }
-                continue;
-              }
-              if (!is_identifier_char(tmpl[cursor]) || std::isdigit(static_cast<unsigned char>(tmpl[cursor]))) {
-                ++cursor;
-                continue;
-              }
-              const size_t argument_begin = cursor++;
-              while (cursor < block_end && is_identifier_char(tmpl[cursor])) {
-                ++cursor;
-              }
-              if (tmpl.compare(argument_begin, cursor - argument_begin, "tool_data") == 0) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-    i = block_end + 2;
-  }
-  return false;
-}
-
 static bool TemplateWantsRawTools(const std::string& tmpl) {
-  if (TemplateUsesGemmaToolDefinitionMacro(tmpl)) {
+  if (detail::TemplateUsesGemmaToolDefinitionMacro(tmpl)) {
     return true;
   }
 

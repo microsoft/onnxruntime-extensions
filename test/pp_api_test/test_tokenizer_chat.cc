@@ -10,6 +10,7 @@
 
 #include "c_only_test.h"
 #include "ortx_cpp_helper.h"
+#include "shared/api/chat_template_utils.h"
 
 using namespace ort_extensions;
 
@@ -1885,6 +1886,39 @@ TEST(OrtxTokenizerTest, ToolsNormalizedWhenNoToolDotFunction) {
       << "Normalized tools should NOT have 'function' key. Output: " << output;
 }
 
+TEST(OrtxTokenizerTest, GemmaToolMacroDetectorMatchesFormalParametersOnly) {
+  const std::pair<const char*, bool> cases[] = {
+      {R"({% macro format_function_declaration(tool_data) %})", true},
+      {R"({%- macro format_function_declaration(other, tool_data=None) -%})", true},
+      {R"({%+ macro format_function_declaration(x=call(1, [2, {'a': ')'}]), tool_data=None) +%})", true},
+      {R"({% macro format_function_declaration(x=tool_data) %})", false},
+      {R"({% macro format_function_declaration(x=call(tool_data=1)) %})", false},
+      {R"({% macro format_function_declaration(x=[tool_data]) %})", false},
+      {R"({% macro format_function_declaration(tool_data_extra) %})", false},
+      {R"({% macro format_function_declaration_extra(tool_data) %})", false},
+      {R"({% macro format_function_declaration(other) %}{{ tool_data }}{% endmacro %})", false},
+      {R"({% raw %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({%- raw -%}unmatched ' quote {# {{ {% macro format_function_declaration(tool_data) %}{%- endraw -%}{% macro format_function_declaration(tool_data) %})", true},
+      {R"({% raw %}{% endraw - %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw %}{% endraw + %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw %}{% raw %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw %}{% macro format_function_declaration(tool_data) %})", false},
+      {R"({# {% raw %}{% endraw %}{% macro format_function_declaration(tool_data) %} #})", false},
+      {R"({% macro format_function_declaration(tool_data %})", false},
+  };
+
+  for (const auto& [tmpl, expected] : cases) {
+    EXPECT_EQ(detail::TemplateUsesGemmaToolDefinitionMacro(tmpl), expected) << tmpl;
+  }
+
+  std::string raw_with_many_statement_starts = "{% raw %}";
+  for (size_t i = 0; i < 10000; ++i) {
+    raw_with_many_statement_starts += "{%";
+  }
+  raw_with_many_statement_starts += "{% macro format_function_declaration(tool_data) %}{% endraw %}";
+  EXPECT_FALSE(detail::TemplateUsesGemmaToolDefinitionMacro(raw_with_many_statement_starts));
+}
+
 // Gemma 4's function-declaration macro identifies templates that need raw tools.
 TEST(OrtxTokenizerTest, GemmaFunctionDeclarationMacroPreservesRawTools) {
   OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
@@ -1897,6 +1931,8 @@ TEST(OrtxTokenizerTest, GemmaFunctionDeclarationMacroPreservesRawTools) {
       R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
       R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data["function"]["name"] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
       R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data[ 'function' ]['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({%- macro format_function_declaration(tool_data) -%}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{%- endmacro -%}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({% macro format_function_declaration(tool_data) ~%}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
   };
 
   for (const char* minimal_template : templates) {
