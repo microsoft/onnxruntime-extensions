@@ -18,6 +18,20 @@
 namespace ort_extensions {
 class BpeModel;
 
+enum class WordBoundaryStyle {
+  SentencePiece,
+  PrefixBpe,
+  SuffixBpe,
+};
+
+struct TokenizerWordPieceInfo {
+  std::string_view encoded_piece;
+  WordBoundaryStyle boundary_style{WordBoundaryStyle::SentencePiece};
+  bool is_special{};
+  bool ends_word{};
+  bool starts_word{};
+};
+
 struct AddedToken final {
   uint32_t id_{};
   std::string token_type_;
