@@ -9,6 +9,9 @@
 #include <algorithm>
 #include <numeric>
 #include <string>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 
 #include "ext_status.h"
 #include "op_def_struct.h"
@@ -338,6 +341,10 @@ class Gemma4LogMel {
       }
     }
 
+    if (feature_size_ <= 0 || sampling_rate_ <= 0) {
+      return {kOrtxErrorInvalidArgument, "[Gemma4LogMel]: feature_size and sampling_rate must be positive"};
+    }
+
     // Validate that optional per-bin normalization vectors match feature_size_.
     // Compute() indexes these by m in [0, feature_size_) guarded only by
     // !empty(), so a shorter vector would cause an out-of-bounds heap read.
@@ -437,9 +444,24 @@ class Gemma4UnifiedAudioFrames {
 
     const int64_t num_samples = pcm_shape[1];
     const int64_t spt = audio_samples_per_token_;
+    if (num_samples < 0) {
+      return {kOrtxErrorInvalidArgument, "[Gemma4UnifiedAudioFrames]: num_samples must be non-negative"};
+    }
+    if (spt <= 0 || static_cast<uint64_t>(spt) > MaxFrameElements()) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: audio_samples_per_token exceeds representable float storage"};
+    }
     // Zero-pad to a whole number of frames (ceil division), matching HF's
-    // ``pad_len = (-len(waveform)) % audio_samples_per_token``.
-    const int64_t num_tokens = (num_samples + spt - 1) / spt;
+    // ``pad_len = (-len(waveform)) % audio_samples_per_token``. Division plus
+    // remainder avoids signed overflow from num_samples + spt - 1.
+    const int64_t num_tokens = num_samples / spt + (num_samples % spt != 0);
+    // Check before multiplying, allocating, or touching the non-owning PCM
+    // buffer. The allocator's shape product and byte product are unchecked.
+    if (static_cast<uint64_t>(num_tokens) > MaxFrameElements() / static_cast<uint64_t>(spt)) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: padded frame storage exceeds representable limits"};
+    }
+    const size_t frame_elements = static_cast<size_t>(num_tokens) * static_cast<size_t>(spt);
 
     float* out = frames_out.Allocate({num_tokens, spt});
     bool* mask = mask_out.Allocate({num_tokens});
@@ -448,7 +470,7 @@ class Gemma4UnifiedAudioFrames {
     }
     // Fill the (possibly padded) tail of the last frame with the padding value,
     // then copy the real samples over the front.
-    std::fill(out, out + static_cast<size_t>(num_tokens) * spt, padding_value_);
+    std::fill(out, out + frame_elements, padding_value_);
     std::copy(pcm_input.Data(), pcm_input.Data() + num_samples, out);
     // Every frame of a single clip is valid (padding lives within the last frame).
     std::fill(mask, mask + num_tokens, true);
@@ -500,6 +522,10 @@ class Gemma4UnifiedAudioFrames {
       return {kOrtxErrorInvalidArgument,
               "[Gemma4UnifiedAudioFrames]: audio_samples_per_token must be positive"};
     }
+    if (static_cast<uint64_t>(audio_samples_per_token_) > MaxFrameElements()) {
+      return {kOrtxErrorInvalidArgument,
+              "[Gemma4UnifiedAudioFrames]: audio_samples_per_token exceeds representable float storage"};
+    }
     // The op frames whatever PCM the upstream AudioDecoder produces; the frame
     // size is defined in samples, so this op is intrinsically sample-rate
     // agnostic. ``sampling_rate`` therefore only documents the rate the decoder
@@ -514,6 +540,15 @@ class Gemma4UnifiedAudioFrames {
   }
 
  private:
+  static constexpr uint64_t MaxFrameElements() {
+    // Respect signed shape products, size_t byte products, and the object-byte
+    // limit used for pointer arithmetic. The bool mask is no larger than the
+    // float storage since every token contains at least one float.
+    return std::min({static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
+                     static_cast<uint64_t>(std::numeric_limits<size_t>::max() / sizeof(float)),
+                     static_cast<uint64_t>(std::numeric_limits<std::ptrdiff_t>::max() / sizeof(float))});
+  }
+
   int64_t audio_samples_per_token_ = 640;  // 640 samples = 40 ms @ 16 kHz
   // Expected decoder output rate. Informational only: the op frames by sample
   // count and does not resample (see the note in Init()).
