@@ -5,13 +5,184 @@
 #include <tuple>
 #include <fstream>
 #include <filesystem>
+#include <limits>
 
 #include "gtest/gtest.h"
 #include "operators/math/energy_stft_segmentation.hpp"
 #include "ortx_cpp_helper.h"
 #include "shared/api/speech_extractor.h"
+#include "shared/api/gemma4_audio_features.hpp"
 
 using namespace ort_extensions;
+
+namespace {
+void CheckRawFrames(int64_t sample_count, const AttrDict& attrs, int64_t frame_size, float padding) {
+  SCOPED_TRACE(sample_count);
+  Gemma4Audio op;
+  ASSERT_TRUE(op.Init(attrs).IsOk());
+  // Deliberately use a null data pointer for the empty tensor.
+  std::vector<float> samples(static_cast<size_t>(sample_count));
+  for (int64_t i = 0; i < sample_count; ++i) samples[i] = static_cast<float>(i - 700) / 2048.0f;
+  ortc::Tensor<float> input({1, sample_count}, sample_count ? samples.data() : nullptr);
+  ortc::Tensor<float> frames(&CppAllocator::Instance());
+  ortc::Tensor<bool> mask(&CppAllocator::Instance());
+  ASSERT_TRUE(op.Compute(input, frames, mask).IsOk());
+  const int64_t count = (sample_count + frame_size - 1) / frame_size;
+  ASSERT_EQ(frames.Shape(), std::vector<int64_t>({count, frame_size}));
+  ASSERT_EQ(mask.Shape(), std::vector<int64_t>({count}));
+  for (int64_t i = 0; i < count * frame_size; ++i) {
+    ASSERT_EQ(frames.Data()[i], i < sample_count ? samples[i] : padding) << "sample " << i;
+  }
+  for (int64_t i = 0; i < count; ++i) ASSERT_TRUE(mask.Data()[i]) << "frame " << i;
+}
+}  // namespace
+
+TEST(ExtractorTest, TestGemma4RawControlledBoundaries) {
+  for (int64_t n : {0, 1, 639, 640, 641, 1279, 1280, 1281}) {
+    CheckRawFrames(n, {{"type", std::string("raw_frames")}}, 640, 0.0f);
+    CheckRawFrames(n, {{"type", std::string("raw_frames")}, {"padding_value", -0.25}}, 640, -0.25f);
+  }
+}
+
+TEST(ExtractorTest, TestGemma4RawFrameSizeAliases) {
+  for (const auto& attrs :
+       std::vector<AttrDict>{{{"type", std::string("raw_frames")}, {"feature_size", int64_t{7}}},
+                             {{"type", std::string("raw_frames")}, {"audio_samples_per_token", int64_t{7}}},
+                             {{"type", std::string("raw_frames")},
+                              {"feature_size", int64_t{7}},
+                              {"audio_samples_per_token", int64_t{7}},
+                              {"sampling_rate", int64_t{8000}}}}) {
+    CheckRawFrames(15, attrs, 7, 0.0f);
+  }
+}
+
+TEST(ExtractorTest, TestGemma4RawRejectsUnrepresentableFrameSize) {
+  float samples[] = {0.0f, 1.0f};
+  for (const auto& key : {"feature_size", "audio_samples_per_token"}) {
+    for (int64_t frame_size : {int64_t{4611686018427387905}, std::numeric_limits<int64_t>::max()}) {
+      SCOPED_TRACE(key);
+      SCOPED_TRACE(frame_size);
+      Gemma4Audio op;
+      ASSERT_EQ(op.Init(AttrDict{{"type", std::string("raw_frames")}, {key, frame_size}}).Code(),
+                kOrtxErrorInvalidArgument);
+      // Compute must also guard its state after a rejected initialization:
+      // neither an overflowing byte allocation nor a huge fill may occur.
+      ortc::Tensor<float> input({1, 2}, samples);
+      ortc::Tensor<float> frames(&CppAllocator::Instance());
+      ortc::Tensor<bool> mask(&CppAllocator::Instance());
+      EXPECT_EQ(op.Compute(input, frames, mask).Code(), kOrtxErrorInvalidArgument);
+      EXPECT_FALSE(static_cast<bool>(frames));
+      EXPECT_FALSE(static_cast<bool>(mask));
+    }
+  }
+}
+
+TEST(ExtractorTest, TestGemma4RawRejectsUnrepresentableSampleCount) {
+  const uint64_t max_elements =
+      std::min({static_cast<uint64_t>(std::numeric_limits<int64_t>::max()),
+                static_cast<uint64_t>(std::numeric_limits<size_t>::max() / sizeof(float)),
+                static_cast<uint64_t>(std::numeric_limits<std::ptrdiff_t>::max() / sizeof(float))});
+  Gemma4Audio op;
+  ASSERT_TRUE(op.Init(AttrDict{{"type", std::string("raw_frames")}}).IsOk());
+  for (int64_t count : {int64_t{-1}, static_cast<int64_t>(max_elements + 1), std::numeric_limits<int64_t>::max()}) {
+    SCOPED_TRACE(count);
+    // Only the shape is inspected: this non-owning input deliberately has no
+    // storage. Rejection must precede input pointer arithmetic or allocation.
+    ortc::Tensor<float> input({1, count}, nullptr);
+    ortc::Tensor<float> frames(&CppAllocator::Instance());
+    ortc::Tensor<bool> mask(&CppAllocator::Instance());
+    EXPECT_EQ(op.Compute(input, frames, mask).Code(), kOrtxErrorInvalidArgument);
+    EXPECT_FALSE(static_cast<bool>(frames));
+    EXPECT_FALSE(static_cast<bool>(mask));
+  }
+
+  // The input itself can fit the object limit while padding to two large
+  // frames cannot. Exercise the direct raw implementation as well as dispatch.
+  const int64_t frame_size = static_cast<int64_t>(max_elements / 2 + 1);
+  Gemma4UnifiedAudioFrames raw;
+  ASSERT_TRUE(raw.Init(AttrDict{{"feature_size", frame_size}}).IsOk());
+  ortc::Tensor<float> input({1, frame_size + 1}, nullptr);
+  ortc::Tensor<float> frames(&CppAllocator::Instance());
+  ortc::Tensor<bool> mask(&CppAllocator::Instance());
+  EXPECT_EQ(raw.Compute(input, frames, mask).Code(), kOrtxErrorInvalidArgument);
+  EXPECT_FALSE(static_cast<bool>(frames));
+  EXPECT_FALSE(static_cast<bool>(mask));
+}
+
+TEST(ExtractorTest, TestGemma4AudioRejectsInvalidAttributes) {
+  const std::vector<AttrDict> invalid = {
+      {{"type", std::string("unknown")}},
+      {{"type", int64_t{1}}},
+      {{"unknown_key", int64_t{1}}},
+      {{"sampling_rate", int64_t{0}}},
+      {{"sampling_rate", int64_t{-1}}},
+      {{"sampling_rate", 16000.0}},
+      {{"feature_size", std::string("128")}},
+      {{"mel_floor", int64_t{1}}},
+      {{"feature_size", int64_t{0}}},
+      {{"feature_size", int64_t{-1}}},
+      {{"per_bin_mean", std::vector<int64_t>{0}}},
+      {{"type", std::string("raw_frames")}, {"feature_size", int64_t{7}}, {"audio_samples_per_token", int64_t{8}}},
+      {{"type", std::string("raw_frames")}, {"feature_size", int64_t{0}}},
+      {{"type", std::string("raw_frames")}, {"feature_size", int64_t{-1}}},
+      {{"type", std::string("raw_frames")}, {"audio_samples_per_token", int64_t{0}}},
+      {{"type", std::string("raw_frames")}, {"audio_samples_per_token", int64_t{-1}}},
+      {{"type", std::string("raw_frames")}, {"audio_samples_per_token", 640.0}},
+      {{"type", std::string("raw_frames")}, {"feature_size", std::vector<double>{640.0}}},
+      {{"type", std::string("raw_frames")}, {"sampling_rate", int64_t{0}}},
+      {{"type", std::string("raw_frames")}, {"sampling_rate", int64_t{-1}}},
+      {{"type", std::string("raw_frames")}, {"sampling_rate", 16000.0}},
+      {{"type", std::string("raw_frames")}, {"sampling_rate", std::string("16000")}},
+      {{"type", std::string("raw_frames")}, {"padding_value", int64_t{0}}},
+      {{"type", std::string("raw_frames")}, {"unknown_key", 0.0}}};
+  for (size_t i = 0; i < invalid.size(); ++i) {
+    SCOPED_TRACE(i);
+    Gemma4Audio op;
+    EXPECT_NO_THROW({
+      const auto status = op.Init(invalid[i]);
+      EXPECT_EQ(status.Code(), kOrtxErrorInvalidArgument) << status.Message();
+    });
+  }
+}
+
+TEST(ExtractorTest, TestGemma4AudioLogMelDispatcherCompatibility) {
+  std::vector<float> samples(1281);
+  for (size_t i = 0; i < samples.size(); ++i) samples[i] = std::sin(static_cast<float>(i) * 0.17f);
+  ortc::Tensor<float> input({1, 1281}, samples.data());
+  Gemma4LogMel legacy;
+  ASSERT_TRUE(legacy.Init(AttrDict{}).IsOk());
+  ortc::Tensor<float> expected(&CppAllocator::Instance());
+  ortc::Tensor<bool> expected_mask(&CppAllocator::Instance());
+  ASSERT_TRUE(legacy.Compute(input, expected, expected_mask).IsOk());
+  for (const auto& attrs : std::vector<AttrDict>{{}, {{"type", std::string("log_mel")}}}) {
+    Gemma4Audio op;
+    ASSERT_TRUE(op.Init(attrs).IsOk());
+    ortc::Tensor<float> actual(&CppAllocator::Instance());
+    ortc::Tensor<bool> actual_mask(&CppAllocator::Instance());
+    ASSERT_TRUE(op.Compute(input, actual, actual_mask).IsOk());
+    ASSERT_EQ(actual.Shape(), expected.Shape());
+    ASSERT_EQ(actual_mask.Shape(), expected_mask.Shape());
+    for (int64_t i = 0; i < expected.NumberOfElement(); ++i) ASSERT_EQ(actual.Data()[i], expected.Data()[i]);
+    for (int64_t i = 0; i < expected_mask.NumberOfElement(); ++i) {
+      ASSERT_EQ(actual_mask.Data()[i], expected_mask.Data()[i]);
+      ASSERT_TRUE(actual_mask.Data()[i]);  // Semicausal padding is left-only.
+    }
+  }
+}
+
+TEST(ExtractorTest, TestGemma4AudioRejectsInvalidInputShape) {
+  float sample = 0.0f;
+  for (const auto& mode : {"raw_frames", "log_mel"}) {
+    Gemma4Audio op;
+    ASSERT_TRUE(op.Init(AttrDict{{"type", std::string(mode)}}).IsOk());
+    for (const auto& shape : std::vector<std::vector<int64_t>>{{}, {1}, {2, 1}, {1, 1, 1}}) {
+      ortc::Tensor<float> input(shape, &sample);
+      ortc::Tensor<float> features(&CppAllocator::Instance());
+      ortc::Tensor<bool> mask(&CppAllocator::Instance());
+      EXPECT_EQ(op.Compute(input, features, mask).Code(), kOrtxErrorInvalidArgument);
+    }
+  }
+}
 
 TEST(ExtractorTest, TestWhisperFeatureExtraction) {
   const char* audio_path[] = {"data/jfk.flac", "data/1272-141231-0002.wav", "data/1272-141231-0002.mp3"};
@@ -664,5 +835,33 @@ TEST(ExtractorTest, TestGemma4UnifiedAudioFramesMultiFile) {
   EXPECT_EQ(std::max(valid_counts[0], valid_counts[1]), max_tokens);
   const int64_t shorter = std::min(valid_counts[0], valid_counts[1]);
   EXPECT_LT(shorter, max_tokens) << "shorter clip should be zero-padded in the batch";
-}
 
+  // Separate extraction supplies exact frame counts and every real sample,
+  // rather than inferring correctness solely from the batch's own mask.
+  for (int64_t b = 0; b < 2; ++b) {
+    OrtxObjectPtr<OrtxRawAudios> single_audio;
+    ASSERT_EQ(OrtxLoadAudios(single_audio.ToBeAssigned(), audio_path + b, 1), kOrtxOK);
+    OrtxObjectPtr<OrtxTensorResult> single_result;
+    ASSERT_EQ(OrtxFeatureExtraction(feature_extractor.get(), single_audio.get(), single_result.ToBeAssigned()),
+              kOrtxOK);
+    OrtxObjectPtr<OrtxTensor> single_tensor;
+    ASSERT_EQ(OrtxTensorResultGetAt(single_result.get(), 0, single_tensor.ToBeAssigned()), kOrtxOK);
+    const float* single_data{};
+    const int64_t* single_shape{};
+    size_t single_dims{};
+    ASSERT_EQ(OrtxGetTensorData(single_tensor.get(), reinterpret_cast<const void**>(&single_data), &single_shape,
+                                &single_dims),
+              kOrtxOK);
+    ASSERT_EQ(single_dims, 3ULL);
+    ASSERT_EQ(single_shape[0], 1);
+    ASSERT_EQ(single_shape[2], 640);
+    const int64_t single_count = single_shape[1];
+    ASSERT_EQ(valid_counts[b], single_count);
+    for (int64_t t = 0; t < max_tokens; ++t) {
+      ASSERT_EQ(mask_data[b * max_tokens + t], t < single_count);
+      for (int64_t s = 0; s < 640; ++s) {
+        ASSERT_EQ(data[(b * max_tokens + t) * 640 + s], t < single_count ? single_data[t * 640 + s] : 0.0f);
+      }
+    }
+  }
+}
