@@ -413,14 +413,14 @@ class Gemma4LogMel {
 //
 // Unlike Gemma4LogMel (128-dim USM log-mel), the unified model has no audio
 // encoder: each audio soft token is simply a fixed-length chunk of the raw
-// 16 kHz waveform. This op reproduces HuggingFace
+// 16 kHz waveform. For nonempty inputs, this op reproduces HuggingFace
 // ``Gemma4UnifiedAudioFeatureExtractor._extract_waveform_features`` exactly:
 // zero-pad the waveform to a multiple of ``audio_samples_per_token`` and
 // reshape it into ``(num_tokens, audio_samples_per_token)`` frames.
 //
 // Pipeline:  AudioDecoder  ->  Gemma4Audio (type="raw_frames")
 //
-// Inputs:   float (1, num_samples) — mono PCM at `sampling_rate` Hz
+// Inputs:   float (1, num_samples) — nonempty mono PCM at `sampling_rate` Hz
 // Outputs:  float (num_tokens, audio_samples_per_token) — raw waveform frames
 //           bool  (num_tokens,)                          — frame-level mask (all true)
 //
@@ -447,6 +447,10 @@ class Gemma4UnifiedAudioFrames {
     if (num_samples < 0) {
       return {kOrtxErrorInvalidArgument, "[Gemma4UnifiedAudioFrames]: num_samples must be non-negative"};
     }
+    // The extractor stacker cannot consume zero-element outputs.
+    if (num_samples == 0) {
+      return {kOrtxErrorInvalidArgument, "[Gemma4UnifiedAudioFrames]: empty PCM input is not supported"};
+    }
     if (spt <= 0 || static_cast<uint64_t>(spt) > MaxFrameElements()) {
       return {kOrtxErrorInvalidArgument,
               "[Gemma4UnifiedAudioFrames]: audio_samples_per_token exceeds representable float storage"};
@@ -465,9 +469,6 @@ class Gemma4UnifiedAudioFrames {
 
     float* out = frames_out.Allocate({num_tokens, spt});
     bool* mask = mask_out.Allocate({num_tokens});
-    if (num_tokens == 0) {
-      return {};
-    }
     // Fill the (possibly padded) tail of the last frame with the padding value,
     // then copy the real samples over the front.
     std::fill(out, out + frame_elements, padding_value_);

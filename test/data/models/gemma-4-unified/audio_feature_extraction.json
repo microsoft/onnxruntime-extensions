@@ -4,7 +4,10 @@
       {
         "operation": {
           "name": "audio_decoder",
-          "type": "AudioDecoder"
+          "type": "AudioDecoder",
+          "attrs": {
+            "max_samples": 0
+          }
         }
       },
       {

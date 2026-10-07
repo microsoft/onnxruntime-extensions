@@ -20,7 +20,6 @@ void CheckRawFrames(int64_t sample_count, const AttrDict& attrs, int64_t frame_s
   SCOPED_TRACE(sample_count);
   Gemma4Audio op;
   ASSERT_TRUE(op.Init(attrs).IsOk());
-  // Deliberately use a null data pointer for the empty tensor.
   std::vector<float> samples(static_cast<size_t>(sample_count));
   for (int64_t i = 0; i < sample_count; ++i) samples[i] = static_cast<float>(i - 700) / 2048.0f;
   ortc::Tensor<float> input({1, sample_count}, sample_count ? samples.data() : nullptr);
@@ -38,10 +37,23 @@ void CheckRawFrames(int64_t sample_count, const AttrDict& attrs, int64_t frame_s
 }  // namespace
 
 TEST(ExtractorTest, TestGemma4RawControlledBoundaries) {
-  for (int64_t n : {0, 1, 639, 640, 641, 1279, 1280, 1281}) {
+  for (int64_t n : {1, 639, 640, 641, 1279, 1280, 1281}) {
     CheckRawFrames(n, {{"type", std::string("raw_frames")}}, 640, 0.0f);
     CheckRawFrames(n, {{"type", std::string("raw_frames")}, {"padding_value", -0.25}}, 640, -0.25f);
   }
+}
+
+TEST(ExtractorTest, TestGemma4RawRejectsEmptyPCM) {
+  Gemma4Audio op;
+  ASSERT_TRUE(op.Init(AttrDict{{"type", std::string("raw_frames")}}).IsOk());
+  ortc::Tensor<float> input({1, 0}, nullptr);
+  ortc::Tensor<float> frames(&CppAllocator::Instance());
+  ortc::Tensor<bool> mask(&CppAllocator::Instance());
+  const auto status = op.Compute(input, frames, mask);
+  EXPECT_EQ(status.Code(), kOrtxErrorInvalidArgument);
+  EXPECT_NE(std::string(status.Message()).find("empty PCM"), std::string::npos);
+  EXPECT_FALSE(static_cast<bool>(frames));
+  EXPECT_FALSE(static_cast<bool>(mask));
 }
 
 TEST(ExtractorTest, TestGemma4RawFrameSizeAliases) {
