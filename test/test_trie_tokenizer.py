@@ -6,6 +6,9 @@
 import os
 import tempfile
 import requests
+import truststore
+
+truststore.inject_into_ssl()
 
 import numpy as np
 from unittest import TestCase, main as unittest_main
