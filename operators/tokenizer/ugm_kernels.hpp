@@ -194,6 +194,7 @@ struct SpmUgmTokenizer {
     auto unk_id_iter = model_node->find("unk_id");
     if (unk_id_iter != model_node->end()) {
       special_unk_id_ = unk_id_iter->get<extTokenId_t>();
+      added_token_ids_.insert(special_unk_id_);
     }
 
     auto vocab_node = model_node->find("vocab");
@@ -440,7 +441,8 @@ struct SpmUgmTokenizer {
     }
     for (extTokenId_t id : ids) {
       if (added_token_ids_.count(id) != 0) {
-        return {kOrtxErrorInvalidArgument, "Tokenizer cannot represent literal input without added/special token IDs"};
+        return {kOrtxErrorInvalidArgument,
+                "Tokenizer cannot represent literal input without added/special or unknown token IDs"};
       }
     }
     output.insert(output.end(), ids.begin(), ids.end());

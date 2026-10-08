@@ -215,7 +215,8 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
  *
  * Does not recognize registered added/special token strings or insert BOS/EOS.
  * Returns an error if the tokenizer cannot represent the text without producing
- * registered added/special token IDs. Existing tokenizer options are unchanged.
+ * registered added/special token IDs or unknown-token fallbacks.
+ * Existing tokenizer options are unchanged.
  */
 extError_t ORTX_API_CALL OrtxTokenizeLiteral(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                              OrtxTokenId2DArray** output);

@@ -197,13 +197,30 @@ TEST_F(ChatGLMLiteralTest, LiteralDoesNotAppendAutomaticEndings) {
 }
 
 TEST_F(ChatGLMLiteralTest, VocabularyControlMarkersRemainLiteralWithoutAddedTokenMetadata) {
-  for (const char* marker : {"[MASK]", "[gMASK]", "[sMASK]", "<sop>", "<eop>"}) {
+  for (const char* marker : {"<unk>", "[MASK]", "[gMASK]", "[sMASK]", "<sop>", "<eop>"}) {
     SCOPED_TRACE(marker);
     extTokenId_t control_id = 0;
     ASSERT_EQ(OrtxConvertTokenToId(tokenizer_.get(), marker, &control_id), kOrtxOK);
     std::vector<extTokenId_t> literal;
     ASSERT_NO_FATAL_FAILURE(Encode(std::string("Hello ") + marker + " world", true, &literal));
     EXPECT_EQ(std::find(literal.begin(), literal.end(), control_id), literal.end());
+  }
+}
+
+TEST_F(ChatGLMLiteralTest, RejectsUnrepresentableInputWithoutChangingLegacyResults) {
+  for (const char* text : {"Hello \xf4\x8f\xbf\xbf world", "Hello \xf0\x9f\xab\xa8 world"}) {
+    SCOPED_TRACE(text);
+    std::vector<extTokenId_t> expected;
+    ASSERT_NO_FATAL_FAILURE(Encode(text, false, &expected));
+    ASSERT_FALSE(expected.empty());
+    const char* input[] = {text};
+    OrtxObjectPtr<OrtxTokenId2DArray> output;
+    EXPECT_EQ(OrtxTokenizeLiteral(tokenizer_.get(), input, 1, output.ToBeAssigned()), kOrtxErrorInvalidArgument);
+    EXPECT_EQ(output.get(), nullptr);
+    EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+    std::vector<extTokenId_t> legacy;
+    ASSERT_NO_FATAL_FAILURE(Encode(text, false, &legacy));
+    EXPECT_EQ(legacy, expected);
   }
 }
 
