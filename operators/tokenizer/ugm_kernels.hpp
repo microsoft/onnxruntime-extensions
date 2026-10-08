@@ -270,6 +270,15 @@ struct SpmUgmTokenizer {
         }
       }
     }
+    if (chatglm_special_endings_) {
+      for (const char* token : {bos_token_.c_str(), eos_token_.c_str(), pad_token_.c_str(), "[MASK]", "[gMASK]",
+                                "[sMASK]", "<sop>", "<eop>", "</s>"}) {
+        const auto entry = vocab_.find(token);
+        if (entry != vocab_.end()) {
+          added_token_ids_.insert(std::get<0>(entry->second));
+        }
+      }
+    }
     // Rebuild scores_ and trie with updated vocab
     scores_.resize(id);
     for (const auto& entry : vocab_) {
@@ -399,7 +408,7 @@ struct SpmUgmTokenizer {
       output.push_back(GetTokenId(bos_token_));
     }
     std::reverse(output.begin(), output.end());
-    if (chatglm_special_endings_) {
+    if (chatglm_special_endings_ && recognize_added_tokens) {
       auto unknown_token_id = GetTokenId(unk_token_);
       // remove the unknown token in the output ids
       output.erase(

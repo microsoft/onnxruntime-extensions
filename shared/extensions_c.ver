@@ -1,0 +1,8 @@
+{
+global:
+    RegisterCustomOps;
+    AddExternalCustomOp;
+    GetActiveOrtAPIVersion;
+    Ortx*;
+local: *;
+};

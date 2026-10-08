@@ -17,12 +17,12 @@ using ort_extensions::OrtxObjectPtr;
 
 using Fixture = std::tuple<const char*, const char*, bool>;
 
-class LiteralTokenizerTest : public testing::TestWithParam<Fixture> {
+class LiteralTokenizerFixture : public testing::Test {
  protected:
-  void SetUp() override {
+  void InitializeTokenizer(const char* path) {
     const char* keys[] = {"add_special_tokens", "skip_special_tokens"};
     const char* values[] = {"false", "false"};
-    tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizerWithOptions, std::get<0>(GetParam()), keys, values, 2);
+    tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizerWithOptions, path, keys, values, 2);
     ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
   }
 
@@ -50,11 +50,25 @@ class LiteralTokenizerTest : public testing::TestWithParam<Fixture> {
     const char* text = nullptr;
     ASSERT_EQ(OrtxStringArrayGetItem(decoded.get(), 0, &text), kOrtxOK);
     ASSERT_NE(text, nullptr);
-    const std::string normalized = std::get<2>(GetParam()) ? " " + expected : expected;
+    const std::string normalized = dummy_prefix_ ? " " + expected : expected;
     EXPECT_EQ(std::string(text), normalized);
   }
 
   OrtxObjectPtr<OrtxTokenizer> tokenizer_;
+  bool dummy_prefix_ = false;
+};
+
+class LiteralTokenizerTest : public LiteralTokenizerFixture, public testing::WithParamInterface<Fixture> {
+ protected:
+  void SetUp() override {
+    dummy_prefix_ = std::get<2>(GetParam());
+    InitializeTokenizer(std::get<0>(GetParam()));
+  }
+};
+
+class ChatGLMLiteralTest : public LiteralTokenizerFixture {
+ protected:
+  void SetUp() override { InitializeTokenizer("data/tokenizer/THUDM/chatglm-6b"); }
 };
 
 TEST_P(LiteralTokenizerTest, PreservesOrdinaryTextAndCasing) {
@@ -164,6 +178,45 @@ TEST(LiteralTokenizerArgumentsTest, RejectsUnrepresentableSparseVocabulary) {
   EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), input, 1, &output), kOrtxErrorInvalidArgument);
   EXPECT_EQ(output, nullptr);
   EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+}
+
+TEST_F(ChatGLMLiteralTest, LiteralDoesNotAppendAutomaticEndings) {
+  std::vector<extTokenId_t> legacy;
+  std::vector<extTokenId_t> literal;
+  ASSERT_NO_FATAL_FAILURE(Encode("Hello world", false, &legacy));
+  ASSERT_NO_FATAL_FAILURE(Encode("Hello world", true, &literal));
+  extTokenId_t gmask = 0;
+  extTokenId_t sop = 0;
+  ASSERT_EQ(OrtxConvertTokenToId(tokenizer_.get(), "[gMASK]", &gmask), kOrtxOK);
+  ASSERT_EQ(OrtxConvertTokenToId(tokenizer_.get(), "<sop>", &sop), kOrtxOK);
+  ASSERT_GE(legacy.size(), 2u);
+  EXPECT_EQ(legacy[legacy.size() - 2], gmask);
+  EXPECT_EQ(legacy.back(), sop);
+  EXPECT_EQ(std::find(literal.begin(), literal.end(), gmask), literal.end());
+  EXPECT_EQ(std::find(literal.begin(), literal.end(), sop), literal.end());
+}
+
+TEST_F(ChatGLMLiteralTest, VocabularyControlMarkersRemainLiteralWithoutAddedTokenMetadata) {
+  for (const char* marker : {"[MASK]", "[gMASK]", "[sMASK]", "<sop>", "<eop>"}) {
+    SCOPED_TRACE(marker);
+    extTokenId_t control_id = 0;
+    ASSERT_EQ(OrtxConvertTokenToId(tokenizer_.get(), marker, &control_id), kOrtxOK);
+    std::vector<extTokenId_t> literal;
+    ASSERT_NO_FATAL_FAILURE(Encode(std::string("Hello ") + marker + " world", true, &literal));
+    EXPECT_EQ(std::find(literal.begin(), literal.end(), control_id), literal.end());
+  }
+}
+
+TEST_F(ChatGLMLiteralTest, LiteralRequestsPreserveLegacyEndingBehavior) {
+  std::vector<extTokenId_t> expected;
+  ASSERT_NO_FATAL_FAILURE(Encode("Hello world", false, &expected));
+  for (int i = 0; i < 8; ++i) {
+    std::vector<extTokenId_t> literal;
+    std::vector<extTokenId_t> legacy;
+    ASSERT_NO_FATAL_FAILURE(Encode("Hello world", true, &literal));
+    ASSERT_NO_FATAL_FAILURE(Encode("Hello world", false, &legacy));
+    EXPECT_EQ(legacy, expected);
+  }
 }
 
 }  // namespace
