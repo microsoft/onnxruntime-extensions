@@ -1,0 +1,169 @@
+// Copyright (c) Microsoft Corporation. All rights reserved.
+// Licensed under the MIT License.
+
+#include <algorithm>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <vector>
+
+#include "gtest/gtest.h"
+#include "ortx_cpp_helper.h"
+#include "ortx_tokenizer.h"
+
+namespace {
+
+using ort_extensions::OrtxObjectPtr;
+
+using Fixture = std::tuple<const char*, const char*, bool>;
+
+class LiteralTokenizerTest : public testing::TestWithParam<Fixture> {
+ protected:
+  void SetUp() override {
+    const char* keys[] = {"add_special_tokens", "skip_special_tokens"};
+    const char* values[] = {"false", "false"};
+    tokenizer_ = OrtxObjectPtr<OrtxTokenizer>(OrtxCreateTokenizerWithOptions, std::get<0>(GetParam()), keys, values, 2);
+    ASSERT_EQ(tokenizer_.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  }
+
+  void Encode(const std::string& text, bool literal, std::vector<extTokenId_t>* output) const {
+    const char* input[] = {text.c_str()};
+    OrtxObjectPtr<OrtxTokenId2DArray> sequences;
+    const auto result = literal ? OrtxTokenizeLiteral(tokenizer_.get(), input, 1, sequences.ToBeAssigned())
+                                : OrtxTokenize(tokenizer_.get(), input, 1, sequences.ToBeAssigned());
+    ASSERT_EQ(result, kOrtxOK) << OrtxGetLastErrorMessage();
+    const extTokenId_t* ids = nullptr;
+    size_t count = 0;
+    ASSERT_EQ(OrtxTokenId2DArrayGetItem(sequences.get(), 0, &ids, &count), kOrtxOK);
+    output->clear();
+    if (count != 0) {
+      ASSERT_NE(ids, nullptr);
+      output->assign(ids, ids + count);
+    }
+  }
+
+  void ExpectDecodedText(const std::vector<extTokenId_t>& ids, const std::string& expected) const {
+    ASSERT_FALSE(ids.empty());
+    OrtxObjectPtr<OrtxStringArray> decoded;
+    ASSERT_EQ(OrtxDetokenize1D(tokenizer_.get(), ids.data(), ids.size(), decoded.ToBeAssigned()), kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    const char* text = nullptr;
+    ASSERT_EQ(OrtxStringArrayGetItem(decoded.get(), 0, &text), kOrtxOK);
+    ASSERT_NE(text, nullptr);
+    const std::string normalized = std::get<2>(GetParam()) ? " " + expected : expected;
+    EXPECT_EQ(std::string(text), normalized);
+  }
+
+  OrtxObjectPtr<OrtxTokenizer> tokenizer_;
+};
+
+TEST_P(LiteralTokenizerTest, PreservesOrdinaryTextAndCasing) {
+  for (const char* text : {"Hello WORLD aMiXeD-case 123", "Hello-there THIS Is a Test"}) {
+    SCOPED_TRACE(text);
+    std::vector<extTokenId_t> legacy;
+    std::vector<extTokenId_t> literal;
+    ASSERT_NO_FATAL_FAILURE(Encode(text, false, &legacy));
+    ASSERT_NO_FATAL_FAILURE(Encode(text, true, &literal));
+    EXPECT_EQ(literal, legacy);
+    ASSERT_NO_FATAL_FAILURE(ExpectDecodedText(literal, text));
+  }
+}
+
+TEST_P(LiteralTokenizerTest, MarkerTextDoesNotProduceTheRegisteredId) {
+  const char* marker = std::get<1>(GetParam());
+  extTokenId_t marker_id = 0;
+  ASSERT_EQ(OrtxConvertTokenToId(tokenizer_.get(), marker, &marker_id), kOrtxOK);
+  std::vector<extTokenId_t> legacy_marker;
+  ASSERT_NO_FATAL_FAILURE(Encode(marker, false, &legacy_marker));
+  ASSERT_NE(std::find(legacy_marker.begin(), legacy_marker.end(), marker_id), legacy_marker.end());
+
+  const std::string text = std::string("Hello ") + marker + " WORLD";
+  std::vector<extTokenId_t> literal;
+  ASSERT_NO_FATAL_FAILURE(Encode(text, true, &literal));
+  EXPECT_EQ(std::find(literal.begin(), literal.end(), marker_id), literal.end());
+  ASSERT_NO_FATAL_FAILURE(ExpectDecodedText(literal, text));
+}
+
+TEST_P(LiteralTokenizerTest, EmptyLiteralHasNoAutomaticTokens) {
+  const char* keys[] = {"add_special_tokens"};
+  const char* values[] = {"true"};
+  ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer_.get(), keys, values, 1), kOrtxOK);
+  std::vector<extTokenId_t> ids;
+  ASSERT_NO_FATAL_FAILURE(Encode("", true, &ids));
+  EXPECT_TRUE(ids.empty());
+}
+
+TEST_P(LiteralTokenizerTest, RepeatedCallsPreserveLegacyResults) {
+  const std::string first = "Hello-there THIS Is a Test";
+  const std::string second = "aMiXeD Case After UPPER WORDS";
+  std::vector<extTokenId_t> expected_first;
+  std::vector<extTokenId_t> expected_second;
+  ASSERT_NO_FATAL_FAILURE(Encode(first, false, &expected_first));
+  ASSERT_NO_FATAL_FAILURE(Encode(second, false, &expected_second));
+  for (int i = 0; i < 8; ++i) {
+    std::vector<extTokenId_t> ids;
+    ASSERT_NO_FATAL_FAILURE(Encode(first, true, &ids));
+    EXPECT_EQ(ids, expected_first);
+    ASSERT_NO_FATAL_FAILURE(Encode(second, false, &ids));
+    EXPECT_EQ(ids, expected_second);
+  }
+}
+
+TEST_P(LiteralTokenizerTest, ConcurrentLiteralAndLegacyCallsAreIndependent) {
+  const std::string text = "Hello-there THIS Is a Test";
+  std::vector<extTokenId_t> expected;
+  ASSERT_NO_FATAL_FAILURE(Encode(text, false, &expected));
+  auto worker = [&](bool literal) {
+    for (int i = 0; i < 16; ++i) {
+      std::vector<extTokenId_t> ids;
+      ASSERT_NO_FATAL_FAILURE(Encode(text, literal, &ids));
+      EXPECT_EQ(ids, expected);
+    }
+  };
+  std::thread literal(worker, true);
+  std::thread legacy(worker, false);
+  literal.join();
+  legacy.join();
+}
+
+TEST_P(LiteralTokenizerTest, InvalidUtf8LeavesOutputUnassigned) {
+  for (const char* text : {"\xff", "control\xff", "\xc0\xaf"}) {
+    const char* input[] = {text};
+    OrtxTokenId2DArray* output = nullptr;
+    EXPECT_EQ(OrtxTokenizeLiteral(tokenizer_.get(), input, 1, &output), kOrtxErrorInvalidArgument);
+    EXPECT_EQ(output, nullptr);
+    EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+  }
+}
+
+INSTANTIATE_TEST_SUITE_P(TokenizerFamilies, LiteralTokenizerTest,
+                         testing::Values(Fixture{"data/phi-3", "<|assistant|>", true},
+                                         Fixture{"data/tokenizer/fairseq/xlm-roberta-base", "</s>", false},
+                                         Fixture{"data/tokenizer/nmt", "</s>", false},
+                                         Fixture{"data/tokenizer/nmt", "(#SPLIT)", false}));
+
+TEST(LiteralTokenizerArgumentsTest, RejectsNullArguments) {
+  OrtxTokenId2DArray* output = nullptr;
+  const char* input[] = {"text"};
+  EXPECT_EQ(OrtxTokenizeLiteral(nullptr, input, 1, &output), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output, nullptr);
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/tokenizer/nmt");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK);
+  EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), nullptr, 1, &output), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), input, 1, nullptr), kOrtxErrorInvalidArgument);
+  const char* null_input[] = {nullptr};
+  EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), null_input, 1, &output), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output, nullptr);
+}
+
+TEST(LiteralTokenizerArgumentsTest, RejectsUnrepresentableSparseVocabulary) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/added-tokens");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  const char* input[] = {"Hello WORLD aMiXeD-case 123"};
+  OrtxTokenId2DArray* output = nullptr;
+  EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), input, 1, &output), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output, nullptr);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+}
+
+}  // namespace

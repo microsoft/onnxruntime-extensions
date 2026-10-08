@@ -387,8 +387,8 @@ void KernelBpeTokenizer::CreateUnicodeByteEncoder() {
 }
 
 std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
-                                                  std::list<OffsetMappingType>& offset_map,
-                                                  bool add_special_tokens) const {
+                                                  std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
+                                                  bool recognize_added_tokens) const {
   PROFILE_SCOPE(total_ns);
   PROFILE_INCREMENT(call_count, 1);
   std::vector<int64_t> res;
@@ -417,6 +417,9 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   }
 
   if (AllSpaceUstring(input) && ModelName() == kModel_CLIP) {
+    if (!recognize_added_tokens) {
+      return res;
+    }
     // Add BOS and EOS token to result
     res.push_back(bos_token_id_);
     res.push_back(eos_token_id_);
@@ -448,7 +451,11 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
   bpe::TokenPairs special_token_split_res;
   {
     PROFILE_SCOPE(split_added_ns);
-    special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+    if (recognize_added_tokens) {
+      special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+    } else {
+      special_token_split_res.emplace_back(input, bpe::kInvalidTokenId);
+    }
   }
 
   // Reusable buffers for process_bpe_chunk (retain capacity across iterations to avoid re-allocation)
@@ -629,8 +636,8 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
 
 std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max_length_i64,
                                                      bool compute_offset_mapping,
-                                                     std::list<OffsetMappingType>& offset_map,
-                                                     bool add_special_tokens) const {
+                                                     std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
+                                                     bool recognize_added_tokens) const {
   PROFILE_SCOPE(total_ns);
   PROFILE_INCREMENT(call_count, 1);
   std::vector<int64_t> res;
@@ -648,7 +655,11 @@ std::vector<int64_t> KernelBpeTokenizer::SpmTokenize(ustring& input, int64_t max
   bpe::TokenPairs special_token_split_res;
   {
     PROFILE_SCOPE(split_added_ns);
-    special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+    if (recognize_added_tokens) {
+      special_token_split_res = bbpe_tokenizer_->SplitByAddedAndSpecial(input, added_tokens_);
+    } else {
+      special_token_split_res.emplace_back(input, bpe::kInvalidTokenId);
+    }
   }
 
   // Use cached pre-tokenizer (compiled once at model load, or lazily on first call).
@@ -835,9 +846,35 @@ OrtxStatus KernelBpeTokenizer::ComputeNoOp(const std::string& input, std::vector
   ustring ustr = ustring(input);
   std::vector<int64_t> tokenize_results =
       (this->*tok_fun)(ustr, padding_length_ < 0 ? (std::numeric_limits<uint32_t>::max)() : padding_length_,
-                       compute_offset_mapping, offset_map, add_special_tokens);
+                       compute_offset_mapping, offset_map, add_special_tokens, true);
 
   std::transform(tokenize_results.begin(), tokenize_results.end(), std::back_inserter(tokenize_output),
+                 [](int64_t id) { return static_cast<extTokenId_t>(id); });
+  return {};
+}
+
+OrtxStatus KernelBpeTokenizer::ComputeLiteral(const std::string& input,
+                                              std::vector<extTokenId_t>& tokenize_output) const {
+  const auto validated_length = ustring::ValidateUTF8(input);
+  if (validated_length < 0 || static_cast<size_t>(validated_length) != input.size()) {
+    return {kOrtxErrorInvalidArgument, "Literal input must be valid UTF-8"};
+  }
+  if (input.empty()) {
+    return {};
+  }
+  auto tok_fun = bpe_conf_.get().spm_model_ ? &KernelBpeTokenizer::SpmTokenize : &KernelBpeTokenizer::Tokenize;
+  ustring text(input);
+  std::list<OffsetMappingType> offsets;
+  const auto ids = (this->*tok_fun)(text, (std::numeric_limits<int64_t>::max)(), false, offsets, false, false);
+  for (int64_t id : ids) {
+    if (id < 0 || id >= (std::numeric_limits<extTokenId_t>::max)()) {
+      return {kOrtxErrorInvalidArgument, "Tokenizer produced an invalid literal token ID"};
+    }
+    if (bbpe_tokenizer_->IsAddedOrSpecialTokenId(static_cast<uint32_t>(id))) {
+      return {kOrtxErrorInvalidArgument, "Tokenizer cannot represent literal input without added/special token IDs"};
+    }
+  }
+  std::transform(ids.begin(), ids.end(), std::back_inserter(tokenize_output),
                  [](int64_t id) { return static_cast<extTokenId_t>(id); });
   return {};
 }
@@ -874,7 +911,7 @@ OrtxStatus KernelBpeTokenizer::Compute(const ortc::Tensor<std::string>& input, o
     ustring ustr = ustring(str);
     tokenize_results.emplace_back(
         (this->*tok_fun)(ustr, padding_length_ < 0 ? (std::numeric_limits<uint32_t>::max)() : padding_length_,
-                         compute_offset_mapping, offset_map, append_special_tokens));
+                         compute_offset_mapping, offset_map, append_special_tokens, true));
   }
 
   size_t max_length = 0;

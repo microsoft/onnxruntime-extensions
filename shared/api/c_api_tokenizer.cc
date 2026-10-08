@@ -253,6 +253,37 @@ extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char
   return extError_t();
 }
 
+extError_t ORTX_API_CALL OrtxTokenizeLiteral(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                             OrtxTokenId2DArray** output) {
+  if (tokenizer == nullptr || output == nullptr || (batch_size != 0 && input == nullptr)) {
+    ReturnableStatus::last_error_message_ = "Invalid argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  auto token_ptr = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status = token_ptr->IsInstanceOf(extObjectKind_t::kOrtxKindTokenizer);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+  std::vector<std::string_view> texts;
+  texts.reserve(batch_size);
+  for (size_t i = 0; i < batch_size; ++i) {
+    if (input[i] == nullptr) {
+      ReturnableStatus::last_error_message_ = "Input strings must not be null";
+      return kOrtxErrorInvalidArgument;
+    }
+    texts.emplace_back(input[i]);
+  }
+  std::vector<std::vector<extTokenId_t>> ids;
+  status = token_ptr->BatchEncodeLiteral(texts, ids);
+  if (!status.IsOk()) {
+    return status.Code();
+  }
+  auto result = std::make_unique<TokenId2DArray>();
+  result->SetTokenIds(std::move(ids));
+  *output = static_cast<OrtxTokenId2DArray*>(result.release());
+  return extError_t();
+}
+
 extError_t ORTX_API_CALL OrtxConvertTokenToId(const OrtxTokenizer* tokenizer, const char* token, extTokenId_t* id) {
   if (tokenizer == nullptr || token == nullptr || id == nullptr) {
     ReturnableStatus::last_error_message_ = "Invalid argument";
