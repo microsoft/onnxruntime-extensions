@@ -12,6 +12,8 @@
 #endif
 
 #include "shared/api/tokenizer_impl.h"
+#include "shared/api/tokenizer_word_grouping.h"
+#include "shared/api/c_api_utils.hpp"
 #include "bpe_utils.hpp"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
@@ -23,10 +25,14 @@ static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids
 
     std::cout << std::endl;
   }
-
   std::cout << std::endl;
 #endif
 }
+
+class TestJsonFastTokenizer : public JsonFastTokenizer {
+ public:
+  void SetPaddingLength(int64_t padding_length) { padding_length_ = padding_length; }
+};
 
 TEST(OrtxTokenizerTest, RegexTest) {
   std::u32string str = U"You'll enjoy the concert.";
@@ -119,6 +125,236 @@ TEST(OrtxTokenizerTest, ClipTokenizer) {
   status = tokenizer->Detokenize(token_ids_span, out_text);
   EXPECT_TRUE(status.IsOk());
   EXPECT_EQ(out_text[0], input[0]);
+
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> decoder_cache;
+  for (extTokenId_t token_id : {589, 533, 1628, 269}) {
+    std::string token;
+    status = tokenizer->Id2Token(token_id, token, decoder_cache, true);
+    EXPECT_TRUE(status.IsOk());
+  }
+}
+
+TEST(TokenizerWordGroupingTest, OneTokenCanCompleteMultipleWords) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"▁first▁second▁third", ort_extensions::WordBoundaryStyle::SentencePiece, false, false},
+                   " first second third");
+
+  const auto& completed = grouping.CompletedWords();
+  ASSERT_EQ(completed.size(), 2u);
+  EXPECT_EQ(completed[0].text, " first");
+  EXPECT_EQ(completed[1].text, " second");
+  EXPECT_EQ(completed[0].start_token_index, 0u);
+  EXPECT_EQ(completed[0].stop_token_index, 1u);
+  EXPECT_EQ(completed[1].start_token_index, 0u);
+  EXPECT_EQ(completed[1].stop_token_index, 1u);
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, " third");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+}
+
+TEST(TokenizerWordGroupingTest, EmptyDecoderOutputRetainsContributingTokenSpan) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "é");
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "é");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
+}
+
+TEST(TokenizerWordGroupingTest, SkippedSpecialTokenDoesNotExtendBufferedWordSpan) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<special>", ort_extensions::WordBoundaryStyle::PrefixBpe, true, false}, "");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+  grouping.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+  grouping.Finalize();
+
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "\xC3\xA9");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 3u);
+}
+
+TEST(TokenizerWordGroupingTest, FinalizeDiscardsTrailingEmptyDecoderOutput) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 0u);
+
+  grouping.Finalize();
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+}
+
+TEST(TokenizerWordGroupingTest, DelimiterBeforePunctuationStaysWithPreviousWord) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"▁hello", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " hello");
+  grouping.Consume({"▁", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " ");
+  grouping.Consume({",", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, ",");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+
+  grouping.Consume({"▁world", ort_extensions::WordBoundaryStyle::SentencePiece, false, false}, " world");
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, " hello ,");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
+}
+
+TEST(TokenizerWordGroupingTest, NonAsciiContinuationDoesNotStartWord) {
+  ort_extensions::TokenizerWordGroupingState grouping;
+  grouping.Consume({"caf", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "caf");
+  grouping.Consume({"\xC3\x83\xC2\xA9", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_TRUE(grouping.CompletedWords().empty());
+  grouping.Finalize();
+  ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+  EXPECT_EQ(grouping.CompletedWords()[0].text, "caf\xC3\xA9");
+  EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 2u);
+
+  ort_extensions::TokenizerWordGroupingState buffered;
+  buffered.Consume({"caf", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "caf");
+  buffered.Consume({"<0xC3>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "");
+  buffered.Consume({"<0xA9>", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "\xC3\xA9");
+  EXPECT_TRUE(buffered.CompletedWords().empty());
+  buffered.Finalize();
+  ASSERT_EQ(buffered.CompletedWords().size(), 1u);
+  EXPECT_EQ(buffered.CompletedWords()[0].text, "caf\xC3\xA9");
+  EXPECT_EQ(buffered.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(buffered.CompletedWords()[0].stop_token_index, 3u);
+}
+
+TEST(TokenizerWordGroupingTest, UnicodePunctuationStaysWithPreviousWord) {
+  for (const std::string punctuation : {"\xE3\x80\x82", "\xE2\x80\xA6"}) {
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({"hello", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "hello");
+    grouping.Consume({" ", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, " ");
+    grouping.Consume({punctuation, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, punctuation);
+    EXPECT_TRUE(grouping.CompletedWords().empty());
+    grouping.Consume({" world", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, " world");
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "hello " + punctuation);
+    EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 0u);
+    EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 3u);
+  }
+}
+
+TEST(TokenizerWordGroupingTest, UnicodeWhitespacePreservesTextAndSpans) {
+  for (const std::string separator : {"\xC2\xA0", "\xE3\x80\x80", "\v", "\f"}) {
+    const std::string text = "first" + separator + "second" + separator + "third";
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({text, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, text);
+    ASSERT_EQ(grouping.CompletedWords().size(), 2u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "first");
+    EXPECT_EQ(grouping.CompletedWords()[1].text, separator + "second");
+    for (const auto& word : grouping.CompletedWords()) {
+      EXPECT_EQ(word.start_token_index, 0u);
+      EXPECT_EQ(word.stop_token_index, 1u);
+    }
+    grouping.Finalize();
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, separator + "third");
+    EXPECT_EQ(grouping.FirstPendingTokenIndex(), 1u);
+
+    ort_extensions::TokenizerWordGroupingState fragmented;
+    fragmented.Consume({"first", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "first");
+    fragmented.Consume({separator, ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, separator);
+    EXPECT_TRUE(fragmented.CompletedWords().empty());
+    fragmented.Consume({"second", ort_extensions::WordBoundaryStyle::PrefixBpe, false, false}, "second");
+    ASSERT_EQ(fragmented.CompletedWords().size(), 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].text, "first");
+    EXPECT_EQ(fragmented.CompletedWords()[0].stop_token_index, 1u);
+    EXPECT_EQ(fragmented.FirstPendingTokenIndex(), 1u);
+    fragmented.Finalize();
+    ASSERT_EQ(fragmented.CompletedWords().size(), 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].text, separator + "second");
+    EXPECT_EQ(fragmented.CompletedWords()[0].start_token_index, 1u);
+    EXPECT_EQ(fragmented.CompletedWords()[0].stop_token_index, 3u);
+  }
+}
+
+TEST(TokenizerWordGroupingTest, ExplicitPrefixAndSuffixBoundaries) {
+  for (const auto style : {ort_extensions::WordBoundaryStyle::PrefixBpe,
+                           ort_extensions::WordBoundaryStyle::SentencePiece}) {
+    ort_extensions::TokenizerWordGroupingState grouping;
+    grouping.Consume({"first", style, false, false}, "first");
+    grouping.Consume({"marked", style, false, false, true}, "second");
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "first");
+    EXPECT_EQ(grouping.CompletedWords()[0].stop_token_index, 1u);
+    grouping.Finalize();
+    ASSERT_EQ(grouping.CompletedWords().size(), 1u);
+    EXPECT_EQ(grouping.CompletedWords()[0].text, "second");
+    EXPECT_EQ(grouping.CompletedWords()[0].start_token_index, 1u);
+  }
+  ort_extensions::TokenizerWordGroupingState suffix;
+  suffix.Consume({"caf", ort_extensions::WordBoundaryStyle::SuffixBpe, false, false}, "caf");
+  suffix.Consume({"ending", ort_extensions::WordBoundaryStyle::SuffixBpe, false, true}, "\xC3\xA9 ");
+  ASSERT_EQ(suffix.CompletedWords().size(), 1u);
+  EXPECT_EQ(suffix.CompletedWords()[0].text, "caf\xC3\xA9 ");
+  EXPECT_EQ(suffix.CompletedWords()[0].start_token_index, 0u);
+  EXPECT_EQ(suffix.CompletedWords()[0].stop_token_index, 2u);
+}
+
+TEST(TokenizerWordGroupingTest, TokenizerFactsUseWhitespacePrefixes) {
+  for (const auto& fixture : std::vector<std::pair<std::string, std::string>>{
+           {"data/tokenizer/phi-3-small-cvt", "\xC4\xA0world"},
+           {"data/llama2", "\xE2\x96\x81world"},
+           {"data/tokenizer/fairseq/xlm-roberta-base", "\xE2\x96\x81world"}}) {
+    ort_extensions::TokenizerImpl tokenizer;
+    auto status = tokenizer.Load(fixture.first);
+    ASSERT_TRUE(status.IsOk()) << status.ToString();
+    extTokenId_t token_id{};
+    ASSERT_TRUE(tokenizer.Token2Id(fixture.second, token_id).IsOk());
+    ort_extensions::TokenizerWordPieceInfo info;
+    ASSERT_TRUE(tokenizer.GetWordPieceInfo(token_id, info).IsOk());
+    EXPECT_EQ(info.encoded_piece, fixture.second);
+    EXPECT_TRUE(info.starts_word);
+  }
+
+  ort_extensions::TokenizerImpl tokenizer;
+  auto status = tokenizer.Load("data/tokenizer/phi-3-small-cvt");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  extTokenId_t accent_id{};
+  ASSERT_TRUE(tokenizer.Token2Id("\xC3\x83\xC2\xA9", accent_id).IsOk());
+  ort_extensions::TokenizerWordPieceInfo accent;
+  ASSERT_TRUE(tokenizer.GetWordPieceInfo(accent_id, accent).IsOk());
+  EXPECT_EQ(accent.encoded_piece, "\xC3\x83\xC2\xA9");
+  EXPECT_FALSE(accent.starts_word);
+
+  std::vector<std::vector<extTokenId_t>> ids;
+  ASSERT_TRUE(tokenizer.BatchEncode({"caf\xC3\xA9 world"}, ids, false).IsOk());
+  ASSERT_EQ(ids.size(), 1u);
+  ASSERT_GT(ids[0].size(), 2u);
+  ort_extensions::TokenizerWordGroupingState grouping;
+  std::unique_ptr<ort_extensions::TokenizerDecodingState> cache;
+  std::vector<std::string> words;
+  std::string transcript;
+  for (const auto token_id : ids[0]) {
+    ort_extensions::TokenizerWordPieceInfo info;
+    ASSERT_TRUE(tokenizer.GetWordPieceInfo(token_id, info).IsOk());
+    std::string text;
+    ASSERT_TRUE(tokenizer.Id2Token(token_id, text, cache).IsOk());
+    transcript += text;
+    grouping.Consume(info, text);
+    for (const auto& word : grouping.CompletedWords()) words.push_back(word.text);
+  }
+  grouping.Finalize();
+  for (const auto& word : grouping.CompletedWords()) words.push_back(word.text);
+  EXPECT_EQ(transcript, "caf\xC3\xA9 world");
+  EXPECT_EQ(words, (std::vector<std::string>{"caf\xC3\xA9", " world"}));
 }
 
 TEST(OrtxTokenizerTest, Phi3_Small_Hf_Tokenizer) {
@@ -944,6 +1180,127 @@ TEST(OrtxTokenizerProfileTest, DISABLED_MemoryUsage) {
   fprintf(stderr, "Note: CPU-only heap memory (vocab + merges + lookup tables).\n");
   fprintf(stderr, "Allocated once at model load, freed when tokenizer is destroyed.\n");
   fprintf(stderr, "================================================================\n\n");
+}
+
+TEST(OrtxTokenizerTest, BpeOffsetMappingMatchesTokenIds) {
+  ort_extensions::TokenJsonConfig config;
+  auto status = config.Load("data/tokenizer/roberta-base");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  JsonFastTokenizer tokenizer;
+  status = tokenizer.Load(config);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ortc::Tensor<std::string> input({"Hello <mask> world", "Hello"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+
+  status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(input_ids.Shape().size(), 2u);
+  ASSERT_EQ(offset_mapping.Shape(), (std::vector<int64_t>{2, input_ids.Shape()[1], 2}));
+  ASSERT_EQ(offset_mapping.NumberOfElement(), input_ids.NumberOfElement() * 2);
+
+  const auto* ids = input_ids.Data();
+  const auto* offsets = offset_mapping.Data();
+  const int64_t row_length = input_ids.Shape()[1];
+  const auto mask_id = static_cast<int64_t>(tokenizer.GetTokenId("<mask>"));
+  const auto world_id = static_cast<int64_t>(tokenizer.GetTokenId("\xC4\xA0world"));
+  const auto pad_id = static_cast<int64_t>(tokenizer.GetTokenId("<pad>"));
+  bool found_mask = false;
+  bool found_world = false;
+  for (int64_t i = 0; i < row_length; ++i) {
+    if (ids[i] == mask_id) {
+      found_mask = true;
+      EXPECT_EQ(offsets[i * 2], 0);
+      EXPECT_EQ(offsets[i * 2 + 1], 0);
+    }
+    if (ids[i] == world_id && offsets[i * 2] == 13 && offsets[i * 2 + 1] == 18) {
+      found_world = true;
+    }
+  }
+  EXPECT_TRUE(found_mask);
+  EXPECT_TRUE(found_world);
+
+  bool found_second_hello = false;
+  for (int64_t i = 0; i < row_length; ++i) {
+    const int64_t token_index = row_length + i;
+    const int64_t offset_index = token_index * 2;
+    if (offsets[offset_index] == 0 && offsets[offset_index + 1] == 5) {
+      found_second_hello = true;
+    }
+    if (ids[token_index] == pad_id) {
+      EXPECT_EQ(offsets[offset_index], 0);
+      EXPECT_EQ(offsets[offset_index + 1], 0);
+    }
+  }
+  EXPECT_TRUE(found_second_hello);
+}
+
+TEST(OrtxTokenizerTest, BpeFixedLengthReservesSpecialTokens) {
+  ort_extensions::TokenJsonConfig config;
+  ASSERT_TRUE(config.Load("data/tokenizer/roberta-base").IsOk());
+
+  TestJsonFastTokenizer tokenizer;
+  ASSERT_TRUE(tokenizer.Load(config).IsOk());
+  tokenizer.SetPaddingLength(4);
+
+  ortc::Tensor<std::string> input({"Hello world this input is too long"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+  ASSERT_TRUE(tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true).IsOk());
+
+  ASSERT_EQ(input_ids.Shape(), (std::vector<int64_t>{1, 4}));
+  EXPECT_EQ(input_ids.Data()[3], static_cast<int64_t>(tokenizer.GetTokenId("</s>")));
+  EXPECT_EQ(offset_mapping.Data()[6], 0);
+  EXPECT_EQ(offset_mapping.Data()[7], 0);
+
+  ort_extensions::TokenJsonConfig clip_config;
+  ASSERT_TRUE(clip_config.Load("data/tokenizer/clip").IsOk());
+  TestJsonFastTokenizer clip_tokenizer;
+  ASSERT_TRUE(clip_tokenizer.Load(clip_config).IsOk());
+  clip_tokenizer.SetPaddingLength(1);
+  ortc::Tensor<std::string> spaces({"   "});
+  ortc::Tensor<int64_t> clip_ids(allocator);
+  ortc::Tensor<int64_t> clip_offsets(allocator);
+  ASSERT_TRUE(clip_tokenizer.Compute(spaces, clip_ids, std::nullopt, &clip_offsets, true).IsOk());
+  EXPECT_EQ(clip_ids.Shape(), (std::vector<int64_t>{1, 1}));
+  EXPECT_EQ(clip_offsets.Shape(), (std::vector<int64_t>{1, 1, 2}));
+}
+TEST(OrtxTokenizerTest, SpmOffsetMappingMatchesTokenIds) {
+  ort_extensions::TokenJsonConfig config;
+  auto status = config.Load("data/phi-3");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  JsonFastTokenizer tokenizer;
+  status = tokenizer.Load(config);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  ASSERT_TRUE(tokenizer.IsSpmModel());
+
+  ortc::Tensor<std::string> input({"é<|endoftext|>world"});
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  ortc::Tensor<int64_t> input_ids(allocator);
+  ortc::Tensor<int64_t> offset_mapping(allocator);
+
+  status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, true);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  ASSERT_EQ(offset_mapping.Shape(), (std::vector<int64_t>{1, input_ids.Shape()[1], 2}));
+  ASSERT_EQ(offset_mapping.NumberOfElement(), input_ids.NumberOfElement() * 2);
+
+  const auto* ids = input_ids.Data();
+  const auto* offsets = offset_mapping.Data();
+  const std::vector<int64_t> expected_ids = {
+      static_cast<int64_t>(tokenizer.GetTokenId("<s>")),
+      static_cast<int64_t>(tokenizer.GetTokenId("▁é")),
+      static_cast<int64_t>(tokenizer.GetTokenId("<|endoftext|>")),
+      static_cast<int64_t>(tokenizer.GetTokenId("▁world"))};
+  const std::vector<int64_t> expected_offsets = {0, 0, 0, 2, 0, 0, 15, 20};
+  EXPECT_EQ(std::vector<int64_t>(ids, ids + input_ids.NumberOfElement()), expected_ids);
+  EXPECT_EQ(std::vector<int64_t>(offsets, offsets + offset_mapping.NumberOfElement()), expected_offsets);
 }
 
 // Regression test: batched detokenization with batch >= 2 must not read past the
