@@ -1,0 +1,13 @@
+diff --git a/src/unicode_script.h b/src/unicode_script.h
+index 917c49d..d249539 100644
+--- a/src/unicode_script.h
++++ b/src/unicode_script.h
+@@ -19,7 +19,7 @@
+ 
+ namespace sentencepiece {
+ namespace unicode_script {
+-enum ScriptType {
++enum ScriptType:int32_t {
+   U_Adlam,
+   U_Ahom,
+   U_Anatolian_Hieroglyphs,
