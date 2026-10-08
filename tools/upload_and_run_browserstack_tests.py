@@ -5,6 +5,9 @@ import time
 from pathlib import Path
 
 import requests
+import truststore
+
+truststore.inject_into_ssl()
 
 script_description = """
 After building ONNXRuntime for Android or iOS, use this script to upload the app and test files to BrowserStack then
