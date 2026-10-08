@@ -440,7 +440,7 @@ struct SpmUgmTokenizer {
       return status;
     }
     for (extTokenId_t id : ids) {
-      if (added_token_ids_.count(id) != 0) {
+      if (id == special_unk_id_ || added_token_ids_.count(id) != 0) {
         return {kOrtxErrorInvalidArgument,
                 "Tokenizer cannot represent literal input without added/special or unknown token IDs"};
       }

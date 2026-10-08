@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 
 #include <algorithm>
+#include <limits>
 #include <string>
 #include <thread>
 #include <tuple>
@@ -178,6 +179,32 @@ TEST(LiteralTokenizerArgumentsTest, RejectsUnrepresentableSparseVocabulary) {
   EXPECT_EQ(OrtxTokenizeLiteral(tokenizer.get(), input, 1, &output), kOrtxErrorInvalidArgument);
   EXPECT_EQ(output, nullptr);
   EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+}
+
+TEST_F(LiteralTokenizerFixture, RejectsUnknownFallbackWithoutConfiguredId) {
+  ASSERT_NO_FATAL_FAILURE(InitializeTokenizer("data/unigram-no-unk"));
+
+  const auto sentinel = std::numeric_limits<extTokenId_t>::max();
+  std::vector<extTokenId_t> expected_unknown;
+  ASSERT_NO_FATAL_FAILURE(Encode("b", false, &expected_unknown));
+  ASSERT_NE(std::find(expected_unknown.begin(), expected_unknown.end(), sentinel), expected_unknown.end());
+  const char* input[] = {"b"};
+  OrtxObjectPtr<OrtxTokenId2DArray> output;
+  EXPECT_EQ(OrtxTokenizeLiteral(tokenizer_.get(), input, 1, output.ToBeAssigned()), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output.get(), nullptr);
+  EXPECT_NE(std::string(OrtxGetLastErrorMessage()).size(), 0u);
+  std::vector<extTokenId_t> legacy;
+  ASSERT_NO_FATAL_FAILURE(Encode("b", false, &legacy));
+  EXPECT_EQ(legacy, expected_unknown);
+
+  std::vector<extTokenId_t> expected_text;
+  std::vector<extTokenId_t> literal;
+  ASSERT_NO_FATAL_FAILURE(Encode("a", false, &expected_text));
+  ASSERT_NO_FATAL_FAILURE(Encode("a", true, &literal));
+  EXPECT_EQ(literal, expected_text);
+  EXPECT_EQ(std::find(literal.begin(), literal.end(), sentinel), literal.end());
+  ASSERT_NO_FATAL_FAILURE(Encode("", true, &literal));
+  EXPECT_TRUE(literal.empty());
 }
 
 TEST_F(ChatGLMLiteralTest, LiteralDoesNotAppendAutomaticEndings) {
