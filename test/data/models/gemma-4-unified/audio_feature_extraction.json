@@ -1,0 +1,27 @@
+{
+  "feature_extraction": {
+    "sequence": [
+      {
+        "operation": {
+          "name": "audio_decoder",
+          "type": "AudioDecoder",
+          "attrs": {
+            "max_samples": 0
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "gemma4_audio",
+          "type": "Gemma4Audio",
+          "attrs": {
+            "type": "raw_frames",
+            "audio_samples_per_token": 640,
+            "sampling_rate": 16000,
+            "padding_value": 0.0
+          }
+        }
+      }
+    ]
+  }
+}

@@ -47,6 +47,73 @@ static std::vector<uint8_t> MakeSineWav(float freq_hz, float duration_sec, int s
   return wav;
 }
 
+TEST(DecodeAudioTest, Gemma4UnifiedExtractionRejectsEmptyAudio) {
+  auto empty = MakeSineWav(440.0f, 0.0f);
+  auto nonempty = MakeSineWav(440.0f, 0.04f);
+  ort_extensions::OrtxObjectPtr<OrtxFeatureExtractor> extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  for (int empty_index : {0, 1}) {
+    SCOPED_TRACE(empty_index);
+    const void* buffers[] = {empty.data(), nonempty.data()};
+    int64_t sizes[] = {static_cast<int64_t>(empty.size()), static_cast<int64_t>(nonempty.size())};
+    if (empty_index == 1) {
+      std::swap(buffers[0], buffers[1]);
+      std::swap(sizes[0], sizes[1]);
+    }
+    for (size_t batch_size : {size_t{1}, size_t{2}}) {
+      // The single-item case must always contain the empty clip.
+      if (batch_size == 1 && empty_index == 1) continue;
+      ort_extensions::OrtxObjectPtr<OrtxRawAudios> audios;
+      ASSERT_EQ(OrtxCreateRawAudios(audios.ToBeAssigned(), buffers, sizes, batch_size), kOrtxOK);
+      ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+      EXPECT_EQ(OrtxFeatureExtraction(extractor.get(), audios.get(), result.ToBeAssigned()), kOrtxErrorInvalidArgument);
+      EXPECT_EQ(result.get(), nullptr);
+    }
+  }
+  const void* buffers[] = {nonempty.data()};
+  const int64_t sizes[] = {static_cast<int64_t>(nonempty.size())};
+  ort_extensions::OrtxObjectPtr<OrtxRawAudios> audios;
+  ASSERT_EQ(OrtxCreateRawAudios(audios.ToBeAssigned(), buffers, sizes, 1), kOrtxOK);
+  ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+  ASSERT_EQ(OrtxFeatureExtraction(extractor.get(), audios.get(), result.ToBeAssigned()), kOrtxOK);
+  EXPECT_NE(result.get(), nullptr);
+}
+
+TEST(DecodeAudioTest, Gemma4UnifiedExtractionPreservesLongAudio) {
+  ort_extensions::OrtxObjectPtr<OrtxFeatureExtractor> extractor(
+      OrtxCreateSpeechFeatureExtractor, "data/models/gemma-4-unified/audio_feature_extraction.json");
+  for (float duration : {0.04f, 29.0f, 30.0f, 31.0f}) {
+    SCOPED_TRACE(duration);
+    auto wav = MakeSineWav(440.0f, duration);
+    const void* buffers[] = {wav.data()};
+    const int64_t sizes[] = {static_cast<int64_t>(wav.size())};
+    ort_extensions::OrtxObjectPtr<OrtxRawAudios> audios;
+    ASSERT_EQ(OrtxCreateRawAudios(audios.ToBeAssigned(), buffers, sizes, 1), kOrtxOK);
+    ort_extensions::OrtxObjectPtr<OrtxTensorResult> result;
+    ASSERT_EQ(OrtxFeatureExtraction(extractor.get(), audios.get(), result.ToBeAssigned()), kOrtxOK);
+    ort_extensions::OrtxObjectPtr<OrtxTensor> frames;
+    ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, frames.ToBeAssigned()), kOrtxOK);
+    const float* samples{};
+    const int64_t* shape{};
+    size_t rank{};
+    ASSERT_EQ(OrtxGetTensorData(frames.get(), reinterpret_cast<const void**>(&samples), &shape, &rank), kOrtxOK);
+    const int64_t sample_count = static_cast<int64_t>(duration * 16000);
+    const int64_t frame_count = sample_count / 640;
+    ASSERT_EQ(std::vector<int64_t>(shape, shape + rank), std::vector<int64_t>({1, frame_count, 640}));
+    for (int64_t i = 0; i < sample_count; ++i) {
+      int16_t encoded{};
+      std::memcpy(&encoded, wav.data() + 44 + static_cast<size_t>(i) * sizeof(encoded), sizeof(encoded));
+      ASSERT_NEAR(samples[i], static_cast<float>(encoded) / 32768.0f, 1e-6f) << "sample " << i;
+    }
+    ort_extensions::OrtxObjectPtr<OrtxTensor> mask;
+    ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 1, mask.ToBeAssigned()), kOrtxOK);
+    const bool* valid{};
+    ASSERT_EQ(OrtxGetTensorData(mask.get(), reinterpret_cast<const void**>(&valid), &shape, &rank), kOrtxOK);
+    ASSERT_EQ(std::vector<int64_t>(shape, shape + rank), std::vector<int64_t>({1, frame_count}));
+    for (int64_t i = 0; i < frame_count; ++i) ASSERT_TRUE(valid[i]);
+  }
+}
+
 TEST(DecodeAudioTest, BasicDecode) {
   auto wav = MakeSineWav(440.0f, 1.0f, 16000);
 
