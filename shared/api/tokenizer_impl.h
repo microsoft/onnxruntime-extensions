@@ -59,6 +59,9 @@ class TokenizerImpl : public OrtxObjectImpl {
                          std::vector<std::vector<extTokenId_t>>& t_ids,
                          bool add_special_tokens) const;
 
+  OrtxStatus BatchEncodeLiteral(const std::vector<std::string_view>& input,
+                                std::vector<std::vector<extTokenId_t>>& t_ids) const;
+
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
                          std::vector<std::string>& t_text,
                          bool skip_special_tokens) const;
