@@ -2873,3 +2873,62 @@ TEST(OrtxTokenizerTest, MinjaToJsonRejectsUndefinedObjectKeys) {
   EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("Undefined values cannot be serialized as object keys"),
             std::string::npos);
 }
+TEST(OrtxTokenizerTest, MinjaMacroCallsUseLocalScope) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/phi-4-base");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+  // Macro-local assignments must not replace same-named outer variables.
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% set ns = namespace(v='outer') %}"
+                            "{% macro m() %}{% set ns = namespace(v='inner') %}{{ ns.v }}{% endmacro %}"
+                            "{{ m() }}|{{ ns.v }}"),
+            "inner|outer");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% set x = 'outer' %}{% macro m(x) %}{{ x }}{% endmacro %}{{ m('arg') }}|{{ x }}"),
+            "arg|outer");
+
+  // Recursive calls must not overwrite the caller's parameters.
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro r(n, tag) %}{% if n > 0 %}{{ r(n - 1, 'inner') }}{% endif %}{{ tag }}"
+                            "{% endmacro %}{{ r(2, 'outer') }}"),
+            "innerinnerouter");
+
+  // Attribute writes still reach an outer namespace, and defaults are per call.
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% set ns = namespace(v=0) %}{% macro m() %}{% set ns.v = ns.v + 1 %}{% endmacro %}"
+                            "{{ m() }}{{ m() }}{{ ns.v }}"),
+            "2");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro m(a, b='d') %}{{ a }}{{ b }}{% endmacro %}{{ m(1, 'x') }}{{ m(2) }}"),
+            "1x2d");
+}
+
+// Gemma 4's strip_thinking macro reassigns `ns`; without per-call macro scope it
+// hid the outer tool-response state and appended an extra `<|turn>model`.
+TEST(OrtxTokenizerTest, Gemma4ToolResponseSuppressesGenerationPrompt) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([
+    {"role":"user","content":"Weather in Paris?"},
+    {"role":"assistant","content":"","tool_calls":[{"id":"c1","type":"function",
+      "function":{"name":"get_weather","arguments":{"city":"Paris"}}}]},
+    {"role":"tool","tool_call_id":"c1","content":"18C"}])";
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  auto err = OrtxApplyChatTemplate(tokenizer.get(), nullptr, messages_json.c_str(), nullptr,
+                                   templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+
+  const std::string expected =
+      "<bos><|turn>user\nWeather in Paris?<turn|>\n<|turn>model\n"
+      "<|tool_call>call:get_weather{city:<|\"|>Paris<|\"|>}<tool_call|>"
+      "<|tool_response>response:get_weather{value:<|\"|>18C<|\"|>}<tool_response|>";
+  EXPECT_EQ(std::string(text_ptr), expected);
+}
