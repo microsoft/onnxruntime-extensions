@@ -217,7 +217,9 @@ class OrtStringViewTensorStorage : public IStringTensorStorage<std::string_view>
 
       size_t num_strings = 1;
       if ((*shape_).size() > 0) {
-        num_strings = static_cast<size_t>((*shape_)[0]);
+        for (auto dim : *shape_) {
+          num_strings *= static_cast<size_t>(dim);
+        }
       }
 
       if (num_strings) {
