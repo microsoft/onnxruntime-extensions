@@ -7,7 +7,7 @@
 
 #include "c_api_utils.hpp"
 #include "tokenizer_common.h"
-#include "tokenizer_word_grouping.h"
+#include "tokenizer_speech_metadata.h"
 
 namespace ort_extensions {
 

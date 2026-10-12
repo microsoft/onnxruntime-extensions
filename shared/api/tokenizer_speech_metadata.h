@@ -2,54 +2,59 @@
 // Licensed under the MIT License.
 #pragma once
 
-#include <algorithm>
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <stdexcept>
+#include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
+
+#include "tokenizer_common.h"
 
 namespace ort_extensions {
 
-inline int AggregateWordSpeaker(const double* start_sums, const double* stop_sums, int64_t start_count,
-                                int64_t stop_count) {
-  if (!start_sums || !stop_sums)
-    throw std::runtime_error("Speaker probability sums must not be null");
-  if (start_count < 0 || stop_count <= start_count)
-    throw std::runtime_error("Speaker evidence requires a positive evaluated-frame count");
-  double scores[8];
-  double total = 0;
-  for (size_t speaker = 0; speaker < 8; ++speaker) {
-    const double sum = stop_sums[speaker] - start_sums[speaker];
-    const double count = static_cast<double>(stop_count - start_count);
-    if (!std::isfinite(start_sums[speaker]) || !std::isfinite(stop_sums[speaker]) || sum < -1e-9 || sum > count + 1e-9)
-      throw std::runtime_error("Speaker evidence contains invalid probability sums");
-    scores[speaker] = std::clamp(sum / count, 0.01, 1.0);
-    total += scores[speaker];
-  }
-  for (double& score : scores) score /= total;
-  return static_cast<int>(std::max_element(scores, scores + 8) - scores);
-}
+struct CompletedTokenizerWord {
+  std::string text;
+  size_t start_token_index{};
+  size_t stop_token_index{};
+};
 
-inline bool SpeechSegmentStartsNew(bool has_pending, bool diarization, int pending_speaker, int speaker, int64_t start,
-                                   int64_t previous_stop, int64_t gap) {
-  if (!has_pending) return false;
-  if (diarization) return pending_speaker != speaker;
-  return gap >= 0 && (gap == 0 || start - previous_stop >= gap);
-}
+class TokenizerWordGroupingState {
+ public:
+  void Consume(const TokenizerWordPieceInfo& piece, std::string_view decoded_text);
+  void Finalize();
+  const std::vector<CompletedTokenizerWord>& CompletedWords() const;
+  size_t FirstPendingTokenIndex() const;
 
-inline bool SpeechSegmentEnds(std::string_view text, const char* const* separators, size_t count) {
-  if (count && !separators) throw std::runtime_error("Segment separators must not be null");
-  while (!text.empty() && (text.back() == ' ' || text.back() == '\t' || text.back() == '\n' || text.back() == '\r' ||
-                           text.back() == '\f' || text.back() == '\v'))
-    text.remove_suffix(1);
-  for (size_t i = 0; i < count; ++i) {
-    if (!separators[i]) throw std::runtime_error("Segment separator must not be null");
-    const std::string_view separator{separators[i]};
-    if (!separator.empty() && text.size() >= separator.size() &&
-        text.substr(text.size() - separator.size()) == separator)
-      return true;
-  }
-  return false;
-}
+ private:
+  struct PendingText {
+    std::string text;
+    size_t start_token_index{};
+    size_t stop_token_index{};
+    bool active{};
+  };
+
+  void Append(PendingText& pending, std::string_view text, size_t start_token_index, size_t stop_token_index);
+  void CompleteWord();
+  void ConsumeTextPart(std::string_view text, size_t start_token_index, size_t stop_token_index, bool starts_word);
+
+  size_t next_token_index_{};
+  PendingText pending_word_;
+  PendingText pending_delimiter_;
+  std::optional<size_t> buffered_output_start_token_index_;
+  std::vector<CompletedTokenizerWord> completed_words_;
+};
+
+class TokenizerDiarization {
+ public:
+  static int AggregateWordSpeaker(const double* start_sums, const double* stop_sums, int64_t start_count,
+                                  int64_t stop_count);
+  static bool SpeakerChanged(bool has_pending, int pending_speaker, int speaker);
+};
+
+bool SpeechSegmentStartsNew(bool has_pending, bool diarization, int pending_speaker, int speaker, int64_t start,
+                            int64_t previous_stop, int64_t gap);
+
+bool SpeechSegmentEnds(std::string_view text, const char* const* separators, size_t count);
 
 }  // namespace ort_extensions

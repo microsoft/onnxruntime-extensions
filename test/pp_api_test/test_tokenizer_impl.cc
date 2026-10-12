@@ -12,7 +12,7 @@
 #endif
 
 #include "shared/api/tokenizer_impl.h"
-#include "shared/api/tokenizer_word_grouping.h"
+#include "shared/api/tokenizer_speech_metadata.h"
 #include "shared/api/c_api_utils.hpp"
 #include "bpe_utils.hpp"
 
