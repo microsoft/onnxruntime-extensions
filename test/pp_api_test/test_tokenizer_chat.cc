@@ -2901,6 +2901,22 @@ TEST(OrtxTokenizerTest, MinjaMacroCallsUseLocalScope) {
   EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
                             "{% macro m(a, b='d') %}{{ a }}{{ b }}{% endmacro %}{{ m(1, 'x') }}{{ m(2) }}"),
             "1x2d");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% set a = 'outer' %}{% macro m(a, b=a) %}{{ b }}{% endmacro %}{{ m('arg') }}"),
+            "arg");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro m(a, b=a) %}{{ a }}|{{ b }}{% endmacro %}{{ m(a='keyword') }}"),
+            "keyword|keyword");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro m(a='x', b=a) %}{{ a }}{{ b }}{% endmacro %}{{ m() }}"),
+            "xx");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro m(a, b=a ~ '!') %}{{ b }}{% endmacro %}{{ m('arg') }}"),
+            "arg!");
+  EXPECT_EQ(RenderMinjaExpr(tokenizer.get(),
+                            "{% macro m(a=caller_only) %}{{ a }}{% endmacro %}"
+                            "{% macro n(caller_only) %}{{ m() }}{% endmacro %}{{ n('caller') }}"),
+            "");
 }
 
 // Gemma 4's strip_thinking macro reassigns `ns`; without per-call macro scope it

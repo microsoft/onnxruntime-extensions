@@ -1545,10 +1545,10 @@ namespace minja
                 call_context->set(arg_name, value);
                 param_set[it->second] = true;
             }
-            // Set default values for parameters that were not passed
+            // Defaults see earlier parameters and the macro's definition scope, not caller locals.
             for (size_t i = 0, n = params.size(); i < n; i++) {
                 if (!param_set[i] && params[i].second != nullptr) {
-                    auto val = params[i].second->evaluate(context);
+                    auto val = params[i].second->evaluate(call_context);
                     call_context->set(params[i].first, val);
                 }
             }
