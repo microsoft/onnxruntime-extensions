@@ -618,6 +618,66 @@ stages:
           --update --build --parallel
       displayName: Build onnxruntime-extensions for Android
 
+  - job: AndroidCAPI_BuildOnly
+    pool:
+      vmImage: 'macOS-14'
+    timeoutInMinutes: 45
+    steps:
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: "3.12"
+        addToPath: true
+        architecture: "x64"
+      displayName: "Use Python 3.12"
+
+    - task: JavaToolInstaller@0
+      displayName: Use jdk 17
+      inputs:
+        versionSpec: '17'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+
+    - script: brew install ninja
+      displayName: Install ninja
+
+    - bash: |
+        set -e -x -u
+        python -m pip install cmake==3.31.6
+        python ./tools/build.py \
+          --build_dir "$(Build.BinariesDirectory)/android_c_api" \
+          --config RelWithDebInfo \
+          --android \
+          --android_abi x86_64 \
+          --enable_cxx_tests \
+          --update --build --parallel \
+          --cmake_extra_defines OCOS_ENABLE_C_API=ON OCOS_BUILD_SHARED_LIB=ON
+      displayName: Build Android C API and shared-library consumer
+
+    - bash: |
+        set -e -x -u
+        set -o pipefail
+        BUILD_DIR="$(Build.BinariesDirectory)/android_c_api/RelWithDebInfo"
+        NDK_TOOLS="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/darwin-x86_64/bin"
+        LIBRARY="$BUILD_DIR/lib/libortextensions.so"
+        CONSUMER="$BUILD_DIR/bin/tokenizer_shared_api_test"
+
+        "$NDK_TOOLS/llvm-nm" --dynamic --defined-only "$LIBRARY" > "$BUILD_DIR/c_api_exports.txt"
+        if ! grep -Eq '[[:space:]]T[[:space:]]OrtxTokenizeLiteral$' "$BUILD_DIR/c_api_exports.txt"; then
+          echo "ERROR: OrtxTokenizeLiteral is not exported by the Android shared library"
+          cat "$BUILD_DIR/c_api_exports.txt"
+          exit 1
+        fi
+
+        "$NDK_TOOLS/llvm-readelf" --dynamic "$CONSUMER" > "$BUILD_DIR/shared_consumer_dynamic.txt"
+        if ! grep -Fq 'Shared library: [libortextensions.so]' "$BUILD_DIR/shared_consumer_dynamic.txt"; then
+          echo "ERROR: The Android consumer does not link to libortextensions.so"
+          cat "$BUILD_DIR/shared_consumer_dynamic.txt"
+          exit 1
+        fi
+
+        echo "Verified Android literal API export and shared-library consumer link"
+      displayName: Verify Android literal API export and shared-library link
+
   - job: Android_Verify16KbPageAlignment
     pool:
       vmImage: 'ubuntu-24.04'

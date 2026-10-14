@@ -160,6 +160,20 @@ OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input
   return {};
 }
 
+OrtxStatus TokenizerImpl::BatchEncodeLiteral(const std::vector<std::string_view>& input,
+                                             std::vector<std::vector<extTokenId_t>>& t_ids) const {
+  for (const auto& text : input) {
+    std::vector<extTokenId_t> ids;
+    OrtxStatus status =
+        std::visit([&](auto& tokenizer) { return tokenizer->ComputeLiteral(std::string(text), ids); }, tokenizer_);
+    if (!status.IsOk()) {
+      return status;
+    }
+    t_ids.emplace_back(std::move(ids));
+  }
+  return {};
+}
+
 OrtxStatus TokenizerImpl::BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
                                       std::vector<std::string>& t_text, bool skip_special_tokens) const {
   for (const auto& s : t_ids) {

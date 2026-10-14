@@ -9,9 +9,10 @@
       },
       {
         "operation": {
-          "name": "gemma4_log_mel",
-          "type": "Gemma4LogMel",
+          "name": "gemma4_audio",
+          "type": "Gemma4Audio",
           "attrs": {
+            "type": "log_mel",
             "feature_size": 128,
             "sampling_rate": 16000,
             "frame_length_ms": 20.0,
