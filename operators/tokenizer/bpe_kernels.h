@@ -41,6 +41,8 @@ struct KernelBpeTokenizer {
   OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& tokenize_output,
                          bool add_special_tokens = true);
 
+  OrtxStatus ComputeLiteral(const std::string& input, std::vector<extTokenId_t>& tokenize_output) const;
+
   const std::string& ModelName() const { return model_name_; }
   uint32_t GetTokenId(const std::string& token) const;
   bool GetAddDummyPrefix() const { return bpe_conf_.get().add_dummy_prefix_; }
@@ -48,10 +50,12 @@ struct KernelBpeTokenizer {
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
   std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
-                                std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
+                                std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
+                                bool recognize_added_tokens) const;
 
   std::vector<int64_t> SpmTokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
-                                   std::list<OffsetMappingType>& offset_map, bool add_special_tokens) const;
+                                   std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
+                                   bool recognize_added_tokens) const;
 
   void CreateUnicodeByteEncoder();
   void CompilePreTokenizer();

@@ -46,6 +46,7 @@ struct SpmUgmTokenizer {
     if (special_tokens != token_json.end()) {
       for (const auto& token : special_tokens->items()) {
         auto id = token.value()["id"].get<extTokenId_t>();
+        added_token_ids_.insert(id);
         bool is_special = token.value()["special"].get<bool>();
         if (is_special) {
           special_token_ids_.insert(id);
@@ -193,6 +194,7 @@ struct SpmUgmTokenizer {
     auto unk_id_iter = model_node->find("unk_id");
     if (unk_id_iter != model_node->end()) {
       special_unk_id_ = unk_id_iter->get<extTokenId_t>();
+      added_token_ids_.insert(special_unk_id_);
     }
 
     auto vocab_node = model_node->find("vocab");
@@ -269,6 +271,15 @@ struct SpmUgmTokenizer {
         }
       }
     }
+    if (chatglm_special_endings_) {
+      for (const char* token : {bos_token_.c_str(), eos_token_.c_str(), pad_token_.c_str(), "[MASK]", "[gMASK]",
+                                "[sMASK]", "<sop>", "<eop>", "</s>"}) {
+        const auto entry = vocab_.find(token);
+        if (entry != vocab_.end()) {
+          added_token_ids_.insert(std::get<0>(entry->second));
+        }
+      }
+    }
     // Rebuild scores_ and trie with updated vocab
     scores_.resize(id);
     for (const auto& entry : vocab_) {
@@ -298,8 +309,8 @@ struct SpmUgmTokenizer {
     return std::get<0>(iter->second);
   }
 
-  OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output,
-                         bool add_special_tokens = true) const {
+  OrtxStatus ComputeNoOp(const std::string& input, std::vector<extTokenId_t>& output, bool add_special_tokens = true,
+                         bool recognize_added_tokens = true) const {
     // Validate UTF-8 encoding before processing
     ptrdiff_t validation_result = ustring::ValidateUTF8(input);
     if (validation_result < 0) {
@@ -310,9 +321,9 @@ struct SpmUgmTokenizer {
     
     std::string normalized;
     if (case_encoder_) {
-      normalized = NmtNormalize(input);
+      normalized = NmtNormalize(input, recognize_added_tokens);
     } else {
-      normalized = Normalize(input);
+      normalized = Normalize(input, recognize_added_tokens);
     }
     size_t input_len = normalized.size();
     if (input_len == 0) {
@@ -331,7 +342,7 @@ struct SpmUgmTokenizer {
       auto node = token_matcher_.Find(normalized[prefix_offset++]);
 
       while (prefix_offset <= input_len && node != NULL) {
-        if (node->HasValue()) {
+        if (node->HasValue() && (recognize_added_tokens || added_token_ids_.count(node->Value()) == 0)) {
           if (prefix_offset - input_offset == n_utf8_code_units) {
             single_codepoint_token_found = true;
           }
@@ -398,7 +409,7 @@ struct SpmUgmTokenizer {
       output.push_back(GetTokenId(bos_token_));
     }
     std::reverse(output.begin(), output.end());
-    if (chatglm_special_endings_) {
+    if (chatglm_special_endings_ && recognize_added_tokens) {
       auto unknown_token_id = GetTokenId(unk_token_);
       // remove the unknown token in the output ids
       output.erase(
@@ -412,6 +423,29 @@ struct SpmUgmTokenizer {
       output.push_back(GetTokenId(eos_token_));
     }
 
+    return {};
+  }
+
+  OrtxStatus ComputeLiteral(const std::string& input, std::vector<extTokenId_t>& output) const {
+    const auto validated_length = ustring::ValidateUTF8(input);
+    if (validated_length < 0 || static_cast<size_t>(validated_length) != input.size()) {
+      return {kOrtxErrorInvalidArgument, "Literal input must be valid UTF-8"};
+    }
+    if (input.empty()) {
+      return {};
+    }
+    std::vector<extTokenId_t> ids;
+    auto status = ComputeNoOp(input, ids, false, false);
+    if (!status.IsOk()) {
+      return status;
+    }
+    for (extTokenId_t id : ids) {
+      if (id == special_unk_id_ || added_token_ids_.count(id) != 0) {
+        return {kOrtxErrorInvalidArgument,
+                "Tokenizer cannot represent literal input without added/special or unknown token IDs"};
+      }
+    }
+    output.insert(output.end(), ids.begin(), ids.end());
     return {};
   }
 
@@ -452,7 +486,7 @@ struct SpmUgmTokenizer {
     size_t consumed_input;
   };
 
-  std::string Normalize(const std::string& input) const {
+  std::string Normalize(const std::string& input, bool recognize_added_tokens = true) const {
     std::string normalized;
     normalized.reserve(input.size() * 3);
 
@@ -468,7 +502,7 @@ struct SpmUgmTokenizer {
     size_t input_len = input.size();
 
     for (size_t input_offset = 0; input_offset < input_len;) {
-      auto norm_res = NormalizePrefix(input, input_offset);
+      auto norm_res = NormalizePrefix(input, input_offset, recognize_added_tokens);
       for (size_t i = 0; i < norm_res.normalized_len; i++) {
         char c = norm_res.normalized[i];
         if (c != ' ') {
@@ -500,13 +534,16 @@ struct SpmUgmTokenizer {
     return normalized;
   }
 
-  std::pair<std::string_view, int> NmtNormalizePrefix(std::string_view input_view) const {
+  std::pair<std::string_view, int> NmtNormalizePrefix(std::string_view input_view,
+                                                      bool recognize_added_tokens = true) const {
     if (input_view.empty()) {
       return {"", 0};
     }
 
     size_t prefix_off = 0;
-    auto user_defined_token_match = user_defined_token_matcher_.FindLongest(std::string(input_view), prefix_off);
+    auto user_defined_token_match = recognize_added_tokens
+                                        ? user_defined_token_matcher_.FindLongest(std::string(input_view), prefix_off)
+                                        : user_defined_token_matcher_.kInvalidId_;
     if (user_defined_token_match != user_defined_token_matcher_.kInvalidId_) {
       return {input_view.substr(0, prefix_off), static_cast<int>(prefix_off)};
     }
@@ -560,9 +597,11 @@ struct SpmUgmTokenizer {
     return {"\xEF\xBF\xBD", 1};
   }
 
-  std::string NmtNormalize(const std::string& input) const {
-    // Reset the case encoder state before starting new normalization
-    case_encoder_->Reset();
+  std::string NmtNormalize(const std::string& input, bool recognize_added_tokens = true) const {
+    normalizer::CaseEncoder encoder(tokenizer_remove_extra_whitespaces_);
+    encoder.SetNormalizer([this, recognize_added_tokens](std::string_view text) {
+      return NmtNormalizePrefix(text, recognize_added_tokens);
+    });
 
     std::string normalized;
     normalized.reserve(input.size() * 3);
@@ -583,7 +622,7 @@ struct SpmUgmTokenizer {
     int consumed = 0;
 
     while (!input_view.empty()) {
-      auto p = case_encoder_->NormalizePrefix(input_view);
+      auto p = encoder.NormalizePrefix(input_view);
 
       for (size_t i = 0; i < p.first.size(); i++) {
         char c = p.first[i];
@@ -610,7 +649,7 @@ struct SpmUgmTokenizer {
       input_view.remove_prefix(p.second);
     }
 
-    case_encoder_->PostProcess(&normalized, &norm_to_orig);
+    encoder.PostProcess(&normalized, &norm_to_orig);
 
     if (shall_append_space) {
       normalized.append(space);
@@ -660,14 +699,16 @@ struct SpmUgmTokenizer {
     size_t xcda_array_size_;
   };
 
-  NormalizationResult NormalizePrefix(const std::string& input, size_t input_offset) const {
+  NormalizationResult NormalizePrefix(const std::string& input, size_t input_offset,
+                                      bool recognize_added_tokens = true) const {
     if (input_offset == input.size()) {
       return {&input[input_offset], 0, 0};
     }
 
     std::string prefix = input.substr(input_offset);
     size_t prefix_off = 0;
-    auto user_defined_token_match = user_defined_token_matcher_.FindLongest(prefix, prefix_off);
+    auto user_defined_token_match = recognize_added_tokens ? user_defined_token_matcher_.FindLongest(prefix, prefix_off)
+                                                           : user_defined_token_matcher_.kInvalidId_;
     if (user_defined_token_match != user_defined_token_matcher_.kInvalidId_) {
       // Fix #1: normalized_len should be matched token length (prefix_off), consumed_input = prefix_off
       return {&input[input_offset], prefix_off, prefix_off};
@@ -747,6 +788,7 @@ struct SpmUgmTokenizer {
   Vocab vocab_;
   std::vector<double> scores_;
   std::set<extTokenId_t> special_token_ids_;
+  std::set<extTokenId_t> added_token_ids_;
   VocabTrieTree token_matcher_;
 
  public:

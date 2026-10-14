@@ -211,6 +211,15 @@ extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, co
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output);
 
+/** \brief Encode null-terminated UTF-8 strings as literal text.
+ *
+ * Does not recognize registered added/special token strings or insert BOS/EOS.
+ * Returns an error if the tokenizer cannot represent the text without producing
+ * registered added/special token IDs or unknown-token fallbacks.
+ * Existing tokenizer options are unchanged.
+ */
+extError_t ORTX_API_CALL OrtxTokenizeLiteral(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                             OrtxTokenId2DArray** output);
 
 /**
  * Converts a token to its corresponding ID.
