@@ -1529,7 +1529,7 @@ namespace minja
         throw std::runtime_error("MacroNode.body is null");
       auto callable = Value::callable([&](const std::shared_ptr<Context> &context, ArgumentsValue &args)
                                       {
-            auto call_context = macro_context;
+            auto call_context = Context::make(Value::object(), macro_context);
             std::vector<bool> param_set(params.size(), false);
             for (size_t i = 0, n = args.args.size(); i < n; i++) {
                 auto & arg = args.args[i];
@@ -1545,10 +1545,10 @@ namespace minja
                 call_context->set(arg_name, value);
                 param_set[it->second] = true;
             }
-            // Set default values for parameters that were not passed
+            // Defaults see earlier parameters and the macro's definition scope, not caller locals.
             for (size_t i = 0, n = params.size(); i < n; i++) {
                 if (!param_set[i] && params[i].second != nullptr) {
-                    auto val = params[i].second->evaluate(context);
+                    auto val = params[i].second->evaluate(call_context);
                     call_context->set(params[i].first, val);
                 }
             }
