@@ -177,6 +177,7 @@ class BpeModel {
           vocab_map_[line] = id;
         }
         ORTX_RETURN_IF_ERROR(special_tokens_.Add(std::move(line_32), id));
+        added_and_special_token_ids_.insert(id);
       }
     }
 
@@ -329,6 +330,7 @@ class BpeModel {
       }
 
       added_tokens_.Add(ustring(token), 0, std::make_optional(id));
+      added_and_special_token_ids_.insert(static_cast<uint32_t>(id));
     }
 
     return {};
@@ -337,10 +339,13 @@ class BpeModel {
   void LoadAddedTokens(const AddedTokenMap& added_tokens) {
     for (const auto& [key, token] : added_tokens) {
       added_tokens_.Add(ustring(token.content_), 0, token.id_);
+      added_and_special_token_ids_.insert(token.id_);
     }
   }
 
   std::vector<std::string> BuildDecoder() const { return id2token_map_; }
+
+  bool IsAddedOrSpecialTokenId(uint32_t id) const { return added_and_special_token_ids_.count(id) != 0; }
 
   // REF:
   // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
@@ -558,6 +563,7 @@ class BpeModel {
   uint32_t unk_id_ = (std::numeric_limits<uint32_t>::max)();
   bpe::SpecialTokenMap special_tokens_;
   TrieTree<char32_t> added_tokens_;
+  std::set<uint32_t> added_and_special_token_ids_;
   std::string pre_tokenizer_regex_;
   bool no_op_pretokenizer_ = false;
   std::vector<SequencePreTokenizerStep> sequence_steps_;

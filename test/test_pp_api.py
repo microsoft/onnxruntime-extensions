@@ -11,6 +11,9 @@ from PIL import Image
 from onnxruntime_extensions import util
 
 from datetime import datetime
+import truststore
+
+truststore.inject_into_ssl()
 
 # uncomment it if there is a protobuf version mismatch error
 # os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
@@ -278,7 +281,7 @@ class TestPPAPI(unittest.TestCase):
         message_json = json.dumps(messages)
         templ = """{% for message in messages %}{% if message['role'] == 'system' and 'tools' in message and message['tools'] is not none %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|tool|>' + message['tools'] + '<|/tool|>' + '<|end|>' }}{% else %}{{ '<|' + message['role'] + '|>' + message['content'] + '<|end|>' }}{% endif %}{% endfor %}{% if add_generation_prompt %}{{ '<|assistant|>' }}{% else %}{{ eos_token }}{% endif %}"""
         prompt = tokenizer.apply_chat_template(chat=message_json, template=templ)
-        
+
         # Continue tokenizer test
         ortx_inputs = tokenizer.tokenize(test_sentence)
         np.testing.assert_array_equal(ortx_inputs, inputs)
@@ -320,7 +323,7 @@ class TestPPAPI(unittest.TestCase):
         # Whisper does not have an explicit chat template so we need to pass one in for HuggingFace.
         # However, this is automatically handled in ORT Extensions.
         jinja_template = "{{ messages | map(attribute='content') | join('\\n') }}"
-        
+
         # ORT Extensions chat templating
         ortx_inputs = tokenizer.apply_chat_template(chat=message_json, add_generation_prompt=True, tokenize=False)
 
@@ -359,7 +362,7 @@ class TestPPAPI(unittest.TestCase):
                 "add_special_tokens": "true"
             }
         )
-        
+
         message_json = json.dumps(messages)
         prompt = tokenizer.apply_chat_template(message_json)
         self.assertEqual(prompt, inputs)
@@ -459,7 +462,7 @@ class TestPPAPI(unittest.TestCase):
             # Detokenize
             decoded_string = tokenizer.detokenize(ortx_input_id)
             np.testing.assert_array_equal(decoded_string, special_token)
-    
+
     def test_chat_tools_input(self):
         model_id = util.get_test_data_file("data/models/phi-4")
         messages = [
@@ -481,7 +484,7 @@ class TestPPAPI(unittest.TestCase):
 
     def test_qwen2_5_vl_chat_template(self):
         model_id = "Qwen/Qwen2.5-1.5B-Instruct"
-        
+
         # For Qwen, tools should be a list of functions stored in json format, passed in
         # separately, as an additional input to apply_chat_template
         # (for Phi-4, it should be part of messages)
@@ -608,7 +611,7 @@ class TestPPAPI(unittest.TestCase):
     def test_llama3_2_chat_template(self):
         ckpt = "meta-llama/Llama-3.2-1B-Instruct"
         hf_tok = AutoTokenizer.from_pretrained(ckpt, token=hf_token_id)
-        
+
         # To match default chat template date we set the date to 26 Jul 2024.
         # (and provide a callable that matches the template's expected interface)
         def strftime_now(fmt: str):

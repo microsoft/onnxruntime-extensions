@@ -3,6 +3,8 @@
 
 #include "speech_extractor.h"
 
+#include <gsl/util>
+
 #include "audio/audio_decoder.h"
 #include "speech_features.hpp"
 #include "gemma4_audio_features.hpp"
@@ -17,7 +19,8 @@ Operation::KernelRegistry SpeechFeatureExtractor::kernel_registry_ = {
     {"NemoLogMel", []() { return CreateKernelInstance(&NemoLogMel::Compute); }},
     {"PerFeatureNormalize", []() { return CreateKernelInstance(&PerFeatureNormalize::Compute); }},
     {"Phi4AudioEmbed", []() { return CreateKernelInstance(&Phi4AudioEmbed::Compute); }},
-    {"Gemma4LogMel", []() { return CreateKernelInstance(&Gemma4LogMel::Compute); }}};
+    {"Gemma4LogMel", []() { return CreateKernelInstance(&Gemma4LogMel::Compute); }},
+    {"Gemma4Audio", []() { return CreateKernelInstance(&Gemma4Audio::Compute); }}};
 
 SpeechFeatureExtractor::SpeechFeatureExtractor() : OrtxObjectImpl(extObjectKind_t::kOrtxKindFeatureExtractor) {}
 
@@ -111,16 +114,25 @@ OrtxStatus Phi4AudioEmbed::AlignOutputs(std::vector<TensorPtr>& audio_result) {
 
 OrtxStatus SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData> raw_speech, TensorResult& r) const {
   // setup the input tensors
-  std::vector<TensorArgs> inputs;
-  inputs.resize(raw_speech.size());
+  std::vector<TensorArgs> inputs(raw_speech.size());
+  std::vector<TensorPtr> input_tensor_objects(raw_speech.size());
   for (size_t i = 0; i < raw_speech.size(); ++i) {
     auto& ts_input = inputs[i];
     AudioRawData& speech = raw_speech[i];
     std::vector<int64_t> shape = {static_cast<int64_t>(speech.size())};
-    ts_input.push_back(std::make_unique<ortc::Tensor<uint8_t>>(shape, speech.data()).release());
+    input_tensor_objects[i] = std::make_unique<ortc::Tensor<uint8_t>>(shape, speech.data());
+    ts_input.push_back(input_tensor_objects[i].get());
   }
 
   std::vector<TensorArgs> outputs;
+  // Run can fail after transferring an earlier clip's output tensors.
+  auto output_cleanup = gsl::finally([&outputs]() {
+    for (auto& tensor_arg : outputs) {
+      for (auto* tensor : tensor_arg) {
+        std::unique_ptr<ortc::TensorBase>(tensor).reset();
+      }
+    }
+  });
   OrtxRunner runner(op_plan_);
   auto status = runner.Run(inputs, outputs);
   if (!status.IsOk()) {
@@ -128,21 +140,10 @@ OrtxStatus SpeechFeatureExtractor::Preprocess(ort_extensions::span<AudioRawData>
   }
 
   // clear the input tensors
-  for (auto& input : inputs) {
-    for (auto& ts : input) {
-      std::unique_ptr<ortc::TensorBase>(ts).reset();
-    }
-  }
+  input_tensor_objects.clear();
 
   auto results = op_plan_.AllocateOutputs(runner.GetAllocator());
   ORTX_RETURN_IF_ERROR(OrtxRunner::StackTensors(outputs, results, runner.GetAllocator()));
-
-  // Free up intermediate output tensors
-  for (auto& tensor_arg : outputs) {
-    for (auto& t : tensor_arg) {
-      std::unique_ptr<ortc::TensorBase>(t).reset();
-    }
-  }
 
   if (output_aligner_ == "phi4-audio-aligner") {
     status = Phi4AudioEmbed::AlignOutputs(results);
