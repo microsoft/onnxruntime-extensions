@@ -133,18 +133,30 @@ size_t TokenizerWordGroupingState::FirstPendingTokenIndex() const {
   return first_pending;
 }
 
-int TokenizerDiarization::AggregateWordSpeaker(const double* start_sums, const double* stop_sums, int64_t start_count,
-                                               int64_t stop_count) {
+void TokenizerDiarization::ValidateSpeakerEvidence(const double* start_sums, const double* stop_sums,
+                                                   int64_t start_count, int64_t stop_count) {
   if (!start_sums || !stop_sums) throw std::runtime_error("Speaker probability sums must not be null");
   if (start_count < 0 || stop_count <= start_count)
     throw std::runtime_error("Speaker evidence requires a positive evaluated-frame count");
+  for (size_t speaker = 0; speaker < 8; ++speaker) {
+    const double sum = stop_sums[speaker] - start_sums[speaker];
+    const double count = static_cast<double>(stop_count - start_count);
+    if (!std::isfinite(start_sums[speaker]) || !std::isfinite(stop_sums[speaker]) || start_sums[speaker] < 0 ||
+        stop_sums[speaker] < 0 || start_sums[speaker] > static_cast<double>(start_count) + 1e-9 ||
+        stop_sums[speaker] > static_cast<double>(stop_count) + 1e-9 || sum < -1e-9 || sum > count + 1e-9)
+      throw std::runtime_error("Speaker evidence contains invalid probability sums");
+  }
+}
+
+int TokenizerDiarization::AggregateWordSpeaker(const double* start_sums, const double* stop_sums, int64_t start_count,
+                                               int64_t stop_count) {
+  ValidateSpeakerEvidence(start_sums, stop_sums, start_count, stop_count);
+
   double scores[8];
   double total = 0;
   for (size_t speaker = 0; speaker < 8; ++speaker) {
     const double sum = stop_sums[speaker] - start_sums[speaker];
     const double count = static_cast<double>(stop_count - start_count);
-    if (!std::isfinite(start_sums[speaker]) || !std::isfinite(stop_sums[speaker]) || sum < -1e-9 || sum > count + 1e-9)
-      throw std::runtime_error("Speaker evidence contains invalid probability sums");
     scores[speaker] = std::clamp(sum / count, 0.01, 1.0);
     total += scores[speaker];
   }

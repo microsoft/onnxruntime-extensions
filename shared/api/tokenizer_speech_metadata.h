@@ -47,6 +47,8 @@ class TokenizerWordGroupingState {
 
 class TokenizerDiarization {
  public:
+  static void ValidateSpeakerEvidence(const double* start_sums, const double* stop_sums, int64_t start_count,
+                                      int64_t stop_count);
   static int AggregateWordSpeaker(const double* start_sums, const double* stop_sums, int64_t start_count,
                                   int64_t stop_count);
   static bool SpeakerChanged(bool has_pending, int pending_speaker, int speaker);
