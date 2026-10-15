@@ -80,6 +80,19 @@ TEST(OrtxTokenizerTest, Qwen35RegexTest) {
   EXPECT_EQ(res, expected);
 }
 
+TEST(OrtxTokenizerTest, FallbackRegexAfterMultiByteChar) {
+  // This pattern has no hardcoded matcher, so it runs through std::regex on a
+  // UTF-8 copy of the text. Multi-byte characters before each match must not
+  // desync that copy from the code-point text.
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"((?:\r?\n)+(?!\r?\n))");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  auto chunks = splitter.SplitIsolated(U"caf\u00e9\nnext\n\u4e2d\u6587\nend");
+  std::vector<std::u32string> expected = {U"caf\u00e9", U"\n", U"next", U"\n", U"\u4e2d\u6587", U"\n", U"end"};
+  EXPECT_EQ(chunks, expected);
+}
+
 TEST(OrtxTokenizerTest, AddedTokensTest) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/added-tokens");
