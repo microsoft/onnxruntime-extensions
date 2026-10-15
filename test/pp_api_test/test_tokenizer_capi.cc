@@ -14,7 +14,7 @@
 #include "ortx_cpp_helper.h"
 #include "nlohmann/json.hpp"
 #include "ugm_kernels.hpp"
-#include "../../shared/api/tokenizer_word_grouping.h"
+#include "../../shared/api/tokenizer_speech_metadata.h"
 
 using namespace ort_extensions;
 
