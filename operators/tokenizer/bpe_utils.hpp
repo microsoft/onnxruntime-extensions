@@ -900,8 +900,19 @@ class PreTokenizerWithRegEx {
     auto& text = m_utf8_text;
     if (std::regex_search(text, match, *fallback_patterns_)) {
       ustring res(match[0]);
-      auto pos = m_text.find(res);
-      m_utf8_text = m_utf8_text.substr(pos + match[0].str().size());
+      // match.position() is a byte offset into the UTF-8 copy; m_text holds
+      // code points, so count the code points (non-continuation bytes) that
+      // precede the match. Using one offset for both copies desyncs them as
+      // soon as a multi-byte character precedes a match.
+      const size_t byte_pos = static_cast<size_t>(match.position(0));
+      const size_t byte_len = static_cast<size_t>(match.length(0));
+      size_t pos = 0;
+      for (size_t b = 0; b < byte_pos; ++b) {
+        if ((static_cast<unsigned char>(text[b]) & 0xC0) != 0x80) {
+          ++pos;
+        }
+      }
+      m_utf8_text = m_utf8_text.substr(byte_pos + byte_len);
       auto res_view = m_text.substr(pos, res.size());
       m_text = m_text.substr(pos + res.size());
       return res_view;
