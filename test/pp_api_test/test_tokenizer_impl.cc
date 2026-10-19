@@ -54,6 +54,26 @@ TEST(OrtxTokenizerTest, RegexTest) {
   EXPECT_EQ(res, out_tokens);
 }
 
+TEST(OrtxTokenizerTest, Lfm25RegexTest) {
+  // LFM2.5 regex (LFM2.5-VL-3B, d1-3B): a leading-apostrophe (?i:...) contraction group, \s*[\r\n] and a final \s
+  auto reg_splitter = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
+  auto status = reg_splitter->Compile(
+      R"('(?i:[sdmt]|ll|ve|re)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]|\s+(?!\S)|\s)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  std::u32string str = U"It's 12345 DON'T stop!\nWE'LL'sx\u00a0 ok\r\n\n  end";  // U+00A0 is \s
+  reg_splitter->Set(str.c_str());
+  std::vector<std::u32string> res;
+  for (auto tok = reg_splitter->GetNextToken(); !tok.empty(); tok = reg_splitter->GetNextToken()) {
+    res.push_back(ustring(tok));
+  }
+
+  // Hugging Face tokenizers pre_tokenize_str output for the same text and regex
+  std::vector<std::u32string> expected = {U"It", U"'s", U" ", U"123", U"45", U" DON", U"'T", U" stop", U"!\n",
+                                          U"WE", U"'LL", U"'s", U"x", U"\u00a0", U" ok", U"\r\n\n", U" ", U" end"};
+  EXPECT_EQ(res, expected);
+}
+
 TEST(OrtxTokenizerTest, Qwen35RegexTest) {
   // Qwen3.5 tokenizer regex — exercises [\p{L}\p{M}] and [^\s\p{L}\p{M}\p{N}] matchers
   std::u32string str = U"Hello, world! 42\ncaf\u0065\u0301 ok";  // café with combining acute accent (U+0301)
