@@ -702,6 +702,23 @@ TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
   }
 }
 
+TEST(OrtxTokenizerTest, Llama3RegexWhitespaceTest) {
+  // \s*[\r\n]+ ends at the last newline of a whitespace run, as in Hugging Face tokenizers
+  auto reg_splitter = std::make_unique<ort_extensions::bpe::PreTokenizerWithRegEx>();
+  auto status = reg_splitter->Compile(ort_extensions::bpe::PreTokenizerWithRegEx::LLAMA_REGEX_PATTERN);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  std::u32string str = U"x\n  \n  y  \n  z";
+  reg_splitter->Set(str.c_str());
+  std::vector<std::u32string> res;
+  for (auto tok = reg_splitter->GetNextToken(); !tok.empty(); tok = reg_splitter->GetNextToken()) {
+    res.push_back(ustring(tok));
+  }
+
+  std::vector<std::u32string> expected = {U"x", U"\n  \n", U" ", U" y", U"  \n", U" ", U" z"};
+  EXPECT_EQ(res, expected);
+}
+
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/phi-2");
