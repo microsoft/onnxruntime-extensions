@@ -17,4 +17,5 @@ extError_t tokenize_text(OrtxTokenizer* tokenizer, const char* text, char** deco
 #ifdef __cplusplus
 extern "C"
 #endif
-extError_t get_detokenize_metadata(const OrtxMetadata* metadata, const OrtxTimestampMetadata** payload);
+    extError_t
+    get_word_piece_info(const OrtxTokenizer* tokenizer, extTokenId_t token_id, OrtxWordPieceInfo* info);
