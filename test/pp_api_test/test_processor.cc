@@ -12,6 +12,7 @@
 #include "ortx_cpp_helper.h"
 #include "shared/api/image_processor.h"
 #include "shared/api/image_transforms_gemma4.hpp"
+#include "shared/api/image_transforms.hpp"
 
 using namespace ort_extensions;
 
@@ -200,6 +201,20 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 1}));
   EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 3), std::vector<int64_t>({2625, 1841, 735}));
+}
+
+TEST(ProcessorTest, TestSmartResizeMatchesHuggingFace) {
+  // LFM2-VL settings; expected sizes are from transformers' Lfm2VlImageProcessor.smart_resize
+  Resize resize;
+  AttrDict attrs = {{"smart_resize", int64_t{1}}, {"min_pixels", int64_t{65536}}, {"max_pixels", int64_t{262144}},
+                    {"patch_size", int64_t{16}}, {"merge_size", int64_t{2}}};
+  ASSERT_TRUE(resize.Init(attrs).IsOk());
+  EXPECT_EQ(resize.smart_resize(400, 500), std::make_tuple(int64_t{384}, int64_t{512}));  // 400 / 32 = 12.5 -> 12
+  EXPECT_EQ(resize.smart_resize(17, 30), std::make_tuple(int64_t{224}, int64_t{352}));  // no truncation before ceil
+
+  // A zero factor would divide by zero in smart_resize
+  EXPECT_FALSE(Resize().Init(AttrDict{{"patch_size", int64_t{0}}}).IsOk());
+  EXPECT_FALSE(Resize().Init(AttrDict{{"merge_size", int64_t{0}}}).IsOk());
 }
 
 TEST(ProcessorTest, TestQwen2_5VLImageProcessing) {
