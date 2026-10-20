@@ -259,6 +259,40 @@ TEST(OrtxTokenizerTest, Phi3_Small_Tokenizer_Blob) {
   EXPECT_EQ(ids_vec, EXPECTED_IDS_0);
 }
 
+TEST(OrtxTokenizerTest, Qwen35TokenizerClassLoadsBpeAssets) {
+  const auto config_blob = ReadFile("data/qwen2.5/tokenizer_config.json");
+  ASSERT_FALSE(config_blob.empty());
+  auto config = nlohmann::json::parse(config_blob);
+  const auto model = ReadFile("data/qwen2.5/tokenizer.json");
+  ASSERT_FALSE(model.empty());
+  const char* input[] = {"This is a test.", "def maximum(a, b):\n    return max(a, b)\n"};
+  std::vector<std::vector<extTokenId_t>> reference;
+  for (const auto* tokenizer_class : {"Qwen2Tokenizer", "Qwen3_5Tokenizer", "Qwen3_5TokenizerFast"}) {
+    SCOPED_TRACE(tokenizer_class);
+    config["tokenizer_class"] = tokenizer_class;
+    const auto serialized = config.dump();
+    const OrtxTokenizerBlob blob(serialized, model);
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizerFromBlob, &blob);
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+    const char* keys[] = {"add_special_tokens"};
+    const char* values[] = {"false"};
+    ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK);
+    OrtxObjectPtr<OrtxTokenId2DArray> token_ids;
+    ASSERT_EQ(OrtxTokenize(tokenizer.get(), input, 2, token_ids.ToBeAssigned()), kOrtxOK);
+    std::vector<std::vector<extTokenId_t>> actual;
+    for (size_t i = 0; i < 2; ++i) {
+      const extTokenId_t* ids = nullptr;
+      size_t length = 0;
+      ASSERT_EQ(OrtxTokenId2DArrayGetItem(token_ids.get(), i, &ids, &length), kOrtxOK);
+      actual.emplace_back(ids, ids + length);
+    }
+    if (reference.empty())
+      reference = actual;
+    else
+      EXPECT_EQ(actual, reference);
+  }
+}
+
 TEST(OrtxTokenizerTest, Phi3TokenizerBlob) {
   std::string config_blob = ReadFile("data/phi-3/tokenizer_config.json");
   ASSERT_FALSE(config_blob.empty()) << "Failed to read config blob file, stopping the test.";
