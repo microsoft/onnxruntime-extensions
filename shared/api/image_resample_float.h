@@ -154,6 +154,62 @@ inline void resample_vertical_rgb(
   }
 }
 
+#ifdef _OPENMP
+// Avoid OpenMP startup overhead for the common small-image path.
+constexpr int64_t kOpenMPMinResizeWork = 10'000'000;
+
+inline void resample_horizontal_rgb_u8_openmp(float* destination, const uint8_t* source, int input_height,
+                                              int input_width, int output_width, int kernel_size, const int* bounds,
+                                              const double* coefficients) {
+#pragma omp parallel for schedule(static)
+  for (int y = 0; y < input_height; ++y) {
+    resample_horizontal_rgb_u8(destination + static_cast<size_t>(y) * output_width * 3,
+                               source + static_cast<size_t>(y) * input_width * 3, 1, input_width, output_width,
+                               kernel_size, bounds, coefficients);
+  }
+}
+
+inline void resample_vertical_rgb_openmp(float* destination, const float* source, int input_height, int width,
+                                         int output_height, int kernel_size, const int* bounds,
+                                         const double* coefficients) {
+#pragma omp parallel for schedule(static)
+  for (int output_y = 0; output_y < output_height; ++output_y) {
+    resample_vertical_rgb(destination + static_cast<size_t>(output_y) * width * 3, source, input_height, width, 1,
+                          kernel_size, bounds + static_cast<size_t>(output_y) * 2,
+                          coefficients + static_cast<size_t>(output_y) * kernel_size);
+  }
+}
+#endif
+
+inline void resample_horizontal_rgb_u8_maybe_parallel(float* destination, const uint8_t* source, int input_height,
+                                                      int input_width, int output_width, int kernel_size,
+                                                      const int* bounds, const double* coefficients) {
+#ifdef _OPENMP
+  const int64_t work = static_cast<int64_t>(input_height) * output_width * kernel_size * 3;
+  if (work >= kOpenMPMinResizeWork) {
+    resample_horizontal_rgb_u8_openmp(destination, source, input_height, input_width, output_width, kernel_size, bounds,
+                                      coefficients);
+    return;
+  }
+#endif
+  resample_horizontal_rgb_u8(destination, source, input_height, input_width, output_width, kernel_size, bounds,
+                             coefficients);
+}
+
+inline void resample_vertical_rgb_maybe_parallel(float* destination, const float* source, int input_height, int width,
+                                                 int output_height, int kernel_size, const int* bounds,
+                                                 const double* coefficients) {
+#ifdef _OPENMP
+  const int64_t work = static_cast<int64_t>(width) * output_height * kernel_size * 3;
+  if (work >= kOpenMPMinResizeWork) {
+    resample_vertical_rgb_openmp(destination, source, input_height, width, output_height, kernel_size, bounds,
+                                 coefficients);
+    return;
+  }
+#endif
+  resample_vertical_rgb(destination, source, input_height, width, output_height, kernel_size, bounds, coefficients);
+}
+
 }  // namespace detail
 
 // Bicubic resize from uint8 RGB to float RGB:
@@ -195,7 +251,7 @@ inline void BicubicResizeU8ToFloatRGB(
     int temp_height = ybox_last - ybox_first;
 
     std::vector<float> temp(static_cast<size_t>(temp_height) * target_width * 3);
-    detail::resample_horizontal_rgb_u8(
+    detail::resample_horizontal_rgb_u8_maybe_parallel(
         temp.data(),
         source + static_cast<size_t>(ybox_first) * source_width * 3,
         temp_height, source_width, target_width,
@@ -209,12 +265,12 @@ inline void BicubicResizeU8ToFloatRGB(
 
     // Vertical pass: (temp_height, target_width, 3) float
     //             → (target_height, target_width, 3) float
-    detail::resample_vertical_rgb(
+    detail::resample_vertical_rgb_maybe_parallel(
         destination, temp.data(), temp_height, target_width, target_height,
         vertical_kernel_size, vertical_bounds.data(),
         vertical_coefficients.data());
   } else if (needs_horizontal) {
-    detail::resample_horizontal_rgb_u8(
+    detail::resample_horizontal_rgb_u8_maybe_parallel(
         destination, source, source_height, source_width, target_width,
         horizontal_kernel_size, horizontal_bounds.data(),
         horizontal_coefficients.data());
@@ -225,7 +281,7 @@ inline void BicubicResizeU8ToFloatRGB(
     constexpr float kRescale = 1.0f / 255.0f;
     for (size_t i = 0; i < source_float.size(); ++i)
       source_float[i] = static_cast<float>(source[i]) * kRescale;
-    detail::resample_vertical_rgb(
+    detail::resample_vertical_rgb_maybe_parallel(
         destination, source_float.data(), source_height, source_width,
         target_height, vertical_kernel_size, vertical_bounds.data(),
         vertical_coefficients.data());

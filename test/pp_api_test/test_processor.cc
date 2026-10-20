@@ -696,6 +696,48 @@ TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
   }
 }
 
+#ifdef _OPENMP
+TEST(ProcessorTest, TestGemma4ImageResizeOpenMPMatchesScalar) {
+  constexpr int source_width = 47;
+  constexpr int source_height = 31;
+  constexpr int target_width = 29;
+  constexpr int target_height = 23;
+
+  std::vector<uint8_t> source(static_cast<size_t>(source_width) * source_height * 3);
+  for (size_t i = 0; i < source.size(); ++i) {
+    source[i] = static_cast<uint8_t>((i * 37 + 11) % 256);
+  }
+
+  std::vector<int> horizontal_bounds;
+  std::vector<int> vertical_bounds;
+  std::vector<double> horizontal_coefficients;
+  std::vector<double> vertical_coefficients;
+  const int horizontal_kernel_size = detail::precompute_coeffs(
+      source_width, 0.0, static_cast<double>(source_width), target_width, horizontal_bounds, horizontal_coefficients);
+  const int vertical_kernel_size = detail::precompute_coeffs(source_height, 0.0, static_cast<double>(source_height),
+                                                             target_height, vertical_bounds, vertical_coefficients);
+
+  std::vector<float> horizontal_scalar(static_cast<size_t>(source_height) * target_width * 3);
+  std::vector<float> horizontal_openmp(horizontal_scalar.size());
+  detail::resample_horizontal_rgb_u8(horizontal_scalar.data(), source.data(), source_height, source_width, target_width,
+                                     horizontal_kernel_size, horizontal_bounds.data(), horizontal_coefficients.data());
+  detail::resample_horizontal_rgb_u8_openmp(horizontal_openmp.data(), source.data(), source_height, source_width,
+                                            target_width, horizontal_kernel_size, horizontal_bounds.data(),
+                                            horizontal_coefficients.data());
+  EXPECT_EQ(horizontal_openmp, horizontal_scalar);
+
+  std::vector<float> vertical_scalar(static_cast<size_t>(target_height) * target_width * 3);
+  std::vector<float> vertical_openmp(vertical_scalar.size());
+  detail::resample_vertical_rgb(vertical_scalar.data(), horizontal_scalar.data(), source_height, target_width,
+                                target_height, vertical_kernel_size, vertical_bounds.data(),
+                                vertical_coefficients.data());
+  detail::resample_vertical_rgb_openmp(vertical_openmp.data(), horizontal_scalar.data(), source_height, target_width,
+                                       target_height, vertical_kernel_size, vertical_bounds.data(),
+                                       vertical_coefficients.data());
+  EXPECT_EQ(vertical_openmp, vertical_scalar);
+}
+#endif
+
 //
 // A CMYK JPEG has 4 output channels. Phi4VisionDynamicPreprocess allocates a
 // 3-channel output buffer but previously copied using the dynamic channel count,
