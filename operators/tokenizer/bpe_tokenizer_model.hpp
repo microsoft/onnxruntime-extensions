@@ -434,14 +434,12 @@ class BpeModel {
 
     SPEC_PROFILE_INC(SPEC_FIELD_BPE_CALLS, 1);
 
-    // Try speculative path first: greedy longest-match via trie + boundary
-    // verification. Falls back to heap/flat if trie has no coverage.
     if (spec_trie_valid_ && PerformBPE_Speculative(vals)) {
       SPEC_PROFILE_INC(SPEC_FIELD_SUCCESSES, 1);
       return;
     }
 
-    // Fallback: priority-queue BPE for long sequences, flat-scan for short ones.
+    // Priority-queue BPE for long sequences, flat-scan for short ones.
     if (vals.size() > 32) {
       PerformBPE_Heap(vals);
       return;
@@ -455,12 +453,11 @@ class BpeModel {
   // for boundary verification and local repair in speculative BPE.
   void PerformBPE_FlatScan(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
     // Flat-array linked list for cache-friendly traversal.
-    // Each node stores token_id, byte_length, and prev/next indices.
+    // Each node stores token_id, byte_length, and the next index.
     // Nodes are indexed [0..n-1]; next == -1 marks the end of the list.
     struct BpeListNode {
       uint32_t token_id;
       uint32_t byte_len;
-      int32_t prev;  // -1 = no prev (head)
       int32_t next;  // -1 = no next (tail)
     };
 
@@ -477,7 +474,7 @@ class BpeModel {
 
     // Initialize from vector (contiguous access, no linked-list traversal)
     for (size_t idx = 0; idx < n; idx++) {
-      nodes[idx] = {vals[idx].first, vals[idx].second, static_cast<int32_t>(idx) - 1, static_cast<int32_t>(idx) + 1};
+      nodes[idx] = {vals[idx].first, vals[idx].second, static_cast<int32_t>(idx) + 1};
     }
     nodes[n - 1].next = -1;  // last node has no next
 
@@ -521,9 +518,6 @@ class BpeModel {
           // Unlink j
           int32_t after_j = nodes[j].next;
           nodes[i].next = after_j;
-          if (after_j != -1) {
-            nodes[after_j].prev = i;
-          }
           active_count--;
 
           // Continue from i (the merged node might form a new pair with its new next)
@@ -570,12 +564,13 @@ class BpeModel {
       uint32_t left_tok;   // token_id of left node at insertion time
       uint32_t right_tok;  // token_id of right node at insertion time
 
-      bool operator>(const HeapEntry& o) const { return rank > o.rank; }
+      bool operator>(const HeapEntry& o) const {
+        return rank != o.rank ? rank > o.rank : pos > o.pos;
+      }
     };
 
     // Min-heap: lowest rank = highest priority
     std::priority_queue<HeapEntry, std::vector<HeapEntry>, std::greater<HeapEntry>> heap;
-
     // Seed heap with all valid adjacent pairs
     for (size_t i = 0; i + 1 < n; i++) {
       auto it = bpe_rank_.find(GetRankKey(nodes[i].token_id, nodes[i + 1].token_id));
@@ -650,6 +645,7 @@ class BpeModel {
       uint32_t byte_len;
       size_t start;  // start index in vals (inclusive)
       size_t end;    // end index in vals (exclusive)
+      bool boundary_pass = false;
     };
     std::vector<OutputToken> output;
     output.reserve(n / 2);
@@ -662,18 +658,16 @@ class BpeModel {
       size_t best_end = pos + 1;
 
       size_t walk = pos;
+      uint32_t total_bytes = 0;
       while (walk < n) {
         uint32_t child = TrieLookupChild(cur_node, vals[walk].first);
         if (child == UINT32_MAX) break;
         cur_node = child;
+        total_bytes += vals[walk].second;
         walk++;
 
         if (spec_trie_nodes_[cur_node].token_id != bpe::kInvalidTokenId) {
           best_token_id = spec_trie_nodes_[cur_node].token_id;
-          uint32_t total_bytes = 0;
-          for (size_t k = pos; k < walk; k++) {
-            total_bytes += vals[k].second;
-          }
           best_byte_len = total_bytes;
           best_end = walk;
         }
@@ -690,61 +684,81 @@ class BpeModel {
     }
 
     // Step 2: Boundary verification. A passing boundary is a "wall" separating
-    // independent segments. Fast path: if no merge rule exists for the atom pair
-    // at the boundary, it trivially passes (single hash lookup). Otherwise, run
-    // full BPE on the combined span to verify.
+    // independent segments. Verify the complete span of both tokens, since a
+    // merge crossing the boundary need not involve the adjacent input atoms.
     const size_t num_boundaries = output.size() - 1;
-    std::vector<bool> boundary_pass(num_boundaries, false);
-
     SPEC_PROFILE_INC(SPEC_FIELD_BOUNDARIES, static_cast<int64_t>(num_boundaries));
     SPEC_PROFILE_INC(SPEC_FIELD_TOKENS, static_cast<int64_t>(output.size()));
 
     std::vector<std::pair<uint32_t, uint32_t>> test_vals;
+    size_t cached_span_start = 0;
+    size_t cached_span_length = 0;
+    uint32_t cached_left_id = bpe::kInvalidTokenId;
+    uint32_t cached_right_id = bpe::kInvalidTokenId;
+    bool cached_pass = false;
+    size_t failed_boundaries = 0;
     for (size_t i = 0; i < num_boundaries; i++) {
-      // Fast check: no merge rule for boundary atoms -- trivially passes.
-      uint32_t last_atom = vals[output[i].end - 1].first;
-      uint32_t first_atom = vals[output[i + 1].start].first;
-      if (bpe_rank_.find(GetRankKey(last_atom, first_atom)) == bpe_rank_.end()) {
-        boundary_pass[i] = true;
-        SPEC_PROFILE_INC(SPEC_FIELD_FAST_PASS, 1);
-        continue;
+      const bool direct_merge = bpe_rank_.find(GetRankKey(output[i].token_id, output[i + 1].token_id)) != bpe_rank_.end();
+      if (output[i].end == output[i].start + 1 && output[i + 1].end == output[i + 1].start + 1) {
+        output[i].boundary_pass = !direct_merge;
+      } else if (!direct_merge) {
+        size_t span_start = output[i].start;
+        size_t span_end = output[i + 1].end;
+
+        if (cached_left_id == output[i].token_id && cached_right_id == output[i + 1].token_id &&
+            cached_span_length == span_end - span_start &&
+            std::equal(vals.begin() + span_start, vals.begin() + span_end,
+                       vals.begin() + cached_span_start,
+                       [](const auto& left, const auto& right) { return left.first == right.first; })) {
+          output[i].boundary_pass = cached_pass;
+        } else {
+          cached_span_start = span_start;
+          cached_span_length = span_end - span_start;
+          cached_left_id = output[i].token_id;
+          cached_right_id = output[i + 1].token_id;
+
+          SPEC_PROFILE_INC(SPEC_FIELD_VERIFIED, 1);
+          test_vals.clear();
+          test_vals.reserve(span_end - span_start);
+          for (size_t k = span_start; k < span_end; k++) {
+            test_vals.push_back(vals[k]);
+          }
+          if (test_vals.size() > 32) {
+            PerformBPE_Heap(test_vals);
+          } else {
+            PerformBPE_FlatScan(test_vals);
+          }
+          cached_pass = test_vals.size() == 2 && test_vals[0].first == output[i].token_id &&
+                        test_vals[1].first == output[i + 1].token_id;
+          output[i].boundary_pass = cached_pass;
+        }
       }
-
-      SPEC_PROFILE_INC(SPEC_FIELD_VERIFIED, 1);
-      // Full verification: run BPE on the combined span of both tokens.
-      size_t span_start = output[i].start;
-      size_t span_end = output[i + 1].end;
-
-      test_vals.clear();
-      test_vals.reserve(span_end - span_start);
-      for (size_t k = span_start; k < span_end; k++) {
-        test_vals.push_back(vals[k]);
+      if (!output[i].boundary_pass) {
+        SPEC_PROFILE_INC(SPEC_FIELD_FAILED, 1);
+        if (++failed_boundaries >= 2 && n > 32) return false;
       }
-
-      PerformBPE_FlatScan(test_vals);
-
-      boundary_pass[i] = (test_vals.size() == 2 &&
-                          test_vals[0].first == output[i].token_id &&
-                          test_vals[1].first == output[i + 1].token_id);
-      if (!boundary_pass[i]) SPEC_PROFILE_INC(SPEC_FIELD_FAILED, 1);
     }
 
     // Step 3: Emit confirmed tokens at walls; re-run BPE on failing segments.
     const size_t num_tokens = output.size();
-    std::vector<std::pair<uint32_t, uint32_t>> orig_vals(std::move(vals));
-    vals.clear();
-    vals.reserve(num_tokens);
-
+    const bool needs_postcheck = std::any_of(output.begin(), output.end() - 1, [](const OutputToken& token) { return token.boundary_pass; }) &&
+                                 std::any_of(output.begin(), output.end() - 1, [](const OutputToken& token) { return !token.boundary_pass; });
+    std::vector<std::pair<uint32_t, uint32_t>> original_vals;
+    if (needs_postcheck) original_vals = vals;
+    std::vector<size_t> wall_positions;
+    size_t previous_wall = 0;
+    size_t write = 0;
     size_t seg_start = 0;
     for (size_t i = 0; i < num_tokens; i++) {
       bool at_end = (i == num_tokens - 1);
-      bool at_wall = (!at_end && boundary_pass[i]);
+      bool at_wall = (!at_end && output[i].boundary_pass);
       if (at_wall || at_end) {
         // Segment is [seg_start .. i] inclusive
         if (seg_start == i) {
           // Single token — confirmed
-          vals.emplace_back(output[i].token_id, output[i].byte_len);
+          vals[write++] = {output[i].token_id, output[i].byte_len};
         } else {
+          if (needs_postcheck && seg_start > 0) wall_positions.push_back(previous_wall);
           // Repair region: run BPE on combined atoms
           size_t atom_start = output[seg_start].start;
           size_t atom_end = output[i].end;
@@ -752,7 +766,7 @@ class BpeModel {
           test_vals.clear();
           test_vals.reserve(atom_end - atom_start);
           for (size_t k = atom_start; k < atom_end; k++) {
-            test_vals.push_back(orig_vals[k]);
+            test_vals.push_back(vals[k]);
           }
 
           if (test_vals.size() > 32) {
@@ -761,13 +775,45 @@ class BpeModel {
             PerformBPE_FlatScan(test_vals);
           }
           for (const auto& tv : test_vals) {
-            vals.push_back(tv);
+            vals[write++] = tv;
           }
+        }
+        if (at_wall) {
+          previous_wall = write;
+          if (needs_postcheck && seg_start != i) wall_positions.push_back(write);
         }
         seg_start = i + 1;
       }
     }
 
+    vals.resize(write);
+    if (needs_postcheck) {
+      std::vector<size_t> atom_boundaries(vals.size() + 1, 0);
+      size_t atom = 0;
+      for (size_t i = 0; i < vals.size(); i++) {
+        uint32_t bytes = 0;
+        while (atom < original_vals.size() && bytes < vals[i].second) bytes += original_vals[atom++].second;
+        if (bytes != vals[i].second) {
+          vals = std::move(original_vals);
+          return false;
+        }
+        atom_boundaries[i + 1] = atom;
+      }
+      for (size_t wall : wall_positions) {
+        test_vals.assign(original_vals.begin() + atom_boundaries[wall - 1],
+                         original_vals.begin() + atom_boundaries[wall + 1]);
+        if (test_vals.size() > 32) {
+          PerformBPE_Heap(test_vals);
+        } else {
+          PerformBPE_FlatScan(test_vals);
+        }
+        if (test_vals.size() != 2 || test_vals[0].first != vals[wall - 1].first ||
+            test_vals[1].first != vals[wall].first) {
+          vals = std::move(original_vals);
+          return false;
+        }
+      }
+    }
     return true;
   }
 
@@ -930,7 +976,6 @@ class BpeModel {
       spec_token_meta_[tid].first_atom = tid;
       spec_token_meta_[tid].last_atom = tid;
     }
-
     // Build full atom decompositions by processing merges in rank order.
     // Each merge result's char_ids = concat(left.char_ids, right.char_ids).
     for (const auto& m : merges) {

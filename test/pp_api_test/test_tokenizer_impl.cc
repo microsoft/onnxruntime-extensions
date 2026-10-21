@@ -1,7 +1,10 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#include <array>
+#include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <locale>
 #include "gtest/gtest.h"
 
@@ -14,6 +17,7 @@
 #include "shared/api/tokenizer_impl.h"
 #include "shared/api/tokenizer_word_grouping.h"
 #include "shared/api/c_api_utils.hpp"
+#include "bpe_tokenizer_model.hpp"
 #include "bpe_utils.hpp"
 
 static void DumpTokenIds(const std::vector<std::vector<extTokenId_t>>& token_ids) {
@@ -33,6 +37,139 @@ class TestJsonFastTokenizer : public JsonFastTokenizer {
  public:
   void SetPaddingLength(int64_t padding_length) { padding_length_ = padding_length; }
 };
+
+TEST(OrtxTokenizerTest, SpeculativeBpeChecksCrossBoundaryMerges) {
+  std::unordered_map<std::string, uint32_t> vocab = {
+      {"a", 0}, {"b", 1}, {"c", 2}, {"d", 3}, {"ab", 4}, {"cd", 5}, {"bcd", 6}};
+  std::vector<std::pair<std::string, std::string>> merges = {
+      {"c", "d"}, {"b", "cd"}, {"a", "b"}};
+  ort_extensions::BpeModel model;
+  auto status = model.Load(vocab, merges, nullptr, false);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  std::vector<std::pair<uint32_t, uint32_t>> atoms = {{0, 1}, {1, 1}, {2, 1}, {3, 1}};
+  model.PerformBPE(atoms);
+  EXPECT_EQ(atoms, (std::vector<std::pair<uint32_t, uint32_t>>{{0, 1}, {6, 3}}));
+
+  atoms = {{0, 1}, {1, 1}, {2, 1}, {3, 1},
+           {0, 1}, {1, 1}, {2, 1}, {3, 1},
+         {0, 1}, {1, 1}, {2, 1}, {3, 1},
+         {0, 1}, {1, 1}, {2, 1}, {3, 1},
+         {0, 1}, {1, 1}, {2, 1}, {3, 1}};
+  model.PerformBPE(atoms);
+  EXPECT_EQ(atoms, (std::vector<std::pair<uint32_t, uint32_t>>{
+      {0, 1}, {6, 3}, {0, 1}, {6, 3}, {0, 1}, {6, 3},
+      {0, 1}, {6, 3}, {0, 1}, {6, 3}}));
+}
+
+TEST(OrtxTokenizerTest, SpeculativeBpeChecksLargeBoundary) {
+  std::unordered_map<std::string, uint32_t> vocab = {{"a", 0}};
+  std::vector<std::pair<std::string, std::string>> merges;
+  std::string previous = "a";
+  for (uint32_t id = 1; id <= 6; ++id) {
+    merges.emplace_back(previous, previous);
+    previous += previous;
+    vocab.emplace(previous, id);
+  }
+  ort_extensions::BpeModel model;
+  ASSERT_TRUE(model.Load(vocab, merges, nullptr, false).IsOk());
+
+  std::vector<std::pair<uint32_t, uint32_t>> atoms(128, {0, 1});
+  model.PerformBPE(atoms);
+  EXPECT_EQ(atoms, (std::vector<std::pair<uint32_t, uint32_t>>{{6, 64}, {6, 64}}));
+}
+
+TEST(OrtxTokenizerTest, SpeculativeBpeMatchesRankedMergesOnShortInputs) {
+  std::unordered_map<std::string, uint32_t> vocab = {
+      {"a", 0}, {"b", 1}, {"c", 2}, {"d", 3}, {"ab", 4}, {"cd", 5}, {"bcd", 6}};
+  struct RankedMerge {
+    uint32_t left;
+    uint32_t right;
+    uint32_t product;
+  };
+  const std::array<std::pair<std::string, std::string>, 3> merge_pairs = {
+      std::pair<std::string, std::string>{"c", "d"}, {"b", "cd"}, {"a", "b"}};
+  const std::array<RankedMerge, 3> merge_rules = {{{2, 3, 5}, {1, 5, 6}, {0, 1, 4}}};
+  const std::array<std::array<size_t, 3>, 3> rank_orders = {{{0, 1, 2}, {0, 2, 1}, {2, 0, 1}}};
+
+  for (const auto& rank_order : rank_orders) {
+    std::vector<std::pair<std::string, std::string>> merges;
+    std::vector<RankedMerge> ranked_merges;
+    for (size_t rank_index : rank_order) {
+      merges.push_back(merge_pairs[rank_index]);
+      ranked_merges.push_back(merge_rules[rank_index]);
+    }
+    ort_extensions::BpeModel model;
+    ASSERT_TRUE(model.Load(vocab, merges, nullptr, false).IsOk());
+
+    for (size_t length = 2, combinations = 16; length <= 6; ++length, combinations *= 4) {
+      for (size_t input_code = 0; input_code < combinations; ++input_code) {
+        std::vector<std::pair<uint32_t, uint32_t>> expected(length);
+        size_t remaining = input_code;
+        for (size_t position = length; position-- > 0;) {
+          expected[position] = {static_cast<uint32_t>(remaining % 4), 1};
+          remaining /= 4;
+        }
+        auto actual = expected;
+
+        for (;;) {
+          size_t best_rank = ranked_merges.size();
+          size_t best_position = 0;
+          for (size_t position = 0; position + 1 < expected.size(); ++position) {
+            for (size_t rank = 0; rank < best_rank; ++rank) {
+              if (expected[position].first == ranked_merges[rank].left &&
+                  expected[position + 1].first == ranked_merges[rank].right) {
+                best_rank = rank;
+                best_position = position;
+                break;
+              }
+            }
+          }
+          if (best_rank == ranked_merges.size()) break;
+          expected[best_position].first = ranked_merges[best_rank].product;
+          expected[best_position].second += expected[best_position + 1].second;
+          expected.erase(expected.begin() + best_position + 1);
+        }
+
+        model.PerformBPE(actual);
+        ASSERT_EQ(actual, expected) << "rank order=" << rank_order[0] << rank_order[1] << rank_order[2]
+                                    << ", input length=" << length << ", code=" << input_code;
+      }
+    }
+  }
+}
+
+TEST(OrtxTokenizerTest, SpeculativeBpeMatchesPhi2MergeTable) {
+  const auto path = std::filesystem::path(__FILE__).parent_path().parent_path() / "data" / "phi-2" / "tokenizer.json";
+  std::ifstream tokenizer_file(path);
+  ASSERT_TRUE(tokenizer_file.good()) << path;
+  nlohmann::json tokenizer_json;
+  tokenizer_file >> tokenizer_json;
+
+  ort_extensions::BpeModel model;
+  auto status = model.Load(tokenizer_json["model"], tokenizer_json, nullptr, false);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  const auto check_case = [&](const std::string& input, const std::vector<uint32_t>& expected) {
+    std::vector<std::pair<uint32_t, uint32_t>> atoms;
+    for (char ch : input) {
+      atoms.emplace_back(model.GetTokenId(std::string(1, ch)), 1);
+    }
+    model.PerformBPE(atoms);
+    std::vector<uint32_t> actual;
+    for (const auto& token : atoms) actual.push_back(token.first);
+    EXPECT_EQ(actual, expected) << input;
+  };
+
+  check_case("nerbscnndrssarrrdreetterbabdctneacddbrddncarc", {
+      1008, 65, 1416, 77, 358, 42216, 3258, 4372, 2871, 353, 65,
+      397, 67, 310, 710, 330, 1860, 1671, 1860, 10782, 5605});
+  check_case("rbaabranrbbecdnenbrtbbdbtddddccdrbtatsatbabbtaacadrasenccnescbsbtrccreeabrrstrsabbaabndtdaesrtrrcntbbrbcebcraaaebtsa", {
+      81, 7012, 397, 2596, 26145, 9423, 32656, 268, 1671, 83, 11848, 9945, 83, 1860, 1860,
+      535, 7109, 18347, 1381, 265, 65, 6485, 8326, 330, 324, 8847, 268, 535, 2516, 66, 1443,
+      65, 2213, 535, 631, 397, 21062, 2536, 82, 48910, 397, 358, 83, 6814, 274, 81, 2213,
+      6015, 429, 65, 1671, 65, 344, 15630, 430, 7252, 1765, 912, 64});
+}
 
 TEST(OrtxTokenizerTest, RegexTest) {
   std::u32string str = U"You'll enjoy the concert.";
@@ -637,6 +774,20 @@ TEST(OrtxTokenizerTest, CodeGenTokenizerTrailingChar) {
 TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
   using namespace ort_extensions::bpe;
 
+  for (char32_t ch = 0; ch < 128; ++ch) {
+    EXPECT_EQ(PreTokenizerWithRegEx::IsL(ch),
+              PreTokenizerWithRegEx::IsCategory(ch, ufal::unilib::unicode::L)) << static_cast<int>(ch);
+    EXPECT_EQ(PreTokenizerWithRegEx::IsN(ch),
+              PreTokenizerWithRegEx::IsCategory(ch, ufal::unilib::unicode::N)) << static_cast<int>(ch);
+    const bool control_space = ch == U'\r' || ch == U'\n' || ch == U'\t' || ch == U'\f' || ch == U'\v';
+    EXPECT_EQ(PreTokenizerWithRegEx::IsZ(ch),
+              control_space || PreTokenizerWithRegEx::IsCategory(ch, ufal::unilib::unicode::Z)) << static_cast<int>(ch);
+    EXPECT_EQ(PreTokenizerWithRegEx::NotLNZ(ch),
+              !control_space && !PreTokenizerWithRegEx::IsCategory(ch, ufal::unilib::unicode::L | ufal::unilib::unicode::N | ufal::unilib::unicode::Z)) << static_cast<int>(ch);
+  }
+  EXPECT_TRUE(PreTokenizerWithRegEx::IsL(U'\u03b2'));
+  EXPECT_TRUE(PreTokenizerWithRegEx::IsN(U'\u0663'));
+
   ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'n')) << "IsL('n') must be true - 'n' is a letter!";
   ASSERT_TRUE(PreTokenizerWithRegEx::IsL(U'a')) << "IsL('a') must be true";
   ASSERT_FALSE(PreTokenizerWithRegEx::IsZ(U'n')) << "IsZ('n') must be false";
@@ -699,6 +850,18 @@ TEST(OrtxTokenizerTest, GPT2PreTokenizerDirect) {
     EXPECT_EQ(std::u32string(tok2), U" world");
     auto tok3 = splitter.GetNextToken();
     EXPECT_TRUE(tok3.empty());
+  }
+
+  {
+    std::u32string text = U"alpha 123!\u03b2 42\nz";
+    splitter.Set(text);
+    std::vector<std::u32string> tokens;
+    while (true) {
+      auto token = splitter.GetNextToken();
+      if (token.empty()) break;
+      tokens.emplace_back(token);
+    }
+    EXPECT_EQ(tokens, (std::vector<std::u32string>{U"alpha", U" 123", U"!", U"\u03b2", U" 42", U"\n", U"z"}));
   }
 }
 
@@ -1043,8 +1206,6 @@ TEST(OrtxTokenizerTest, Gemma4Tokenizer) {
 // =============================================================================
 extern void BpeProfiler_Reset();
 extern void BpeProfiler_Print(const char* label);
-extern void SpecBpeProfiler_Reset();
-extern void SpecBpeProfiler_Print(const char* label);
 
 TEST(OrtxTokenizerProfileTest, DISABLED_ProfileAllModels) {
   // A ~2KB English text to exercise the tokenizer meaningfully
@@ -1098,15 +1259,77 @@ TEST(OrtxTokenizerProfileTest, DISABLED_ProfileAllModels) {
 
     // Profiled run
     BpeProfiler_Reset();
-    SpecBpeProfiler_Reset();
     for (int i = 0; i < iterations; i++) {
       token_ids.clear();
       tokenizer->Tokenize(input, token_ids);
     }
     BpeProfiler_Print(model.name);
-    SpecBpeProfiler_Print(model.name);
 
     fprintf(stderr, "  [%s] Tokens produced: %zu (per call)\n\n", model.name, token_ids[0].size());
+  }
+}
+
+TEST(OrtxTokenizerProfileTest, DISABLED_CompareRankedRawBpe) {
+  struct ModelCase {
+    const char* name;
+    uint32_t repeated_id;
+    uint32_t repeated_bytes;
+  };
+  for (const auto& model_case : {ModelCase{"phi-2", 24794, 4}, ModelCase{"phi-4-base", 70540, 8}}) {
+    const auto path = std::filesystem::path(__FILE__).parent_path().parent_path() / "data" / model_case.name / "tokenizer.json";
+    std::ifstream tokenizer_file(path);
+    ASSERT_TRUE(tokenizer_file.good()) << path;
+    nlohmann::json tokenizer_json;
+    tokenizer_file >> tokenizer_json;
+
+    ort_extensions::BpeModel model;
+    ASSERT_TRUE(model.Load(tokenizer_json["model"], tokenizer_json, nullptr, false).IsOk());
+    const auto run_case = [&](const char* name, const std::string& text) {
+      std::vector<std::pair<uint32_t, uint32_t>> source;
+      source.reserve(text.size());
+      for (char ch : text) source.emplace_back(model.GetTokenId(std::string(1, ch)), 1);
+
+      for (int i = 0; i < 5; ++i) {
+        auto atoms = source;
+        model.PerformBPE(atoms);
+      }
+      std::vector<double> times;
+      for (int i = 0; i < 50; ++i) {
+        auto atoms = source;
+        const auto start = std::chrono::steady_clock::now();
+        model.PerformBPE(atoms);
+        times.push_back(std::chrono::duration<double, std::micro>(std::chrono::steady_clock::now() - start).count());
+        if (name[0] == 'a') {
+          ASSERT_EQ(atoms.size(), text.size() / model_case.repeated_bytes);
+          for (const auto& [id, byte_len] : atoms) {
+            ASSERT_EQ(id, model_case.repeated_id);
+            ASSERT_EQ(byte_len, model_case.repeated_bytes);
+          }
+        } else if (i == 0) {
+          const std::vector<uint32_t> expected = model_case.repeated_bytes == 4
+              ? std::vector<uint32_t>{1008, 65, 1416, 77, 358, 42216, 3258, 4372, 2871, 353, 65,
+                                      397, 67, 310, 710, 330, 1860, 1671, 1860, 10782, 5605}
+              : std::vector<uint32_t>{1215, 1302, 14606, 303, 51723, 277, 637, 67, 3829, 466,
+                                      48822, 67, 302, 818, 582, 634, 1347, 634, 1031, 8362};
+          ASSERT_EQ(atoms.size(), expected.size());
+          for (size_t position = 0; position < expected.size(); ++position) {
+            EXPECT_EQ(atoms[position].first, expected[position]) << position;
+          }
+        }
+      }
+      std::sort(times.begin(), times.end());
+      fprintf(stderr, "  RAW_BPE model=%s input=%s bytes=%zu median_us=%.2f\n",
+              model_case.name, name, text.size(), times[25]);
+    };
+
+    run_case("a8", std::string(8, 'a'));
+    run_case("a16", std::string(16, 'a'));
+    run_case("a32", std::string(32, 'a'));
+    run_case("a64", std::string(64, 'a'));
+    run_case("a128", std::string(128, 'a'));
+    run_case("a1024", std::string(1024, 'a'));
+    run_case("a8192", std::string(8192, 'a'));
+    run_case("phi2_case", "nerbscnndrssarrrdreetterbabdctneacddbrddncarc");
   }
 }
 
@@ -1241,6 +1464,59 @@ TEST(OrtxTokenizerTest, BpeOffsetMappingMatchesTokenIds) {
     }
   }
   EXPECT_TRUE(found_second_hello);
+}
+
+TEST(OrtxTokenizerTest, BpeCachedPretokenMatchesUncachedOffsets) {
+  ort_extensions::TokenJsonConfig config;
+  ASSERT_TRUE(config.Load("data/tokenizer/roberta-base").IsOk());
+  JsonFastTokenizer tokenizer;
+  ASSERT_TRUE(tokenizer.Load(config).IsOk());
+
+  auto* allocator = &ort_extensions::CppAllocator::Instance();
+  auto tokenize = [&](const std::string& text) {
+    ortc::Tensor<std::string> input({text});
+    ortc::Tensor<int64_t> input_ids(allocator);
+    ortc::Tensor<int64_t> offset_mapping(allocator);
+    auto status = tokenizer.Compute(input, input_ids, std::nullopt, &offset_mapping, false);
+    EXPECT_TRUE(status.IsOk()) << status.ToString();
+    if (!status.IsOk()) return std::pair<std::vector<int64_t>, std::vector<int64_t>>{};
+    return std::make_pair(
+        std::vector<int64_t>(input_ids.Data(), input_ids.Data() + input_ids.NumberOfElement()),
+        std::vector<int64_t>(offset_mapping.Data(), offset_mapping.Data() + offset_mapping.NumberOfElement()));
+  };
+
+  const std::string first = "Hello world";
+  const std::string repeated = " Hello world";
+  auto first_result = tokenize(first);
+  auto repeated_result = tokenize(repeated);
+  ASSERT_FALSE(first_result.first.empty());
+  ASSERT_FALSE(repeated_result.first.empty());
+
+  std::string long_text = first;
+  std::vector<int64_t> expected_ids = first_result.first;
+  std::vector<int64_t> expected_offsets = first_result.second;
+  for (size_t repeat_index = 0; repeat_index < 100; ++repeat_index) {
+    const auto start = static_cast<int64_t>(long_text.size());
+    long_text += repeated;
+    expected_ids.insert(expected_ids.end(), repeated_result.first.begin(), repeated_result.first.end());
+    for (auto value : repeated_result.second) expected_offsets.push_back(value + start);
+  }
+  ASSERT_GE(long_text.size(), 1024u);
+  auto actual = tokenize(long_text);
+  EXPECT_EQ(actual.first, expected_ids);
+  EXPECT_EQ(actual.second, expected_offsets);
+
+  const std::string special = "<mask>";
+  auto special_ids = expected_ids;
+  special_ids.push_back(static_cast<int64_t>(tokenizer.GetTokenId(special)));
+  special_ids.insert(special_ids.end(), expected_ids.begin(), expected_ids.end());
+  auto special_offsets = expected_offsets;
+  special_offsets.insert(special_offsets.end(), {0, 0});
+  const auto second_start = static_cast<int64_t>(long_text.size() + special.size());
+  for (auto value : expected_offsets) special_offsets.push_back(value + second_start);
+  auto with_special = tokenize(long_text + special + long_text);
+  EXPECT_EQ(with_special.first, special_ids);
+  EXPECT_EQ(with_special.second, special_offsets);
 }
 
 TEST(OrtxTokenizerTest, BpeFixedLengthReservesSpecialTokens) {

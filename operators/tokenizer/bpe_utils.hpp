@@ -866,10 +866,18 @@ class PreTokenizerWithRegEx {
       }
     }
 
+    gpt2_fast_path_ = regex == GPT2_REGEX_PATTERN && !fallback_patterns_;
+
     return {};
   }
 
   std::u32string_view TryMatch() {
+    if (gpt2_fast_path_) {
+      if (auto res = Match_GPT2_Pattern_1(); !res.empty()) return res;
+      if (auto res = Match_GPT2_Pattern_2(); !res.empty()) return res;
+      if (auto res = Match_GPT2_Pattern_3(); !res.empty()) return res;
+      return Match_GPT2_Pattern_4();
+    }
     std::u32string_view res;
     if (activated_matchers_) {
       for (auto& matcher : *activated_matchers_) {
@@ -993,6 +1001,7 @@ class PreTokenizerWithRegEx {
   }
 
   static bool IsL(char32_t ch) {
+    if (ch < 128) return ((ch | 0x20) - U'a') < 26;
     auto category = ufal::unilib::unicode::category(ch);
     return (category & ufal::unilib::unicode::L) != 0;
   }
@@ -1011,12 +1020,14 @@ class PreTokenizerWithRegEx {
   }
 
   static bool IsN(char32_t ch) {
+    if (ch < 128) return (ch - U'0') < 10;
     auto category = ufal::unilib::unicode::category(ch);
     return (category & ufal::unilib::unicode::N) != 0;
   }
 
   static bool IsZ(char32_t ch) {
     if (ch == U'\r' || ch == U'\n' || ch == U'\t' || ch == U'\f' || ch == U'\v') return true;
+    if (ch < 128) return ch == U' ';
     auto category = ufal::unilib::unicode::category(ch);
     return (category & ufal::unilib::unicode::Z) != 0;
   }
@@ -1030,6 +1041,7 @@ class PreTokenizerWithRegEx {
   static bool NotLNZ(char32_t ch) {
     // \r\n\t\f\v
     if (ch == U'\r' || ch == U'\n' || ch == U'\t' || ch == U'\f' || ch == U'\v') return false;
+    if (ch < 128) return ch != U' ' && !IsL(ch) && !IsN(ch);
     auto category = ufal::unilib::unicode::category(ch);
     if (category & ufal::unilib::unicode::L) return false;
     if (category & ufal::unilib::unicode::N) return false;
@@ -1056,6 +1068,7 @@ class PreTokenizerWithRegEx {
     PreTokenizerWithRegEx cursor;
     cursor.activated_matchers_ = activated_matchers_;  // share compiled matchers (read-only)
     cursor.fallback_patterns_ = fallback_patterns_;    // share compiled regex (read-only)
+    cursor.gpt2_fast_path_ = gpt2_fast_path_;
     return cursor;
   }
 
@@ -1065,6 +1078,7 @@ class PreTokenizerWithRegEx {
 
   std::shared_ptr<std::vector<RegexMatchFunc>> activated_matchers_;
   std::shared_ptr<const std::regex> fallback_patterns_;
+  bool gpt2_fast_path_ = false;
   std::string m_utf8_text;
 };
 
