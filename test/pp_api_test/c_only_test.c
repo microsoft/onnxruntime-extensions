@@ -11,9 +11,8 @@
 #define strdup _strdup
 #endif
 
-extError_t get_detokenize_metadata(const OrtxMetadata* metadata, const OrtxTimestampMetadata** payload) {
-  *payload = metadata->timestampMetadata;
-  return kOrtxOK;
+extError_t get_word_piece_info(const OrtxTokenizer* tokenizer, extTokenId_t token_id, OrtxWordPieceInfo* info) {
+  return OrtxGetTokenWordPieceInfo(tokenizer, token_id, info);
 }
 
 extError_t tokenize_text(OrtxTokenizer* tokenizer, const char* text, char** decoded_text) {
