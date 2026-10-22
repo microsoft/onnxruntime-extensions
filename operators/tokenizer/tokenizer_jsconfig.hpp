@@ -28,6 +28,7 @@ constexpr std::pair<const char*, TokenType> kTokenizerDict[] = {
   {"CodeGenTokenizer", TokenType::kBPE},
   {"GPT2Tokenizer", TokenType::kBPE},
   {"Qwen2Tokenizer", TokenType::kBPE},
+  {"Qwen3_5Tokenizer", TokenType::kBPE},
   {"BaichuanTokenizer", TokenType::kBPE},
   {"GPTNeoXTokenizer", TokenType::kBPE},
 
@@ -164,6 +165,7 @@ class TokenJsonConfig final {
       return OrtxStatus(kOrtxErrorInvalidArgument, "Failed to parse config json.");
     }
 
+    LoadAddedTokensDecoder(json_config);
     if (blob.token_module_blob_len > 0) {
       std::string tokenizer_str(blob.token_module_blob, blob.token_module_blob_len);
       std::istringstream tokenizer_ifs(tokenizer_str);
@@ -245,15 +247,7 @@ class TokenJsonConfig final {
         }
     }
 
-    // Store added_tokens_decoder to add any missed tokens into added_tokens in UpdateTokenizer.
-    // In Transformers v5, added_tokens_decoder may be absent from tokenizer_config.json
-    // when a tokenizer.json file is present (data is consolidated into tokenizer.json).
-    auto atd_iter = json_config.find("added_tokens_decoder");
-    if (atd_iter != json_config.end() && atd_iter->is_object()) {
-      added_tokens_decoder = std::make_shared<json>(*atd_iter);
-    } else {
-      added_tokens_decoder = std::make_shared<json>(json::object());
-    }
+    LoadAddedTokensDecoder(json_config);
 
     auto module_cfg = tok_dir / "tokenizer_module.json";
     if (module_cfg.exists()) {
@@ -364,6 +358,16 @@ class TokenJsonConfig final {
   }
 
  private:
+  void LoadAddedTokensDecoder(const json& json_config) {
+    // Preserve config-only tokens without changing tokenizer-module override precedence.
+    auto atd_iter = json_config.find("added_tokens_decoder");
+    if (atd_iter != json_config.end() && atd_iter->is_object()) {
+      added_tokens_decoder = std::make_shared<json>(*atd_iter);
+    } else {
+      added_tokens_decoder = std::make_shared<json>(json::object());
+    }
+  }
+
   void LoadAddedTokens(const json& tok_json) {
     auto added_tokens = tok_json.find("added_tokens");
     if (added_tokens != tok_json.end()) {
