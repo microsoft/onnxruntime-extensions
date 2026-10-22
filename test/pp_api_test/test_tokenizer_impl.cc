@@ -719,6 +719,22 @@ TEST(OrtxTokenizerTest, Llama3RegexWhitespaceTest) {
   EXPECT_EQ(res, expected);
 }
 
+TEST(OrtxTokenizerTest, CarriageReturnInJsonMerges) {
+  // tokenizer.json merges such as "▁ \r" and "; \r" keep their '\r'; expected ids from Hugging Face tokenizers
+  auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
+  auto status = tokenizer->Load("data/phi-3-mini");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  std::vector<std::string_view> input = {"a\n \r", "if (a) {\r\n  b();\r\n}\r\n"};
+  std::vector<std::vector<extTokenId_t>> token_ids;
+  status = tokenizer->Tokenize(input, token_ids);
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  ASSERT_EQ(token_ids.size(), input.size());
+  EXPECT_EQ(token_ids[0], std::vector<extTokenId_t>({263, 13, 6756}));
+  EXPECT_EQ(token_ids[1],
+            std::vector<extTokenId_t>({565, 313, 29874, 29897, 3336, 13, 29871, 289, 14078, 13, 8117, 13}));
+}
+
 TEST(OrtxTokenizerStreamTest, CodeGenTokenizer) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/phi-2");
