@@ -798,6 +798,7 @@ class PreTokenizerWithRegEx {
         {R"((?:'[sS]|'[tT]|'[rR][eE]|'[vV][eE]|'[mM]|'[lL][lL]|'[dD]))",
          &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"((?i:'s|'t|'re|'ve|'m|'ll|'d))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
+        {R"('(?i:[sdmt]|ll|ve|re))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},  // LFM2.5
         {R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
         {R"( ?[^\s\p{L}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
         {R"([^\r\n\p{L}\p{N}]?[\p{L}\p{M}]+)", &PreTokenizerWithRegEx::Match_Qwen35_Pattern_1},
@@ -809,8 +810,10 @@ class PreTokenizerWithRegEx {
         {R"([\p{L}]+|[\p{N}])", &PreTokenizerWithRegEx::Match_CLIP_Pattern_1},
         {R"([^\s\p{L}\p{N}]+)", &PreTokenizerWithRegEx::Match_CLIP_Pattern_2},
         {R"(\s+(?!\S)|\s+)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_4},
+        {R"(\s+(?!\S)|\s)", &PreTokenizerWithRegEx::Match_GPT2_Pattern_4},
         {R"(\p{N}{1,3})", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_3},
         {R"(\s*[\r\n]+)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_5},
+        {R"(\s*[\r\n])", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_5},
         {R"(\p{N})", &PreTokenizerWithRegEx::Match_General_Pattern_1},
         {R"([一-龥぀-ゟ゠-ヿ]+)", &PreTokenizerWithRegEx::Match_CJK_Pattern},
         {R"([!"#$%&'()*+,\-./:;<=>?@\[\\\]^_`{|}~][A-Za-z]+)", &PreTokenizerWithRegEx::Match_Hunyuan_Pattern_3},
