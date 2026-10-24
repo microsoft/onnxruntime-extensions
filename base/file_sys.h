@@ -18,6 +18,7 @@
 
 #include <string>
 #include <fstream>
+#include <filesystem>
 
 
 namespace ort_extensions {
@@ -51,7 +52,12 @@ class path {
   std::ifstream open(ios_base::openmode mode = ios_base::in) const {
     // if Windows, need to convert the string to UTF-16
 #ifdef _WIN32
-    return std::ifstream(w_path_, mode);
+    // libc++ (the Windows clang toolchain) provides no std::ifstream ctor
+    // taking a std::wstring -- that overload is an MSVC-STL extension. Route
+    // the wide path through std::filesystem::path, whose basic_ifstream ctor
+    // overload is standard C++17 and is honoured by libc++/libstdc++/MSVC STL
+    // alike, while still preserving the UTF-16 path. (microsoft/onnxruntime-extensions#1071)
+    return std::ifstream(std::filesystem::path(w_path_), mode);
 #else
     return std::ifstream(path_, mode);
 #endif  // _WIN32
