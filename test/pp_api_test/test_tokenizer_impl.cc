@@ -79,6 +79,59 @@ TEST(OrtxTokenizerTest, Qwen35RegexTest) {
   EXPECT_EQ(res, expected);
 }
 
+TEST(OrtxTokenizerTest, FallbackRegexAfterMultiByteChar) {
+  // This pattern has no hardcoded matcher, so it runs through std::regex on a
+  // UTF-8 copy of the text. Multi-byte characters before each match must not
+  // desync that copy from the code-point text.
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"((?:\r?\n)+(?!\r?\n))");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  auto chunks = splitter.SplitIsolated(U"caf\u00e9\nnext\n\u4e2d\u6587\nend");
+  std::vector<std::u32string> expected = {U"caf\u00e9", U"\n", U"next", U"\n", U"\u4e2d\u6587", U"\n", U"end"};
+  EXPECT_EQ(chunks, expected);
+}
+
+TEST(OrtxTokenizerTest, FallbackRegexZeroLengthMatchSplit) {
+  // A zero-length fallback match after the start of the text must not consume
+  // the characters before it: they stay in the unmatched chunk.
+  ort_extensions::bpe::PreTokenizerWithRegEx end_splitter;
+  auto status = end_splitter.Compile("$");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  EXPECT_EQ(end_splitter.SplitIsolated(U"ab"), std::vector<std::u32string>{U"ab"});
+
+  ort_extensions::bpe::PreTokenizerWithRegEx lookahead_splitter;
+  status = lookahead_splitter.Compile(R"((?=\n))");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  EXPECT_EQ(lookahead_splitter.SplitIsolated(U"caf\u00e9\nend"), std::vector<std::u32string>{U"caf\u00e9\nend"});
+}
+
+TEST(OrtxTokenizerTest, FallbackRegexZeroLengthMatchNextToken) {
+  auto tokens_of = [](ort_extensions::bpe::PreTokenizerWithRegEx& splitter, std::u32string_view text) {
+    std::vector<std::u32string> tokens;
+    splitter.Set(text);
+    for (auto tok = splitter.GetNextToken(); !tok.empty(); tok = splitter.GetNextToken()) {
+      tokens.emplace_back(tok);
+    }
+    return tokens;
+  };
+
+  ort_extensions::bpe::PreTokenizerWithRegEx end_splitter;
+  auto status = end_splitter.Compile("$");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  EXPECT_EQ(tokens_of(end_splitter, U"ab"), (std::vector<std::u32string>{U"a", U"b"}));
+
+  ort_extensions::bpe::PreTokenizerWithRegEx lookahead_splitter;
+  status = lookahead_splitter.Compile(R"((?=\n))");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+  std::u32string text = U"caf\u00e9\nend";
+  std::vector<std::u32string> expected;
+  for (char32_t ch : text) {
+    expected.emplace_back(1, ch);
+  }
+  EXPECT_EQ(tokens_of(lookahead_splitter, text), expected);
+}
+
 TEST(OrtxTokenizerTest, AddedTokensTest) {
   auto tokenizer = std::make_unique<ort_extensions::TokenizerImpl>();
   auto status = tokenizer->Load("data/added-tokens");
