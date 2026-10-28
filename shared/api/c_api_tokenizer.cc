@@ -35,27 +35,7 @@ OrtxObject* OrtxObjectFactory::CreateForward<DetokenizerCache>() {
 }
 
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path) {
-  // test if the tokenizer_path is a valid directory
-  if (tokenizer_path == nullptr) {
-    ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
-    return kOrtxErrorInvalidArgument;
-  }
-
-  if (!path(tokenizer_path).is_directory()) {
-    ReturnableStatus::last_error_message_ = std::string("Cannot find the directory of ") + tokenizer_path;
-    return kOrtxErrorInvalidArgument;
-  }
-
-  ReturnableStatus status;
-  // auto ptr = ort_extensions::CreateTokenizer(tokenizer_path, "", &status);
-  auto ptr = std::make_unique<ort_extensions::TokenizerImpl>();
-  status = ptr->Load(tokenizer_path);
-  if (status.IsOk()) {
-    *tokenizer = static_cast<OrtxTokenizer*>(ptr.release());
-    return extError_t();
-  }
-
-  return status.Code();
+  return OrtxCreateTokenizerWithOptions(tokenizer, tokenizer_path, nullptr, nullptr, 0);
 }
 
 // Helper function to convert key/value arrays to unordered_map for tokenizer options
@@ -129,13 +109,14 @@ static bool ParseBoolOption(
   return true;
 }
 
-extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
-    OrtxTokenizer** tokenizer,
-    const char* tokenizer_path,
-    const char* keys[],
-    const char* values[],
-    size_t num_options) 
-{
+extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path,
+                                                        const char* keys[], const char* values[],
+                                                        size_t num_options) try {
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "The tokenizer output is null";
+    return kOrtxErrorInvalidArgument;
+  }
+  *tokenizer = nullptr;
   // Validate tokenizer_path
   if (tokenizer_path == nullptr) {
     ReturnableStatus::last_error_message_ = "The tokenizer data directory is null";
@@ -174,10 +155,17 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(
   }
 
   return status.Code();
+} catch (const nlohmann::json::exception& error) {
+  ReturnableStatus::last_error_message_ = error.what();
+  return kOrtxErrorInvalidArgument;
 }
 
-extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const OrtxTokenizerBlob* blob) {
-  // test if the tokenizer_path is a valid directory
+extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, const OrtxTokenizerBlob* blob) try {
+  if (tokenizer == nullptr) {
+    ReturnableStatus::last_error_message_ = "The tokenizer output is null";
+    return kOrtxErrorInvalidArgument;
+  }
+  *tokenizer = nullptr;
   if (blob == nullptr) {
     ReturnableStatus::last_error_message_ = "The tokenizer blob is null";
     return kOrtxErrorInvalidArgument;
@@ -192,6 +180,9 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer, 
   }
 
   return status.Code();
+} catch (const nlohmann::json::exception& error) {
+  ReturnableStatus::last_error_message_ = error.what();
+  return kOrtxErrorInvalidArgument;
 }
 
 extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(
