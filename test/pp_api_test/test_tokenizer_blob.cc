@@ -2,9 +2,12 @@
 // Licensed under the MIT License.
 
 #include <fstream>
+#include <chrono>
+#include <filesystem>
 #include <iterator>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -43,6 +46,29 @@ void Encode(OrtxTokenizer* tokenizer, const char* text, std::vector<extTokenId_t
 }
 
 class BlobTokenizerParityTest : public testing::TestWithParam<const char*> {};
+
+struct ScopedTokenizerDirectory {
+  ScopedTokenizerDirectory()
+      : path{
+            std::filesystem::temp_directory_path() /
+            ("ortx-invalid-tokenizer-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()))} {
+    if (!std::filesystem::create_directory(path)) {
+      throw std::runtime_error("Cannot create tokenizer test directory");
+    }
+  }
+  ~ScopedTokenizerDirectory() {
+    std::error_code error;
+    std::filesystem::remove_all(path, error);
+    EXPECT_FALSE(error) << error.message();
+  }
+  void Write(const char* name, const std::string& value) const {
+    std::ofstream output;
+    output.exceptions(std::ios::badbit | std::ios::failbit);
+    output.open(path / name, std::ios::binary);
+    output << value;
+  }
+  const std::filesystem::path path;
+};
 
 TEST_P(BlobTokenizerParityTest, MatchesPathTokenization) {
   const std::string path = GetParam();
@@ -116,6 +142,59 @@ TEST(BlobTokenizerTest, ConfigOnlyAddedTokenMatchesPathLookupAndEncoding) {
     ASSERT_NO_FATAL_FAILURE(Encode(tokenizer, token, &actual));
     EXPECT_EQ(actual, std::vector<extTokenId_t>{token_id});
   }
+}
+
+TEST(BlobTokenizerTest, MalformedJsonReturnsStatusWithoutEscapingTheCApi) {
+  const auto config = ReadTokenizerFile("data/added-tokens/tokenizer_config.json");
+  const auto vocabulary = ReadTokenizerFile("data/added-tokens/tokenizer.json");
+  const std::string malformed = "{";
+  const std::string wrong_type = R"({"tokenizer_class":17})";
+  const std::vector<std::pair<std::string, std::string>> inputs{
+      {malformed, vocabulary}, {config, malformed}, {wrong_type, vocabulary}};
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    SCOPED_TRACE(i);
+    const OrtxTokenizerBlob blob(inputs[i].first, inputs[i].second);
+    OrtxTokenizer* tokenizer = nullptr;
+    extError_t code = kOrtxOK;
+    ASSERT_NO_THROW(code = OrtxCreateTokenizerFromBlob(&tokenizer, &blob));
+    EXPECT_EQ(code, kOrtxErrorInvalidArgument);
+    EXPECT_EQ(tokenizer, nullptr);
+    EXPECT_NE(std::string{OrtxGetLastErrorMessage()}, "");
+  }
+}
+
+TEST(BlobTokenizerTest, MalformedFileJsonReturnsStatusWithoutEscapingTheCApi) {
+  const auto config = ReadTokenizerFile("data/added-tokens/tokenizer_config.json");
+  const auto vocabulary = ReadTokenizerFile("data/added-tokens/tokenizer.json");
+  for (bool invalid_config : {false, true}) {
+    SCOPED_TRACE(invalid_config);
+    ScopedTokenizerDirectory directory;
+    directory.Write("tokenizer_config.json", invalid_config ? "{" : config);
+    directory.Write("tokenizer.json", invalid_config ? vocabulary : "{");
+    const auto path = directory.path.string();
+    OrtxTokenizer* tokenizer = nullptr;
+    extError_t code = kOrtxOK;
+    ASSERT_NO_THROW(code = OrtxCreateTokenizer(&tokenizer, path.c_str()));
+    EXPECT_EQ(code, kOrtxErrorInvalidArgument);
+    EXPECT_EQ(tokenizer, nullptr);
+    EXPECT_NE(std::string{OrtxGetLastErrorMessage()}, "");
+  }
+}
+
+TEST(BlobTokenizerTest, FailedCreationClearsOutputAndRejectsNullOutput) {
+  const auto config = ReadTokenizerFile("data/added-tokens/tokenizer_config.json");
+  const auto vocabulary = ReadTokenizerFile("data/added-tokens/tokenizer.json");
+  const OrtxTokenizerBlob blob(config, vocabulary);
+  OrtxObjectPtr<OrtxTokenizer> owned(OrtxCreateTokenizerFromBlob, &blob);
+  ASSERT_EQ(owned.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  auto* output = owned.get();
+  EXPECT_EQ(OrtxCreateTokenizerFromBlob(&output, nullptr), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output, nullptr);
+  output = owned.get();
+  EXPECT_EQ(OrtxCreateTokenizer(&output, nullptr), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(output, nullptr);
+  EXPECT_EQ(OrtxCreateTokenizerFromBlob(nullptr, &blob), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(OrtxCreateTokenizer(nullptr, "data/added-tokens"), kOrtxErrorInvalidArgument);
 }
 
 TEST(BlobTokenizerConfigTest, MissingOrNonObjectAddedTokensUseEmptyMetadata) {
