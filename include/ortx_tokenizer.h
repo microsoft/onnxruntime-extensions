@@ -71,9 +71,10 @@ extError_t ORTX_API_CALL OrtxGetTokenWordPieceInfo(const OrtxTokenizer* tokenize
 
 /** \brief Create a tokenizer object with the specified tokenizer path
  *
- * \param tokenizer Pointer to store the created tokenizer object
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_path The path to the tokenizer directory, which is utf-8 encoded
- * \return Error code indicating the success or failure of the operation
+ * \return Error code indicating the success or failure of the operation.
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);
 
@@ -82,8 +83,9 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  * This function creates a tokenizer for text tokenization and detokenization.
  * Additional options can be passed to control tokenizer behavior, such as
  * whether to add special tokens during tokenization or skip them during detokenization.
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
  *
- * \param tokenizer Pointer to store the created tokenizer object.
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_path The path to the tokenizer directory, which is UTF-8 encoded.
  * \param option_keys Array of option keys.
  * \param option_values Array of option values (same length as keys).
@@ -115,10 +117,11 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path, const char* option_keys[], const char* option_values[], size_t num_options);
 
-
 /** \brief Create a tokenizer object with the specified tokenizer blob
  *
- * \param tokenizer Pointer to store the created tokenizer object
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
+ *
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_blob Pointer to the tokenizer blob
  * \return Error code indicating the success or failure of the operation
  */
