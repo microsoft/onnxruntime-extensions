@@ -1,0 +1,42 @@
+diff --git a/blingfireclient.library/inc/FAConfig.h b/blingfireclient.library/inc/FAConfig.h
+index 8dfa36e..b6c7cb1 100644
+--- a/blingfireclient.library/inc/FAConfig.h
++++ b/blingfireclient.library/inc/FAConfig.h
+@@ -23,7 +23,7 @@
+ #include <ctype.h>
+ #include <fcntl.h>
+ 
+-#ifdef BLING_FIRE_MAC
++#if defined(BLING_FIRE_MAC) || defined(_AIX)
+   #include <string>
+ #else
+   #include <malloc.h>
+
+
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 5d47b3a..428c888 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -26,7 +26,11 @@ IF (WIN32 AND MSVC)
+   add_link_options("$<$<NOT:$<CONFIG:Debug>>:/LTCG>")
+   set (default_build_type "RelWithDebInfo")
+ ELSE()
+-  set (CMAKE_CXX_FLAGS " -std=c++11 -fpic ${OPTIMIZE} -DNDEBUG")
++  IF(AIX)
++  set (CMAKE_CXX_FLAGS " ${CMAKE_CXX_FLAGS} -std=c++11 -fpic ${OPTIMIZE} -DNDEBUG")
++  ELSE()
++  set (CMAKE_CXX_FLAGS " -std=c++11 -fpic ${OPTIMIZE} -DNDEBUG")
++  ENDIF()
+   IF(APPLE)
+     set (CMAKE_CXX_FLAGS_RELEASE " -std=c++11 -fpic ${OPTIMIZE} -DNDEBUG -ffunction-sections -fdata-sections -Wl,-dead_strip")
+   ELSE()
+@@ -107,7 +111,7 @@ FOREACH(dir ${SUBDIRS})
+       IF(${dirname} STREQUAL "any_test")
+         target_link_libraries(${dirname} ${CMAKE_DL_LIBS})
+       ENDIF()
+-      IF (APPLE)
++      IF (APPLE OR CMAKE_SYSTEM_NAME MATCHES "AIX")
+         target_link_libraries(${dirname} iconv)
+       ENDIF()
+     ENDIF()

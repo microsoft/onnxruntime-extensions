@@ -1,0 +1,15 @@
+diff --git a/src/util.h b/src/util.h
+index 0d15863..b2d490f 100644
+--- a/src/util.h
++++ b/src/util.h
+@@ -36,7 +36,9 @@
+ #include <pthread.h>
+ #endif
+ 
+-#if !defined(__APPLE__) && !defined(_WIN32)
++#if defined(_AIX)
++#define IS_BIG_ENDIAN
++#elif !defined(__APPLE__) && !defined(_WIN32)
+ #include <endian.h>
+ #if BYTE_ORDER == __BIG_ENDIAN
+ #define IS_BIG_ENDIAN
