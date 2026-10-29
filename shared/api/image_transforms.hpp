@@ -106,12 +106,15 @@ struct Resize {
 
   int64_t round_by_factor(int64_t number, int64_t factor) {
       // Returns the closest integer to 'number' that is divisible by 'factor'.
-      return static_cast<int64_t>(std::round(static_cast<double>(number) / factor) * factor);
+      // Ties go to the even multiple, as Python's round() does in the Hugging Face smart_resize.
+      int64_t q = number / factor, r = number % factor;
+      if (2 * r > factor || (2 * r == factor && q % 2 != 0)) ++q;
+      return q * factor;
   }
 
-  int64_t ceil_by_factor(int64_t number, int64_t factor) {
+  int64_t ceil_by_factor(double number, int64_t factor) {
       // Returns the smallest integer greater than or equal to 'number' that is divisible by 'factor'.
-      return static_cast<int64_t>(std::ceil(static_cast<double>(number) / factor) * factor);
+      return static_cast<int64_t>(std::ceil(number / factor) * factor);
   }
 
   int64_t floor_by_factor(int64_t number, int64_t factor) {
@@ -137,8 +140,8 @@ struct Resize {
           w_bar = floor_by_factor(static_cast<int64_t>(width / beta), image_factor_);
       } else if (h_bar * w_bar < min_pixels_) {
           double beta = std::sqrt(static_cast<double>(min_pixels_) / (height * width));
-          h_bar = ceil_by_factor(static_cast<int64_t>(height * beta), image_factor_);
-          w_bar = ceil_by_factor(static_cast<int64_t>(width * beta), image_factor_);
+          h_bar = ceil_by_factor(height * beta, image_factor_);
+          w_bar = ceil_by_factor(width * beta, image_factor_);
       }
 
       return std::make_tuple(h_bar, w_bar);
@@ -172,8 +175,6 @@ struct Resize {
 
     int interp = InterpolationMethods().at(interpolation_);
     float box[4] = {0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
-
-    image_factor_ = patch_size_ * merge_size_;
 
     // Perform Smart Resize if Set
     // When smart_resize is enabled, use the original image dimensions (h, w)
@@ -237,6 +238,10 @@ struct Resize {
         return {kOrtxErrorInvalidArgument, "[Resize]: Invalid argument"};
       }
     }
+    if (patch_size_ <= 0 || merge_size_ <= 0) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: patch_size and merge_size must be positive"};
+    }
+    image_factor_ = patch_size_ * merge_size_;
     return {};
   }
 

@@ -22,8 +22,9 @@ OrtxStatus TokenizerImpl::LoadTokenizer(const OrtxTokenizerBlob* blob) {
   // in tokenizer.json. Some models (e.g., chatglm3-6b) have tokenizer_class=ChatGLMTokenizer
   // (which maps to Unigram) but provide a BPE tokenizer.json.
   if (type == TokenType::kUnigram) {
-    auto vocab_file_path = ortx::path(tok_config_->GetVocabDataFile());
-    if (vocab_file_path.extension() == ".json") {
+    const bool json_vocab =
+        blob ? blob->vocab_blob_len > 0 : ortx::path(tok_config_->GetVocabDataFile()).extension() == ".json";
+    if (json_vocab) {
       auto actual_model_type = tok_config_->PeekModelType();
       if (actual_model_type == "BPE") {
         type = TokenType::kBPE;
@@ -157,6 +158,20 @@ OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input
     t_ids.emplace_back(std::move(ids));
   }
 
+  return {};
+}
+
+OrtxStatus TokenizerImpl::BatchEncodeLiteral(const std::vector<std::string_view>& input,
+                                             std::vector<std::vector<extTokenId_t>>& t_ids) const {
+  for (const auto& text : input) {
+    std::vector<extTokenId_t> ids;
+    OrtxStatus status =
+        std::visit([&](auto& tokenizer) { return tokenizer->ComputeLiteral(std::string(text), ids); }, tokenizer_);
+    if (!status.IsOk()) {
+      return status;
+    }
+    t_ids.emplace_back(std::move(ids));
+  }
   return {};
 }
 

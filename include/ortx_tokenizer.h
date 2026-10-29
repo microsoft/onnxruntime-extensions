@@ -19,43 +19,18 @@ typedef OrtxObject OrtxStringArray;
 typedef OrtxObject OrtxTokenId2DArray;
 typedef OrtxObject OrtxDetokenizerCache;
 
-/** \brief One completed word and its token span for timestamp alignment.
- * GenAI maps the token indices to acoustic frames and seconds.
- */
-typedef struct OrtxTimestampWordMetadata {
-  const char* text;
-  /** Half-open indices of input tokens contributing to this word: [start, stop). */
-  size_t start_token_index;
-  size_t stop_token_index;
-} OrtxTimestampWordMetadata;
+typedef enum OrtxWordBoundaryStyle {
+  OrtxWordBoundaryStyle_SentencePiece,
+  OrtxWordBoundaryStyle_PrefixBpe,
+  OrtxWordBoundaryStyle_SuffixBpe,
+} OrtxWordBoundaryStyle;
 
-/** \brief Completed word events produced during incremental detokenization. */
-typedef struct OrtxTimestampMetadata {
-  const OrtxTimestampWordMetadata* words;
-  /** Number of completed word records in words for this call, not cumulative history. */
-  size_t word_count;
-  /** Earliest input token index still needed by a pending word or buffered decoder output. */
-  size_t first_pending_token_index;
-} OrtxTimestampMetadata;
-
-/** \brief Library-owned typed metadata. Never pass this to OrtxDispose.
- * Use headers and a native library from compatible package versions; this structure
- * does not provide runtime layout negotiation. Members are append-only: never remove,
- * reorder, or change existing members. New members require a library that supplies them.
- * Nested record layouts are fixed; incompatible changes require a new typed member,
- * not a change to the stride of an existing word array.
- * All pointers expire at the next cache operation or disposal. Serialize reads and
- * operations on one cache; independent caches may share a tokenizer.
- */
-typedef struct OrtxMetadata {
-  /** NULL when word tracking is disabled or no token has been decoded yet. */
-  const OrtxTimestampMetadata* timestampMetadata;
-} OrtxMetadata;
-
-/** Producer settings for an individual detokenizer cache. */
-typedef struct OrtxMetadataConfig {
-  bool track_timestamp_metadata;
-} OrtxMetadataConfig;
+typedef struct OrtxWordPieceInfo {
+  OrtxWordBoundaryStyle boundary_style;
+  bool is_special;
+  bool starts_word;
+  bool ends_word;
+} OrtxWordPieceInfo;
 
 struct OrtxTokenizerBlob {
   const char* config_json_blob;
@@ -90,20 +65,16 @@ struct OrtxTokenizerBlob {
 extern "C" {
 #endif
 
-/** Configure metadata producers before the first decode or finalize on this cache.
- * Settings are copied and override tokenizer-level metadata options for this cache.
- * Reconfiguration after decoding or finalization returns kOrtxErrorInvalidArgument
- * without changing the cache. Before either operation, settings may be replaced.
- * Without this call, metadata options are captured from the tokenizer on first metadata decode.
- */
-extError_t ORTX_API_CALL OrtxSetDetokenizerCacheMetadataConfig(
-  OrtxDetokenizerCache* cache, const OrtxMetadataConfig* config);
+/** Look up vocabulary-derived word boundaries without advancing a decoder cache. */
+extError_t ORTX_API_CALL OrtxGetTokenWordPieceInfo(const OrtxTokenizer* tokenizer, extTokenId_t vocab_id,
+                                                   OrtxWordPieceInfo* out);
 
 /** \brief Create a tokenizer object with the specified tokenizer path
  *
- * \param tokenizer Pointer to store the created tokenizer object
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_path The path to the tokenizer directory, which is utf-8 encoded
- * \return Error code indicating the success or failure of the operation
+ * \return Error code indicating the success or failure of the operation.
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const char* tokenizer_path);
 
@@ -112,8 +83,9 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  * This function creates a tokenizer for text tokenization and detokenization.
  * Additional options can be passed to control tokenizer behavior, such as
  * whether to add special tokens during tokenization or skip them during detokenization.
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
  *
- * \param tokenizer Pointer to store the created tokenizer object.
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_path The path to the tokenizer directory, which is UTF-8 encoded.
  * \param option_keys Array of option keys.
  * \param option_values Array of option values (same length as keys).
@@ -139,29 +111,22 @@ extError_t ORTX_API_CALL OrtxCreateTokenizer(OrtxTokenizer** tokenizer, const ch
  *   - Values: A serialized JSON object, such as `{"enable_thinking":false}`;
  *   - Default: `{}`. Set the value to `{}` to clear previously configured values.
  *
- * - `track_timestamp_metadata`
- *   - Values: `"true"` / `"false"` or `"1"` / `"0"`; default `"false"`.
- *   - Enables exact-text word events and token spans in cached metadata decoding.
- *   - Snapshotted on the first metadata decode, not cache creation. Updates affect
- *     caches that have not performed a metadata decode yet, including existing unused caches.
- *   - Explicit OrtxSetDetokenizerCacheMetadataConfig settings take precedence over this option.
- *
  * Future tokenizer options may be added without changing this API signature.
  *
  * \see OrtxUpdateTokenizerOptions for updating options on an existing tokenizer.
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizerWithOptions(OrtxTokenizer** tokenizer, const char* tokenizer_path, const char* option_keys[], const char* option_values[], size_t num_options);
 
-
 /** \brief Create a tokenizer object with the specified tokenizer blob
  *
- * \param tokenizer Pointer to store the created tokenizer object
+ * Invalid tokenizer JSON is reported through the error code and OrtxGetLastErrorMessage.
+ *
+ * \param tokenizer Pointer to store the created tokenizer object; set to null on failure.
  * \param tokenizer_blob Pointer to the tokenizer blob
  * \return Error code indicating the success or failure of the operation
  */
 extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
                                                      const struct OrtxTokenizerBlob* tokenizer_blob);
-
 
 /** \brief Update the tokenizer options
  *
@@ -170,7 +135,7 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  * \param option_values Array of option values (same length as keys)
  * \param num_options Number of options
  * \return Error code indicating the success or failure of the operation
- * 
+ *
  *  *
  * \note Both keys and values are expected to be null-terminated UTF-8 strings.
  *
@@ -192,9 +157,6 @@ extError_t ORTX_API_CALL OrtxCreateTokenizerFromBlob(OrtxTokenizer** tokenizer,
  *   - Default: `{}`. Set the value to `{}` to clear previously configured values.
  *
  * Future tokenizer options may be added without changing this API signature.
- * 
- * `track_timestamp_metadata` is also supported; see OrtxCreateTokenizerWithOptions.
- * Caches that have performed a metadata decode keep their initial tracking setting.
  *
  */
 extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, const char* option_keys[], const char* option_values[], size_t num_options);
@@ -211,6 +173,15 @@ extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, co
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output);
 
+/** \brief Encode null-terminated UTF-8 strings as literal text.
+ *
+ * Does not recognize registered added/special token strings or insert BOS/EOS.
+ * Returns an error if the tokenizer cannot represent the text without producing
+ * registered added/special token IDs or unknown-token fallbacks.
+ * Existing tokenizer options are unchanged.
+ */
+extError_t ORTX_API_CALL OrtxTokenizeLiteral(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
+                                             OrtxTokenId2DArray** output);
 
 /**
  * Converts a token to its corresponding ID.
@@ -259,12 +230,7 @@ extError_t ORTX_API_CALL OrtxDetokenize(const OrtxTokenizer* tokenizer, const Or
 extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const extTokenId_t* input, size_t len,
                                           OrtxStringArray** output);
 
-
 /** \brief Detokenize the input using the specified tokenizer with caching
- *
- * The first call to OrtxDetokenizeCached or OrtxDetokenizeCachedWithMetadata locks the cache
- * to that mode. The two functions cannot be mixed on the same cache. Destroy and recreate the
- * cache to switch modes.
  *
  * \param tokenizer Pointer to the tokenizer object
  * \param cache Pointer to the detokenizer cache
@@ -274,41 +240,6 @@ extError_t ORTX_API_CALL OrtxDetokenize1D(const OrtxTokenizer* tokenizer, const 
  */
 extError_t ORTX_API_CALL OrtxDetokenizeCached(const OrtxTokenizer* tokenizer, OrtxDetokenizerCache* cache,
                                               extTokenId_t next_id, const char** text_out);
-
-/** \brief Detokenize one token and return an extensible metadata object.
- *
- * The decoded fragment is identical to OrtxDetokenizeCached. The metadata object is cache-owned,
- * never null on success. Read typed members directly; no lookup or reconstruction is needed.
- * Tokenizer options configure tracking; results belong to the individual cache, not the
- * shared tokenizer. Independent caches may decode concurrently while options are updated.
- * Operations on one cache and reads of its borrowed output must be externally serialized.
- *
- * With track_timestamp_metadata enabled, timestampMetadata points to a borrowed OrtxTimestampMetadata.
- * Its words preserve whitespace/punctuation and half-open token spans [start, stop).
- * word_count may be zero or greater than one. first_pending_token_index is the earliest
- * token needed by pending words/decoder output. No recursive field reconstruction is needed.
- * New optional metadata members can be appended without changing this decode signature.
- * All values/strings expire at the next cache operation or cache disposal.
- *
- * The first call to OrtxDetokenizeCached or OrtxDetokenizeCachedWithMetadata locks the cache
- * to that mode. The two functions cannot be mixed on the same cache. Destroy and recreate the
- * cache to switch modes.
- */
-extError_t ORTX_API_CALL OrtxDetokenizeCachedWithMetadata(const OrtxTokenizer* tokenizer,
-                                                          OrtxDetokenizerCache* cache,
-                                                          extTokenId_t next_id,
-                                                          const char** text_out,
-                                                          const OrtxMetadata** metadata_out);
-
-/** \brief Finalize enabled metadata producers after incremental detokenization.
- *
- * Completes pending word events when tracking is enabled; it does not inject a decoder token.
- * Repeated calls return no duplicate words. The returned object has the same cache-owned
- * lifetime as OrtxDetokenizeCachedWithMetadata. This function uses and locks the cache in metadata mode.
- * A cache finalized before any decode returns an empty object.
- */
-extError_t ORTX_API_CALL OrtxFinalizeDetokenizeCachedWithMetadata(
-  OrtxDetokenizerCache* cache, const OrtxMetadata** metadata_out);
 
 /**
  * @brief Retrieves the C-style string representation from an OrtxString object.

@@ -18,6 +18,8 @@ Most APIs accept raw data inputs such as audio, image compressed binary formats,
 
 **Tokenization:** You can create a tokenizer object using `OrtxCreateTokenizer` and then use the object to tokenize a text or decode the token ID into the text. A C-style code snippet is available [here](../test/pp_api_test/test_tokenizer.cc#L448).
 
+`OrtxCreateTokenizerFromBlob` accepts tokenizer config and vocabulary bytes without a tokenizer directory. JSON vocabularies are classified from the supplied blob rather than a filename, including BPE vocabularies whose configured class normally selects Unigram. Config-only `added_tokens_decoder` metadata is retained just as in path-based loading; tokenizer-module added tokens keep the existing override precedence. Sidecar files are not discovered automatically: supply any tokenizer-module data explicitly in the blob.
+
 **Image processing:** `OrtxCreateProcessor` can create an image processor object from a pre-defined workflow in JSON format to process image files into a tensor-like data type. An example code snippet can be found [here](../test/pp_api_test/test_processor.cc#L16).
 
 **Audio feature extraction:** `OrtxCreateSpeechFeatureExtractor` creates a speech feature extractor to obtain log mel spectrum data as input for the Whisper model. An example code snippet can be found [here](../test/pp_api_test/test_feature_extraction.cc#L15).
@@ -46,6 +48,7 @@ In the C API build, onnxruntime-extensions can directly load Hugging Face tokeni
 - `pad_token`: the padding token, both `string` and `object` types are supported.
 - `clean_up_tokenization_spaces`: whether to clean up the tokenization spaces.
 - `tokenizer_class`: the tokenizer class.
+- `added_tokens_decoder`: token-ID metadata for added tokens, including tokens absent from `tokenizer.json`.
 
 2) The fields in `tokenizer.json` can affect the results of the onnxruntime-extensions tokenizer:
 
