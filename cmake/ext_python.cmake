@@ -37,6 +37,9 @@ target_compile_definitions(extensions_pydll PRIVATE
   $<TARGET_PROPERTY:Python3::Module,INTERFACE_COMPILE_DEFINITIONS>)
 
 target_link_libraries(extensions_pydll PRIVATE Python3::Module ocos_operators)
+if(OCOS_ENABLE_OPENMP AND OCOS_ENABLE_C_API AND OCOS_ENABLE_VISION AND OpenMP_CXX_FOUND)
+  target_link_libraries(extensions_pydll PRIVATE OpenMP::OpenMP_CXX)
+endif()
 
 if(OCOS_PYTHON_MODULE_PATH)
   get_filename_component(OCOS_PYTHON_MODULE_NAME ${OCOS_PYTHON_MODULE_PATH} NAME)
