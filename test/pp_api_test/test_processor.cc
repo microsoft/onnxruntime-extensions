@@ -1008,13 +1008,15 @@ TEST(ProcessorTest, TestPadToSquare) {
     const char* image_path;
     const char* config;
     std::vector<float> fill;
+    int64_t top, bottom, left, right;  // expected border widths
   };
   // exceltable.png is 487x206 (wide), passport.png is 600x805 (tall), standard_s.jpg is 1344x1344 (square).
+  // Both odd differences put the extra border row or column at the bottom or on the right.
   const Case cases[] = {
-      {"data/processor/exceltable.png", "data/processor/pad_to_square.json", {255.0f, 0.0f, 128.0f}},
-      {"data/processor/passport.png", "data/processor/pad_to_square.json", {255.0f, 0.0f, 128.0f}},
-      {"data/processor/standard_s.jpg", "data/processor/pad_to_square.json", {255.0f, 0.0f, 128.0f}},
-      {"data/processor/passport.png", "data/processor/pad_to_square_scalar_fill.json", {64.0f, 64.0f, 64.0f}},
+      {"data/processor/exceltable.png", "data/processor/pad_to_square.json", {255, 0, 128}, 140, 141, 0, 0},
+      {"data/processor/passport.png", "data/processor/pad_to_square.json", {255, 0, 128}, 0, 0, 102, 103},
+      {"data/processor/standard_s.jpg", "data/processor/pad_to_square.json", {255, 0, 128}, 0, 0, 0, 0},
+      {"data/processor/passport.png", "data/processor/pad_to_square_scalar_fill.json", {64, 64, 64}, 0, 0, 102, 103},
   };
   for (const auto& test_case : cases) {
     const char* paths[] = {test_case.image_path};
@@ -1046,6 +1048,28 @@ TEST(ProcessorTest, TestPadToSquare) {
     ASSERT_EQ(padded_shape[3], c);
 
     const int64_t top = (side - h) / 2, left = (side - w) / 2;
+    ASSERT_EQ(top, test_case.top);
+    ASSERT_EQ(side - h - top, test_case.bottom);
+    ASSERT_EQ(left, test_case.left);
+    ASSERT_EQ(side - w - left, test_case.right);
+
+    auto pixel = [&](const float* data, int64_t width, int64_t y, int64_t x, int64_t k) {
+      return data[(y * width + x) * c + k];
+    };
+    if (left > 0) {
+      // The last left border column, both image edges, the first right border column and the extra one.
+      for (int64_t y = 0; y < side; ++y) {
+        for (int64_t k = 0; k < c; ++k) {
+          ASSERT_EQ(pixel(padded, side, y, 0, k), test_case.fill[k]) << "y=" << y;
+          ASSERT_EQ(pixel(padded, side, y, left - 1, k), test_case.fill[k]) << "y=" << y;
+          ASSERT_EQ(pixel(padded, side, y, left, k), pixel(decoded, w, y, 0, k)) << "y=" << y;
+          ASSERT_EQ(pixel(padded, side, y, left + w - 1, k), pixel(decoded, w, y, w - 1, k)) << "y=" << y;
+          ASSERT_EQ(pixel(padded, side, y, left + w, k), test_case.fill[k]) << "y=" << y;
+          ASSERT_EQ(pixel(padded, side, y, side - 1, k), test_case.fill[k]) << "y=" << y;
+        }
+      }
+    }
+
     for (int64_t y = 0; y < side; ++y) {
       for (int64_t x = 0; x < side; ++x) {
         const bool inside = y >= top && y < top + h && x >= left && x < left + w;
