@@ -992,3 +992,54 @@ TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
     }
   }
 }
+
+TEST(ProcessorTest, TestPadToSquare) {
+  // exceltable.png is 487x206 (wide), standard_s.jpg is 1344x1344 (already square).
+  for (const char* image_path : {"data/processor/exceltable.png", "data/processor/standard_s.jpg"}) {
+    const char* paths[] = {image_path};
+    OrtxObjectPtr<OrtxRawImages> raw_images{};
+    ASSERT_EQ(OrtxLoadImages(raw_images.ToBeAssigned(), paths, 1, nullptr), kOrtxOK);
+
+    auto run = [&](const char* config, OrtxObjectPtr<OrtxTensorResult>& result) {
+      OrtxObjectPtr<OrtxProcessor> processor;
+      ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), config), kOrtxOK) << OrtxGetLastErrorMessage();
+      ASSERT_EQ(OrtxImagePreProcess(processor.get(), raw_images.get(), result.ToBeAssigned()), kOrtxOK)
+          << OrtxGetLastErrorMessage();
+    };
+    OrtxObjectPtr<OrtxTensorResult> decoded_result, padded_result;
+    run("data/processor/decode_only.json", decoded_result);
+    run("data/processor/pad_to_square.json", padded_result);
+
+    OrtxTensor *decoded_tensor{}, *padded_tensor{};
+    ASSERT_EQ(OrtxTensorResultGetAt(decoded_result.get(), 0, &decoded_tensor), kOrtxOK);
+    ASSERT_EQ(OrtxTensorResultGetAt(padded_result.get(), 0, &padded_tensor), kOrtxOK);
+    const float *decoded{}, *padded{};
+    const int64_t *decoded_shape{}, *padded_shape{};
+    size_t decoded_dims{}, padded_dims{};
+    ASSERT_EQ(
+        OrtxGetTensorData(decoded_tensor, reinterpret_cast<const void**>(&decoded), &decoded_shape, &decoded_dims),
+        kOrtxOK);
+    ASSERT_EQ(OrtxGetTensorData(padded_tensor, reinterpret_cast<const void**>(&padded), &padded_shape, &padded_dims),
+              kOrtxOK);
+    ASSERT_EQ(decoded_dims, 4);  // [1, H, W, C]
+    ASSERT_EQ(padded_dims, 4);
+
+    const int64_t h = decoded_shape[1], w = decoded_shape[2], c = decoded_shape[3];
+    const int64_t side = std::max(h, w);
+    ASSERT_EQ(padded_shape[1], side);
+    ASSERT_EQ(padded_shape[2], side);
+    ASSERT_EQ(padded_shape[3], c);
+
+    const int64_t top = (side - h) / 2, left = (side - w) / 2;
+    const float fill[] = {255.0f, 0.0f, 128.0f};
+    for (int64_t y = 0; y < side; ++y) {
+      for (int64_t x = 0; x < side; ++x) {
+        const bool inside = y >= top && y < top + h && x >= left && x < left + w;
+        for (int64_t k = 0; k < c; ++k) {
+          const float expected = inside ? decoded[((y - top) * w + (x - left)) * c + k] : fill[k];
+          ASSERT_EQ(padded[(y * side + x) * c + k], expected) << image_path << " y=" << y << " x=" << x << " c=" << k;
+        }
+      }
+    }
+  }
+}

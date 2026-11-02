@@ -1,0 +1,25 @@
+{
+  "processor": {
+    "name": "decode_only",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "RGB"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "rescale",
+          "type": "Rescale",
+          "attrs": {
+            "rescale_factor": 1.0
+          }
+        }
+      }
+    ]
+  }
+}
