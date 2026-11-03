@@ -123,27 +123,48 @@ OrtStatusPtr KernelRaggedTensoroDense::Compute(const ortc::Tensor<int64_t>& inpu
   return nullptr;
 }
 
-OrtStatusPtr StringRaggedTensorToDense(const ortc::Tensor<int64_t>& input0,
-                                       const ortc::Tensor<std::string>& input1,
-                                       const ortc::Tensor<int64_t>& input2,
-                                       const ortc::Tensor<std::string>& input3,
+OrtStatusPtr StringRaggedTensorToDense(const ortc::Tensor<int64_t>& input0, const ortc::Tensor<std::string>& input1,
+                                       const ortc::Tensor<int64_t>& input2, const ortc::Tensor<std::string>& input3,
                                        ortc::Tensor<std::string>& output) {
   auto& input = input1.Data();
   const int64_t* p_indices = input2.Data();
-  int64_t size = input3.NumberOfElement();
+  const auto& missing = input3.Data();
+  int64_t size = input2.NumberOfElement();
+  int64_t n_values = input1.NumberOfElement();
+
+  if (size < 1) return OrtW::CreateStatus("Offsets tensor must not be empty.", ORT_INVALID_ARGUMENT);
+
+  if (missing.empty()) return OrtW::CreateStatus("Default value tensor must not be empty.", ORT_INVALID_ARGUMENT);
+
+  for (int64_t k = 0; k < size; ++k) {
+    if (p_indices[k] < 0 || p_indices[k] > n_values)
+      return OrtW::CreateStatus(MakeString("Offset ", p_indices[k], " at index ", k, " is out of valid range [0, ",
+                                           n_values, "] for values tensor with ", n_values, " elements.")
+                                    .c_str(),
+                                ORT_INVALID_ARGUMENT);
+  }
+
+  for (int64_t k = 1; k < size; ++k) {
+    if (p_indices[k] < p_indices[k - 1]) {
+      return OrtW::CreateStatus(MakeString("Offsets tensor must be monotonic non-decreasing, but offsets[", k - 1,
+                                           "]=", p_indices[k - 1], " > offsets[", k, "]=", p_indices[k], ".")
+                                    .c_str(),
+                                ORT_INVALID_ARGUMENT);
+    }
+  }
+
   int64_t max_col = GetMaxRaggedTensorCol(size, p_indices);
   std::vector<int64_t> shape_out{size - 1, max_col};
 
   int64_t shape_out_size = shape_out[0] * shape_out[1];
-  std::vector<std::string> dense(static_cast<size_t>(max_col * (size - 1)));
+  std::vector<std::string> dense(static_cast<size_t>(max_col * (size - 1)), missing[0]);
   int64_t pos = 0;
   int64_t j, pos_end;
   for (int64_t i = 0; i < size - 1; ++i) {
     pos_end = pos + max_col;
     if (pos_end > shape_out_size)
-      return OrtW::CreateStatus(MakeString(
-                                    "Unexpected index ", pos_end, " greather than ", shape_out[0], "x", shape_out[1],
-                                    " - i=", i, " size=", size, ".")
+      return OrtW::CreateStatus(MakeString("Unexpected index ", pos_end, " greather than ", shape_out[0], "x",
+                                           shape_out[1], " - i=", i, " size=", size, ".")
                                     .c_str(),
                                 ORT_INVALID_ARGUMENT);
     for (j = p_indices[i]; j < p_indices[i + 1]; ++j, ++pos) {
