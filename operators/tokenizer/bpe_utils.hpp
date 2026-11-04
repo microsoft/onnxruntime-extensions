@@ -360,36 +360,15 @@ class PreTokenizerWithRegEx {
 
   // "\s*[\r\n]+"
   std::u32string_view Match_LLAMA3_Pattern_5() {
-
-    if (m_text.empty()) return {};
-
-    if (IsZ(m_text[0])) {
-      size_t i = 1;
-      for (; i < m_text.size(); ++i) {
-        if (!IsZ(m_text[i])) break;
-      }
-      if (i < m_text.size() && IsRN(m_text[i])) {
-        for (; i < m_text.size(); ++i) {
-          if (!IsRN(m_text[i])) break;
-        }
-      }
-      if (i > 1 && IsRN(m_text[i - 1])) {
-        std::u32string_view res = m_text.substr(0, i);
-        m_text = m_text.substr(i);
-        return res;
-      }
+    // \s* backtracks to the last \r or \n of the whitespace run
+    size_t end = 0;
+    for (size_t i = 0; i < m_text.size() && IsZ(m_text[i]); ++i) {
+      if (IsRN(m_text[i])) end = i + 1;
     }
-    if (IsRN(m_text[0])) {
-      size_t i = 1;
-      for (; i < m_text.size(); ++i) {
-        if (!IsRN(m_text[i])) break;
-      }
-      std::u32string_view res = m_text.substr(0, i);
-      m_text = m_text.substr(i);
-      return res;
-    }
-
-    return {};
+    if (end == 0) return {};
+    std::u32string_view res = m_text.substr(0, end);
+    m_text = m_text.substr(end);
+    return res;
   }
 
   // [^\r\n\p{L}\p{N}]?[\p{Lu}\p{Lt}\p{Lm}\p{Lo}\p{M}]*[\p{Ll}\p{Lm}\p{Lo}\p{M}]+(?i:'s|'t|'re|'ve|'m|'ll|'d)?
