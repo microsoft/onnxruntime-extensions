@@ -3,7 +3,10 @@
 
 #pragma once
 
+#include <csetjmp>
 #include <cstdint>
+#include <new>
+#include <string>
 
 #include "png.h"
 #if _WIN32
@@ -11,6 +14,7 @@
 #include <basetsd.h>
 #endif
 #include "jpeglib.h"
+#include "jerror.h"
 #include "op_def_struct.h"
 #include "ext_status.h"
 
@@ -22,6 +26,90 @@ static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
 
 struct DecodeImage {
   OrtxStatus OnInit() { return {}; }
+
+  struct JpegErrorManager : jpeg_error_mgr {
+    jmp_buf jump_buffer;
+    char message[JMSG_LENGTH_MAX]{};
+
+    static void ErrorExit(j_common_ptr cinfo) {
+      auto* error = static_cast<JpegErrorManager*>(cinfo->err);
+      (*cinfo->err->format_message)(cinfo, error->message);
+      longjmp(error->jump_buffer, 1);
+    }
+  };
+
+  class JMemorySourceManager : public jpeg_source_mgr {
+   public:
+    JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
+      next_input_byte = reinterpret_cast<const JOCTET*>(encoded_image_data);
+      bytes_in_buffer = static_cast<size_t>(encoded_image_data_len);
+      init_source = &JMemorySourceManager::initSource;
+      fill_input_buffer = &JMemorySourceManager::fillInputBuffer;
+      skip_input_data = &JMemorySourceManager::skipInputData;
+      resync_to_restart = jpeg_resync_to_restart;
+      term_source = &JMemorySourceManager::termSource;
+    }
+
+    static void initSource(j_decompress_ptr cinfo) {
+      // No initialization needed
+    }
+
+    // This is an in-memory, non-suspending source. Asking for more bytes means
+    // the JPEG is truncated, so report a fatal libjpeg error immediately.
+    static boolean fillInputBuffer(j_decompress_ptr cinfo) {
+      auto* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
+      srcMgr->extError = kOrtxErrorCorruptData;
+      ERREXIT(cinfo, JERR_INPUT_EOF);
+      return FALSE;
+    }
+
+    static void skipInputData(j_decompress_ptr cinfo, long num_bytes) {
+      auto* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
+      if (num_bytes > 0) {
+        size_t bytes_to_skip = static_cast<size_t>(num_bytes);
+        if (bytes_to_skip > srcMgr->bytes_in_buffer) {
+          srcMgr->next_input_byte += srcMgr->bytes_in_buffer;
+          srcMgr->bytes_in_buffer = 0;
+          srcMgr->extError = kOrtxErrorCorruptData;
+          ERREXIT(cinfo, JERR_INPUT_EOF);
+          return;
+        }
+        srcMgr->next_input_byte += bytes_to_skip;
+        srcMgr->bytes_in_buffer -= bytes_to_skip;
+      }
+    }
+
+    static void termSource(j_decompress_ptr cinfo) {
+      // No cleanup needed
+    }
+
+    extError_t extError{kOrtxOK};
+  };
+
+  // libjpeg mutates its state after setjmp. Keep that mutable state on the
+  // heap so automatic variables do not become indeterminate after longjmp.
+  struct JpegDecodeState {
+    JpegDecodeState(const uint8_t* data, int64_t size) : source(data, size) {}
+
+    jpeg_decompress_struct cinfo{};
+    JpegErrorManager error{};
+    JMemorySourceManager source;
+    std::vector<int64_t> output_dimensions;
+  };
+
+  static void DestroyJpegState(JpegDecodeState* state) {
+    // jpeg_create_decompress initializes mem to null before doing work, so this
+    // also cleans up a partially created decompressor.
+    if (state->cinfo.mem != nullptr) {
+      jpeg_destroy_decompress(&state->cinfo);
+    }
+    delete state;
+  }
+
+  static OrtxStatus JpegFailure(JpegDecodeState* state, const std::string& message) {
+    DestroyJpegState(state);
+    return {kOrtxErrorCorruptData, message};
+  }
 
   OrtxStatus DecodePNG(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len,
                        ortc::Tensor<uint8_t>& output) const {
@@ -131,125 +219,105 @@ struct DecodeImage {
     if (png_sig_cmp(encoded_image_data, 0, 8) == 0) {
       return DecodePNG(encoded_image_data, encoded_image_data_len, output);
     } else {
-      // Initialize JPEG decompression object
-      jpeg_decompress_struct cinfo;
-      jpeg_error_mgr jerr;
-      cinfo.err = jpeg_std_error(&jerr);
-      jpeg_create_decompress(&cinfo);
+      auto* const state = new (std::nothrow) JpegDecodeState(encoded_image_data, encoded_image_data_len);
+      if (state == nullptr) {
+        return {kOrtxErrorOutOfMemory, "[ImageDecoder]: Failed to allocate JPEG decoder state."};
+      }
 
-      // Set up the custom memory source manager
-      JMemorySourceManager srcManager(encoded_image_data, encoded_image_data_len);
-      cinfo.src = &srcManager;
+      state->cinfo.err = jpeg_std_error(&state->error);
+      state->error.error_exit = &JpegErrorManager::ErrorExit;
+
+      if (setjmp(state->error.jump_buffer)) {
+        const char* diagnostic =
+            state->error.message[0] == '\0'
+                ? "unknown libjpeg error"
+                : state->error.message;
+        return JpegFailure(
+            state,
+            std::string("[ImageDecoder]: Failed to decode JPEG image: ") + diagnostic);
+      }
+
+      jpeg_create_decompress(&state->cinfo);
+      state->cinfo.src = &state->source;
 
       // Read the JPEG header to get image info
-      jpeg_read_header(&cinfo, TRUE);
+      if (jpeg_read_header(&state->cinfo, TRUE) != JPEG_HEADER_OK) {
+        return JpegFailure(
+            state, "[ImageDecoder]: Failed to decode JPEG image header.");
+      }
 
       // Security: explicitly reject CMYK/YCCK color spaces before decompression.
       // These have 4 channels and downstream code assumes 3 channels (CVE-class: CWE-122).
-      if (cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK) {
-        jpeg_destroy_decompress(&cinfo);
+      if (state->cinfo.jpeg_color_space == JCS_CMYK ||
+          state->cinfo.jpeg_color_space == JCS_YCCK) {
+        DestroyJpegState(state);
         return {kOrtxErrorInvalidArgument,
                 "[ImageDecoder]: Unsupported JPEG color space (CMYK/YCCK). Only RGB and grayscale are supported."};
       }
 
       // Force RGB output to ensure consistent 3-channel output regardless of input
       // (e.g., grayscale JPEGs are expanded to RGB).
-      cinfo.out_color_space = JCS_RGB;
+      state->cinfo.out_color_space = JCS_RGB;
 
       // Start decompression
-      jpeg_start_decompress(&cinfo);
+      if (!jpeg_start_decompress(&state->cinfo)) {
+        return JpegFailure(
+            state, "[ImageDecoder]: Failed to start JPEG decompression.");
+      }
 
       // Dimension limit to prevent decompression bombs
-      if (cinfo.output_width > kMaxImageDimension ||
-          cinfo.output_height > kMaxImageDimension ||
-          static_cast<uint64_t>(cinfo.output_width) * cinfo.output_height > kMaxPixelCount) {
-        jpeg_destroy_decompress(&cinfo);
+      if (state->cinfo.output_width > kMaxImageDimension ||
+          state->cinfo.output_height > kMaxImageDimension ||
+          static_cast<uint64_t>(state->cinfo.output_width) *
+                  state->cinfo.output_height >
+              kMaxPixelCount) {
+        DestroyJpegState(state);
         return {kOrtxErrorInvalidArgument,
                 "[ImageDecoder]: JPEG dimensions exceed maximum allowed size."};
       }
 
       // Safety net: verify 3-channel output after decompression.
-      if (cinfo.output_components != 3) {
-        jpeg_destroy_decompress(&cinfo);
+      if (state->cinfo.output_components != 3) {
+        const int output_components = state->cinfo.output_components;
+        DestroyJpegState(state);
         return {kOrtxErrorInvalidArgument,
                 "[ImageDecoder]: Unexpected JPEG output channels. Expected 3 (RGB), got " +
-                std::to_string(cinfo.output_components) + "."};
+                std::to_string(output_components) + "."};
       }
 
       // Allocate memory for the image
-      std::vector<int64_t> output_dimensions{cinfo.output_height, cinfo.output_width, cinfo.output_components};
-      uint8_t* imageBuffer = output.Allocate(output_dimensions);
+      state->output_dimensions = {
+          state->cinfo.output_height,
+          state->cinfo.output_width,
+          state->cinfo.output_components};
+      uint8_t* imageBuffer = output.Allocate(state->output_dimensions);
 
       // Read the image data
-      int row_stride = cinfo.output_width * cinfo.output_components;
-      while (cinfo.output_scanline < cinfo.output_height) {
-        uint8_t* row_ptr = imageBuffer + (cinfo.output_scanline * row_stride);
-        jpeg_read_scanlines(&cinfo, &row_ptr, 1);
-        if (srcManager.extError != kOrtxOK) {
+      int row_stride =
+          state->cinfo.output_width * state->cinfo.output_components;
+      while (state->cinfo.output_scanline < state->cinfo.output_height) {
+        uint8_t* row_ptr =
+            imageBuffer + (state->cinfo.output_scanline * row_stride);
+        if (jpeg_read_scanlines(&state->cinfo, &row_ptr, 1) != 1) {
+          state->source.extError = kOrtxErrorCorruptData;
           break;
         }
       }
 
-      if (srcManager.extError != kOrtxOK) {
-        jpeg_destroy_decompress(&cinfo);
-        return {kOrtxErrorInternal, "[ImageDecoder]: Failed to decode JPEG image."};
+      if (state->source.extError != kOrtxOK) {
+        return JpegFailure(
+            state, "[ImageDecoder]: Failed to decode JPEG image.");
       }
 
       // Finish decompression
-      jpeg_finish_decompress(&cinfo);
-      jpeg_destroy_decompress(&cinfo);
+      if (!jpeg_finish_decompress(&state->cinfo)) {
+        return JpegFailure(
+            state, "[ImageDecoder]: Failed to finish JPEG decompression.");
+      }
+      DestroyJpegState(state);
     }
     return {};
   }
-
-  class JMemorySourceManager : public jpeg_source_mgr {
-   public:
-    // Constructor
-    JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
-      // Initialize source fields
-      next_input_byte = reinterpret_cast<const JOCTET*>(encoded_image_data);
-      bytes_in_buffer = static_cast<size_t>(encoded_image_data_len);
-      init_source = &JMemorySourceManager::initSource;
-      fill_input_buffer = &JMemorySourceManager::fillInputBuffer;
-      skip_input_data = &JMemorySourceManager::skipInputData;
-      resync_to_restart = jpeg_resync_to_restart;
-      term_source = &JMemorySourceManager::termSource;
-    }
-
-    // Initialize source (no-op)
-    static void initSource(j_decompress_ptr cinfo) {
-      // No initialization needed
-    }
-
-    // Fill input buffer (not used here, always return FALSE)
-    static boolean fillInputBuffer(j_decompress_ptr cinfo) {
-      return FALSE;  // Buffer is managed manually
-    }
-
-    // Skip input data
-    static void skipInputData(j_decompress_ptr cinfo, long num_bytes) {
-      JMemorySourceManager* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
-      if (num_bytes > 0) {
-        size_t bytes_to_skip = static_cast<size_t>(num_bytes);
-        while (bytes_to_skip > srcMgr->bytes_in_buffer) {
-          bytes_to_skip -= srcMgr->bytes_in_buffer;
-          if (srcMgr->fillInputBuffer(cinfo)) {
-            // Error: buffer ran out
-            srcMgr->extError = kOrtxErrorCorruptData;
-          }
-        }
-        srcMgr->next_input_byte += bytes_to_skip;
-        srcMgr->bytes_in_buffer -= bytes_to_skip;
-      }
-    }
-
-    // Terminate source (no-op)
-    static void termSource(j_decompress_ptr cinfo) {
-      // No cleanup needed
-    }
-
-    extError_t extError{kOrtxOK};  // Error handler
-  };
 };
 
 }  // namespace ort_extensions::internal
