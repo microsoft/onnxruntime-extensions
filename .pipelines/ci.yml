@@ -34,6 +34,8 @@ stages:
   - job: Linux
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
+      demands:
+      - ImageOverride -equals onnxruntime-ubuntu2404-nvme-x64
 
     strategy:
       matrix:
@@ -110,6 +112,8 @@ stages:
   - job: LinuxPyDbg
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
+      demands:
+      - ImageOverride -equals onnxruntime-ubuntu2404-nvme-x64
 
     steps:
     - task: UsePythonVersion@0
@@ -144,6 +148,8 @@ stages:
   - job: Linux_Prevent_Exception_Propagation
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
+      demands:
+      - ImageOverride -equals onnxruntime-ubuntu2404-nvme-x64
 
     steps:
     # Simulate an embedded build as part of ORT with exceptions disabled by manually setting CMAKE_CXX_FLAGS and
@@ -173,6 +179,8 @@ stages:
   - job: Linux_SelectedOpsBuild
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
+      demands:
+      - ImageOverride -equals onnxruntime-ubuntu2404-nvme-x64
 
     steps:
     # compiled as only one operator selected.
@@ -188,6 +196,8 @@ stages:
   - job: Linux_PPApiBuild
     pool:
       name: 'onnxruntime-extensions-Linux-CPU'
+      demands:
+      - ImageOverride -equals onnxruntime-ubuntu2404-nvme-x64
 
     steps:
     # compiled as only one operator selected.
