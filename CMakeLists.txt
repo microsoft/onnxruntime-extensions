@@ -93,6 +93,7 @@ option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
+option(OCOS_ENABLE_OPENMP "Enable OpenMP acceleration when available" ON)
 
 option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
@@ -743,6 +744,18 @@ target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators
 target_include_directories(ortcustomops PUBLIC "${PROJECT_SOURCE_DIR}/shared/api")
 
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
+
+if(OCOS_ENABLE_OPENMP
+   AND OCOS_ENABLE_C_API
+   AND OCOS_ENABLE_VISION
+   AND NOT ANDROID
+   AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten"
+   AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
+  find_package(OpenMP QUIET COMPONENTS CXX)
+  if(OpenMP_CXX_FOUND)
+    target_link_libraries(ortcustomops PUBLIC OpenMP::OpenMP_CXX)
+  endif()
+endif()
 
 if(OCOS_BUILD_SHARED_LIB)
   file(GLOB shared_TARGET_SRC "shared/*.cc" "shared/*.h")
