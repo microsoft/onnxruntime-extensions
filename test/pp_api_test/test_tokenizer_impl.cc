@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <locale>
+#include <utility>
+#include <vector>
 #include "gtest/gtest.h"
 
 #ifdef _WIN32
@@ -51,6 +53,39 @@ TEST(OrtxTokenizerTest, RegexTest) {
   }
   
   EXPECT_EQ(res, out_tokens);
+}
+
+TEST(OrtxTokenizerTest, Gpt4oPunctuationSlashSuffix) {
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  for (const std::u32string text : {U" {\n\n//", U" {\r\n//", U" {/\n//", U" {\n/\n/"}) {
+    splitter.Set(text);
+    EXPECT_EQ(splitter.GetNextToken(), text);
+    EXPECT_TRUE(splitter.GetNextToken().empty());
+  }
+}
+
+TEST(OrtxTokenizerTest, PunctuationCrlfOnlySuffixPreserved) {
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"( ?[^\s\p{L}\p{N}]+[\r\n]*)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  const std::vector<std::pair<std::u32string, std::vector<std::u32string>>> cases = {
+      {U" {\n\n//", {U" {\n\n", U"//"}},
+      {U" {\r\n//", {U" {\r\n", U"//"}},
+      {U" {/\n//", {U" {/\n", U"//"}},
+      {U" {\n/\n/", {U" {\n", U"/\n", U"/"}},
+  };
+  for (const auto& [text, expected] : cases) {
+    splitter.Set(text);
+    std::vector<std::u32string> actual;
+    for (auto token = splitter.GetNextToken(); !token.empty(); token = splitter.GetNextToken()) {
+      actual.emplace_back(token);
+    }
+    EXPECT_EQ(actual, expected);
+  }
 }
 
 TEST(OrtxTokenizerTest, Lfm25RegexTest) {

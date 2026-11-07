@@ -335,24 +335,28 @@ class PreTokenizerWithRegEx {
 
   // " ?[^\s\p{L}\p{N}]+[\r\n]*"
   std::u32string_view Match_LLAMA3_Pattern_4() {
+    return Match_PunctuationWithSuffix(false);
+  }
 
+  std::u32string_view Match_PunctuationWithSlashSuffix() {
+    return Match_PunctuationWithSuffix(true);
+  }
+
+  std::u32string_view Match_PunctuationWithSuffix(bool include_slash) {
     if (m_text.empty()) return {};
 
-    auto pos = 0;
-    if (m_text[0] == U' ') pos = 1;
-    if (pos < m_text.size() && NotLNZ(m_text[pos])) {
-      size_t i = pos + 1;
-      for (; i < m_text.size(); ++i) {
-        if (!NotLNZ(m_text[i])) break;
+    const size_t prefix_length = m_text[0] == U' ' ? 1 : 0;
+    if (prefix_length < m_text.size() && NotLNZ(m_text[prefix_length])) {
+      size_t index = prefix_length + 1;
+      for (; index < m_text.size(); ++index) {
+        if (!NotLNZ(m_text[index])) break;
       }
-      if (i < m_text.size() && IsRN(m_text[i])) {
-        for (; i < m_text.size(); ++i) {
-          if (!IsRN(m_text[i])) break;
-        }
+      for (; index < m_text.size(); ++index) {
+        if (!IsRN(m_text[index]) && !(include_slash && m_text[index] == U'/')) break;
       }
-      std::u32string_view res = m_text.substr(0, i);
-      m_text = m_text.substr(i);
-      return res;
+      const std::u32string_view result = m_text.substr(0, index);
+      m_text = m_text.substr(index);
+      return result;
     }
 
     return {};
@@ -799,7 +803,7 @@ class PreTokenizerWithRegEx {
          &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"((?i:'s|'t|'re|'ve|'m|'ll|'d))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},
         {R"('(?i:[sdmt]|ll|ve|re))", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_1},  // LFM2.5
-        {R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
+        {R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)", &PreTokenizerWithRegEx::Match_PunctuationWithSlashSuffix},
         {R"( ?[^\s\p{L}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_LLAMA3_Pattern_4},
         {R"([^\r\n\p{L}\p{N}]?[\p{L}\p{M}]+)", &PreTokenizerWithRegEx::Match_Qwen35_Pattern_1},
         {R"( ?[^\s\p{L}\p{M}\p{N}]+[\r\n]*)", &PreTokenizerWithRegEx::Match_Qwen35_Pattern_2},
