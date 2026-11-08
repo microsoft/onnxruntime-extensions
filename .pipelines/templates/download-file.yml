@@ -19,3 +19,4 @@ steps:
       urllib.request.urlretrieve(url, filename=output_file_path)
     arguments: '"${{ parameters.url }}" "${{ parameters.outputFilePath }}"'
   displayName: "Download file from URL: ${{ parameters.url }}"
+  retryCountOnTaskFailure: 3
