@@ -73,7 +73,7 @@ class TokenId2DArray : public OrtxObjectImpl {
   TokenId2DArray() : OrtxObjectImpl(extObjectKind_t::kOrtxKindTokenId2DArray) {}
   ~TokenId2DArray() override = default;
 
-  void SetTokenIds(std::vector<std::vector<extTokenId_t>>&& token_ids) { token_ids_ = token_ids; }
+  void SetTokenIds(std::vector<std::vector<extTokenId_t>>&& token_ids) { token_ids_ = std::move(token_ids); }
 
   [[nodiscard]] const std::vector<std::vector<extTokenId_t>>& token_ids() const { return token_ids_; }
 
