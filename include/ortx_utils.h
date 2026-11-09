@@ -23,6 +23,7 @@ typedef enum {
   kOrtxKindFeatureExtractor = 0x7791,
   kOrtxKindRawAudios = 0x7792,
   kOrtxKindString = 0x7793,
+  kOrtxKindRawFrames = 0x7794,
   kOrtxKindEnd = 0x7999
 } extObjectKind_t;
 

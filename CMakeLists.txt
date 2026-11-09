@@ -93,6 +93,8 @@ option(OCOS_ENABLE_AUDIO "Enable the operators for audio processing" ON)
 option(OCOS_ENABLE_STATIC_LIB "Enable generating static library" OFF) # only for WebAssembly
 option(OCOS_ENABLE_SELECTED_OPLIST "Enable including the selected_ops tool file" OFF)
 option(OCOS_ENABLE_C_API "Enable building the C API" OFF)
+option(OCOS_ENABLE_VIDEO_DECODER "Enable optional CPU MP4/H.264 loading using shared FFmpeg libraries" OFF)
+set(OCOS_FFMPEG_ROOT "" CACHE PATH "Root of an externally provisioned shared FFmpeg 8.x SDK")
 
 option(OCOS_BUILD_SHARED_LIB "Enable building the dynamic library" ${_ORTX_SHARED_BUILD_SUPPORTED})
 option(OCOS_BUILD_PYTHON "Enable building the Python package" OFF)
@@ -639,6 +641,19 @@ if (OCOS_ENABLE_C_API)
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_C_API)
 endif()
 
+if(OCOS_ENABLE_VIDEO_DECODER)
+  if(NOT OCOS_ENABLE_C_API OR NOT OCOS_ENABLE_VISION)
+    message(FATAL_ERROR "OCOS_ENABLE_VIDEO_DECODER requires the C API and vision processing")
+  endif()
+  find_path(OCOS_FFMPEG_INCLUDE_DIR libavformat/avformat.h HINTS "${OCOS_FFMPEG_ROOT}/include" REQUIRED)
+  foreach(component avformat avcodec avutil swscale)
+    find_library(OCOS_FFMPEG_${component}_LIBRARY NAMES ${component}
+      HINTS "${OCOS_FFMPEG_ROOT}/lib" REQUIRED)
+    list(APPEND ocos_libraries "${OCOS_FFMPEG_${component}_LIBRARY}")
+  endforeach()
+  list(APPEND OCOS_COMPILE_DEFINITIONS OCOS_ENABLE_VIDEO_DECODER)
+endif()
+
 if(OCOS_ENABLE_GPT2_TOKENIZER)
   # GPT2
   list(APPEND OCOS_COMPILE_DEFINITIONS ENABLE_GPT2_TOKENIZER)
@@ -722,6 +737,9 @@ if(OCOS_ENABLE_C_API)
   if(OCOS_ENABLE_VISION)
     file(GLOB cv2_TARGET_SRC "shared/api/c_api_processor.*" "shared/api/image_*.*")
     list(APPEND _TARGET_LIB_SRC ${cv2_TARGET_SRC})
+    if(OCOS_ENABLE_VIDEO_DECODER)
+      list(APPEND _TARGET_LIB_SRC "shared/api/video_decoder.cc")
+    endif()
   endif()
 endif()
 
@@ -741,6 +759,9 @@ target_compile_definitions(ortcustomops PUBLIC ${OCOS_COMPILE_DEFINITIONS})
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:noexcep_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_include_directories(ortcustomops PUBLIC "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 target_include_directories(ortcustomops PUBLIC "${PROJECT_SOURCE_DIR}/shared/api")
+if(OCOS_ENABLE_VIDEO_DECODER)
+  target_include_directories(ortcustomops PRIVATE "${OCOS_FFMPEG_INCLUDE_DIR}")
+endif()
 
 target_link_libraries(ortcustomops PUBLIC ocos_operators)
 
@@ -804,6 +825,12 @@ if(OCOS_BUILD_SHARED_LIB)
   # Install your target
   install(TARGETS extensions_shared
     RUNTIME DESTINATION bin
+  )
+  install(FILES
+    include/ortx_processor.h
+    include/ortx_utils.h
+    include/ortx_types.h
+    DESTINATION include
   )
 
 endif()

@@ -83,7 +83,32 @@ OrtxStatus ImageProcessor::Init(std::string_view processor_def) {
     return {kOrtxErrorInvalidArgument, "[ImageProcessor]: transforms field is missing."};
   }
 
-  return op_plan_.Init(transforms, kernel_registry_);
+  ORTX_RETURN_IF_ERROR(op_plan_.Init(transforms, kernel_registry_));
+  image_decode_.reset();
+  image_transforms_.clear();
+  if (transforms.size() >= 3 && transforms[0].at("operation").at("type") == "DecodeImage" &&
+      transforms[1].at("operation").at("type") == "ConvertRGB" &&
+      transforms[2].at("operation").at("type") == "Resize") {
+    image_decode_ = CreateKernelInstance(&ort_extensions::DecodeImage::Compute);
+    ORTX_RETURN_IF_ERROR(image_decode_->Init(transforms[0].at("operation").value("attrs", json::object()).dump()));
+    auto image_transforms = transforms;
+    image_transforms.erase(image_transforms.begin());
+    image_transforms_ = image_transforms.dump();
+  }
+  frame_plan_.reset();
+  frame_patch_.reset();
+  frame_transforms_.clear();
+  const auto first_transform = transforms.front().at("operation").at("type").get<std::string>();
+  if ((first_transform == "Resize" || first_transform == "Rescale") &&
+      transforms.back().at("operation").at("type") == "PatchImage" && transforms.size() > 1) {
+    frame_patch_ = CreateKernelInstance(&PatchImage::Compute);
+    ORTX_RETURN_IF_ERROR(frame_patch_->Init(transforms.back().at("operation").value("attrs", json::object()).dump()));
+    transforms.erase(transforms.end() - 1);
+    frame_transforms_ = transforms.dump();
+    frame_plan_ = std::make_unique<ExecutionPlan>();
+    ORTX_RETURN_IF_ERROR(frame_plan_->Init(transforms, kernel_registry_));
+  }
+  return {};
 }
 
 ImageProcessor::ImageProcessor() : OrtxObjectImpl(kOrtxKindProcessor) {}
@@ -154,7 +179,72 @@ std::tuple<OrtxStatus, ProcessorResult> ImageProcessor::PreProcess(ort_extension
   return {status, std::move(r)};
 }
 
-OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data, TensorResult& r) const {
+OrtxStatus ImageProcessor::PreProcessFrames(ort_extensions::span<const OrtxFrame> frames,
+                                            const OrtxFramePreProcessOptions* options, TensorResult& r) const {
+  if (!frame_plan_ || frames.size() == 0) {
+    return {kOrtxErrorInvalidArgument, "[ImageProcessor]: decoded RGB frame pipeline is required"};
+  }
+  ExecutionPlan resolved_plan;
+  const ExecutionPlan* plan = frame_plan_.get();
+  if (options != nullptr) {
+    auto transforms = json::parse(frame_transforms_);
+    auto& resize = transforms.front().at("operation");
+    if (resize.at("type") != "Resize")
+      return {kOrtxErrorInvalidArgument, "[ImageProcessor]: resolved frame size requires an initial Resize"};
+    auto& attrs = resize["attrs"];
+    if (attrs.is_null()) attrs = json::object();
+    attrs["height"] = options->height;
+    attrs["width"] = options->width;
+    attrs["smart_resize"] = 0;
+    attrs["keep_aspect_ratio"] = 0;
+    ORTX_RETURN_IF_ERROR(resolved_plan.Init(transforms, kernel_registry_));
+    plan = &resolved_plan;
+  }
+  std::vector<TensorArgs> inputs(frames.size());
+  std::vector<TensorPtr> input_tensors(frames.size());
+  for (size_t i = 0; i < frames.size(); ++i) {
+    const auto& frame = frames[i];
+    input_tensors[i] = std::make_unique<ortc::Tensor<uint8_t>>(std::vector<int64_t>{frame.height, frame.width, 3},
+                                                               const_cast<void*>(frame.data));
+    inputs[i].push_back(input_tensors[i].get());
+  }
+  std::vector<TensorArgs> outputs;
+  struct OutputGuard {
+    std::vector<TensorArgs>& outputs;
+    ~OutputGuard() {
+      for (auto& tensors : outputs)
+        for (auto* tensor : tensors) delete tensor;
+    }
+  } guard{outputs};
+  OrtxRunner runner(*plan);
+  ORTX_RETURN_IF_ERROR(runner.Run(inputs, outputs));
+  for (const auto& tensors : outputs) {
+    if (tensors.size() != 1 || tensors[0]->Type() != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT ||
+        tensors[0]->Shape().size() != 3 || tensors[0]->Shape()[2] != 3) {
+      return {kOrtxErrorInvalidArgument, "[ImageProcessor]: frame transforms must produce HWC float RGB"};
+    }
+  }
+  std::unique_ptr<ortc::Tensor<float>> stacked(StackTensor<float>(outputs, 0, runner.GetAllocator()));
+  if (!stacked) {
+    return {kOrtxErrorInvalidArgument, "[ImageProcessor]: processed frame geometry must agree"};
+  }
+  auto pixels = std::make_unique<ortc::Tensor<float>>(runner.GetAllocator());
+  auto grid = std::make_unique<ortc::Tensor<int64_t>>(runner.GetAllocator());
+  TensorArgs patch_input{stacked.get()}, patch_output{pixels.get(), grid.get()};
+  ORTX_RETURN_IF_ERROR(frame_patch_->Invoke(patch_input, patch_output));
+  std::vector<TensorPtr> result;
+  result.reserve(2);
+  result.push_back(std::move(pixels));
+  result.push_back(std::move(grid));
+  r.SetTensors(std::move(result));
+  return {};
+}
+
+OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_data, TensorResult& r,
+                                      ort_extensions::span<const OrtxImagePreProcessOptions> options) const {
+  if (options.size() != 0 && (!image_decode_ || options.size() != image_data.size()))
+    return {kOrtxErrorInvalidArgument,
+            "[ImageProcessor]: resolved images require a DecodeImage/ConvertRGB/Resize prefix"};
   std::vector<TensorArgs> inputs(image_data.size());
   std::vector<TensorPtr> input_tensor_objects(image_data.size());
   for (size_t i = 0; i < image_data.size(); ++i) {
@@ -166,8 +256,38 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
   }
 
   std::vector<TensorArgs> outputs;
+  struct OutputGuard {
+    std::vector<TensorArgs>& outputs;
+    ~OutputGuard() {
+      for (auto& tensors : outputs)
+        for (auto* tensor : tensors) delete tensor;
+    }
+  } guard{outputs};
   OrtxRunner runner(op_plan_);
-  auto status = runner.Run(inputs, outputs);
+  OrtxStatus status;
+  if (options.size() == 0) {
+    status = runner.Run(inputs, outputs);
+  } else {
+    auto transforms = json::parse(image_transforms_);
+    auto& resize = transforms[1].at("operation")["attrs"];
+    if (resize.is_null()) resize = json::object();
+    resize["smart_resize"] = 0;
+    resize["keep_aspect_ratio"] = 0;
+    for (size_t image = 0; image < image_data.size(); ++image) {
+      auto decoded = image_decode_->AllocateOutput(runner.GetAllocator());
+      TensorPtr decoded_owner{decoded[0]};
+      ORTX_RETURN_IF_ERROR(image_decode_->Invoke(inputs[image], decoded));
+      if (decoded[0]->Shape() != std::vector<int64_t>{options[image].source_height, options[image].source_width, 3})
+        return {kOrtxErrorInvalidArgument, "[ImageProcessor]: decoded dimensions differ from the resolved source"};
+      resize["height"] = options[image].height;
+      resize["width"] = options[image].width;
+      ExecutionPlan plan;
+      ORTX_RETURN_IF_ERROR(plan.Init(transforms, kernel_registry_));
+      OrtxRunner resolved_runner(plan);
+      std::vector<TensorArgs> single_input{decoded};
+      ORTX_RETURN_IF_ERROR(resolved_runner.Run(single_input, outputs));
+    }
+  }
   if (!status.IsOk()) {
     return status;
   }
@@ -177,13 +297,6 @@ OrtxStatus ImageProcessor::PreProcess(ort_extensions::span<ImageRawData> image_d
 
   std::vector<TensorPtr> img_result = op_plan_.AllocateOutputs(runner.GetAllocator());
   ORTX_RETURN_IF_ERROR(OrtxRunner::StackTensors(outputs, img_result, runner.GetAllocator()));
-
-  // Free up intermediate output tensors
-  for (auto& tensor_arg : outputs) {
-    for (auto& t : tensor_arg) {
-      std::unique_ptr<ortc::TensorBase>(t).reset();
-    }
-  }
 
   if (output_aligner_ == "phi4-vision-aligner") {
     status = Phi4VisionProcessor::AlignOutputs(img_result);

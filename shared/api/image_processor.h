@@ -17,10 +17,9 @@ namespace ort_extensions {
 using ImageRawData = std::vector<uint8_t>;
 
 std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
-  const std::initializer_list<const char*>& image_paths);
+    const std::initializer_list<const char*>& image_paths);
 
-std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(
-  const char* image_paths[], size_t num_images);
+std::tuple<std::unique_ptr<ImageRawData[]>, size_t> LoadRawImages(const char* image_paths[], size_t num_images);
 
 class ProcessorResult : public OrtxObjectImpl {
  public:
@@ -43,7 +42,11 @@ class ImageProcessor : public OrtxObjectImpl {
                                                      ortc::Tensor<int64_t>** image_sizes,
                                                      ortc::Tensor<int64_t>** num_img_takens) const;
 
-  OrtxStatus PreProcess(ort_extensions::span<ImageRawData> image_data, TensorResult& r) const;
+  OrtxStatus PreProcess(ort_extensions::span<ImageRawData> image_data, TensorResult& r,
+                        ort_extensions::span<const OrtxImagePreProcessOptions> options = {nullptr, 0}) const;
+
+  OrtxStatus PreProcessFrames(ort_extensions::span<const OrtxFrame> frames, const OrtxFramePreProcessOptions* options,
+                              TensorResult& r) const;
 
   // Deprecated, using the next function instead
   static void ClearOutputs(ProcessorResult* r);
@@ -52,8 +55,13 @@ class ImageProcessor : public OrtxObjectImpl {
 
  private:
   ExecutionPlan op_plan_;
-  std::string   name_;
-  std::string   output_aligner_;
+  std::unique_ptr<KernelDef> image_decode_;
+  std::string image_transforms_;
+  std::unique_ptr<ExecutionPlan> frame_plan_;
+  std::unique_ptr<KernelDef> frame_patch_;
+  std::string frame_transforms_;
+  std::string name_;
+  std::string output_aligner_;
 };
 
 }  // namespace ort_extensions

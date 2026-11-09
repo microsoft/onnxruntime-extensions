@@ -1,0 +1,41 @@
+{
+  "description": "Owned synthetic H.264/MP4 fixtures; no third-party media.",
+  "generator": "FFmpeg 7.0.2-static, libx264, supplied by imageio-ffmpeg 0.6.0. Not a runtime dependency.",
+  "source": {
+    "width": 96,
+    "height": 64,
+    "format": "RGB PNG, numbered 0.png through 5.png",
+    "colors": [[240, 20, 20], [20, 240, 20], [20, 20, 240], [240, 240, 20], [20, 240, 240], [240, 20, 240]],
+    "marker": "Set pixels x=0..7, y=0..7 to RGB(250,250,250) on every frame.",
+    "vfr_concat": "file '0.png'\nduration 0.32\nfile '1.png'\nduration 0.8\nfile '2.png'\nduration 0.12\nfile '3.png'\nduration 0.4\nfile '3.png'\n"
+  },
+  "commands": {
+    "cfr.mp4": "ffmpeg -framerate 2 -i %d.png -frames:v 6 -c:v libx264 -crf 12 -bf 2 -pix_fmt yuv420p -movflags +faststart cfr.mp4",
+    "bframes.mp4": "ffmpeg -framerate 2 -i %d.png -frames:v 6 -c:v libx264 -crf 12 -bf 2 -x264-params scenecut=0:b-adapt=0:keyint=250 -pix_fmt yuv420p -movflags +faststart bframes.mp4",
+    "vfr.mp4": "ffmpeg -f concat -safe 0 -i vfr.txt -fps_mode vfr -c:v libx264 -crf 12 -bf 2 -pix_fmt yuv420p -movflags +faststart vfr.mp4",
+    "origin.mp4": "ffmpeg -itsoffset 5 -i cfr.mp4 -c copy origin.mp4",
+    "rotated.mp4": "ffmpeg -display_rotation:v:0 90 -i cfr.mp4 -c copy rotated.mp4",
+    "audio.mp4": "ffmpeg -i bframes.mp4 -f lavfi -i sine=frequency=440:sample_rate=8000:duration=3 -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -shortest audio.mp4",
+    "sar.mp4": "ffmpeg -i cfr.mp4 -c:v copy -bsf:v h264_metadata=sample_aspect_ratio=2/1 sar.mp4",
+    "hdr.mp4": "ffmpeg -i cfr.mp4 -c:v copy -bsf:v h264_metadata=colour_primaries=9:transfer_characteristics=16:matrix_coefficients=9 hdr.mp4"
+  },
+  "presentation_seconds": {
+    "cfr.mp4": [0, 0.5, 1, 1.5, 2, 2.5],
+    "bframes.mp4": [0, 0.5, 1, 1.5, 2, 2.5],
+    "vfr.mp4": [0, 0.32, 1.12, 1.24, 1.64],
+    "origin.mp4": [5, 5.5, 6, 6.5, 7, 7.5],
+    "rotated.mp4": [0, 0.5, 1, 1.5, 2, 2.5]
+  },
+  "bframes_picture_types": ["I", "B", "B", "P", "B", "P"],
+  "rotation_matrix": [0, -65536, 0, 65536, 0, 0, 0, 0, 1073741824],
+  "sha256": {
+    "cfr.mp4": "5a934d86f8d1659db2c378b7784246726e50e2e3a894cbcee9b471123ce9d570",
+    "bframes.mp4": "b050b17cc435b25342aee60e9d06548c1b17cb574772dc35c9fc7b8b82585a54",
+    "vfr.mp4": "7bd8598e1c26dc91a4c23e68938e44f80ea255ca9fc2d6329cd1e9b847c4e54d",
+    "origin.mp4": "b4f9e1ef5b25a79246d83e615a5f46c24adea389f1370c384acd8aafbd97fcb9",
+    "rotated.mp4": "feb8e9ab4ed2026da4915e5e976795789949177999cd0e4513263fa80122d24b",
+    "audio.mp4": "2720a7290a774f60938a43dc31074bf2eee1564930faa8c2dcfb64cac5dfdf25",
+    "sar.mp4": "a6ec88c86915f15d357c1a4bf626644d3a2ddaa07d714428746ccb25abd92787",
+    "hdr.mp4": "29852946a8a7212915a23f169b2a3660124c2711182c74523fb607a1fc1707b8"
+  }
+}
