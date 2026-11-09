@@ -65,8 +65,9 @@ class TrieTree {
     return tok_id;
   }
 
-  int Split(const std::basic_string<CharT>& input,
-            std::vector<std::pair<std::basic_string_view<CharT>, ValueT>>& tokens) const noexcept {
+  template <typename Allocator>
+  int Split(std::basic_string_view<CharT> input,
+            std::vector<std::pair<std::basic_string_view<CharT>, ValueT>, Allocator>& tokens) const {
     size_t seg_idx = 0;
     size_t tok_idx = 0;
 

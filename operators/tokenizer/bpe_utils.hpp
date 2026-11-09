@@ -6,6 +6,7 @@
 #include <regex>
 #include <cassert>
 #include <algorithm>
+#include <type_traits>
 
 #include "ustring.h"
 #include "unicode.h"
@@ -35,11 +36,13 @@ class SpecialTokenMap {
     return {};
   }
 
-  TokenPairs SplitBySpecialTokens(const std::u32string_view& input) const {
-    TokenPairs res;
+  template <typename Allocator = TokenPairs::allocator_type>
+  std::vector<TokenPairs::value_type, Allocator> SplitBySpecialTokens(const std::u32string_view& input,
+                                                                      const Allocator& allocator = {}) const {
+    std::vector<TokenPairs::value_type, Allocator> res{allocator};
     res.emplace_back(input, kInvalidTokenId);
     for (const auto& st : token_list_) {
-      TokenPairs new_split_res;
+      std::vector<TokenPairs::value_type, Allocator> new_split_res{allocator};
       for (auto& str : res) {
         if (str.second != kInvalidTokenId) {
           new_split_res.emplace_back(str);
@@ -53,7 +56,13 @@ class SpecialTokenMap {
 #if defined(__clang__)
           auto search_it = std::search(it, str.first.end(), st.str.begin(), st.str.end());
 #else
-          auto search_it = std::search(it, str.first.end(), std::boyer_moore_searcher(st.str.begin(), st.str.end()));
+          auto search_it = [&] {
+            if constexpr (std::is_same_v<Allocator, TokenPairs::allocator_type>) {
+              return std::search(it, str.first.end(), std::boyer_moore_searcher(st.str.begin(), st.str.end()));
+            } else {
+              return std::search(it, str.first.end(), st.str.begin(), st.str.end());
+            }
+          }();
 #endif
           if (search_it == str.first.end()) {
             new_split_res.emplace_back(
@@ -1002,6 +1011,33 @@ class PreTokenizerWithRegEx {
     }
     return results;
   }
+
+  template <typename Allocator>
+  std::vector<std::u32string_view, Allocator> SplitIsolatedViews(std::u32string_view text, const Allocator& allocator) {
+    std::vector<std::u32string_view, Allocator> results{allocator};
+    Set(text);
+    auto pending = text.data();
+    while (!m_text.empty()) {
+      auto match = TryMatch();
+      if (match.empty()) {
+        m_last_char = m_text.front();
+        m_text.remove_prefix(1);
+        continue;
+      }
+      if (match.data() > pending) {
+        results.emplace_back(pending, static_cast<size_t>(match.data() - pending));
+      }
+      results.push_back(match);
+      pending = match.data() + match.size();
+      m_last_char = match.back();
+    }
+    if (!text.empty() && pending < text.data() + text.size()) {
+      results.emplace_back(pending, static_cast<size_t>(text.data() + text.size() - pending));
+    }
+    return results;
+  }
+
+  bool HasFallback() const { return static_cast<bool>(fallback_patterns_); }
 
  public:
   static bool IsRN(char32_t ch) { return ch == U'\r' || ch == U'\n'; }

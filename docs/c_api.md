@@ -24,6 +24,14 @@ Most APIs accept raw data inputs such as audio, image compressed binary formats,
 
 **Audio feature extraction:** `OrtxCreateSpeechFeatureExtractor` creates a speech feature extractor to obtain log mel spectrum data as input for the Whisper model. An example code snippet can be found [here](../test/pp_api_test/test_feature_extraction.cc#L15).
 
+### Bounded tokenization
+
+Call `OrtxPrepareBoundedTokenization` during model initialization to prepare immutable token lookup data. Preparation supports byte-level BPE with complete byte-token coverage, native regex matchers, no fixed padding and no CLIP cleanup or SentencePiece transformation. Unsupported backends and regex fallback return `kOrtxErrorNotImplemented`; the existing unbounded tokenization APIs remain available and unchanged.
+
+`OrtxTokenizeIntoBuffer` encodes one null-terminated, valid UTF-8 string into caller-owned token storage. Its `scratch_bytes` argument caps input-dependent temporary allocation requests through a per-call memory resource, without changing any process-global allocator. Model-owned lookup data, caller input/output buffers, fixed status bookkeeping and allocator overhead are outside that scratch allowance; it is not an RSS limit. The supported byte-level path needs at most input-byte-count plus two output slots, including optional BOS/EOS. It preserves added/special-token recognition and the tokenizer's `add_special_tokens` option.
+
+Quota exhaustion, invalid input, missing preparation or insufficient output capacity leaves the output untouched and sets the returned count to zero. A failed call does not mutate tokenizer options or prevent a later call with a sufficient allowance. Calls on the same prepared tokenizer use independent scratch allowances.
+
 **Note:** To build onnxruntime-extensions as a shared library with full functionality, ensure the `OCOS_ENABLE_AUDIO` and `OCOS_ENABLE_GPT2_TOKENIZER` build flags are enabled. For a minimal build with selected operators, you can use the static library version and disable the shared library build by setting `-DOCOS_BUILD_SHARED_LIB=OFF`.
 
 **Note:** A simple Python wrapper for these C APIs is available in [pp_api](../onnxruntime_extensions/pp_api.py), but it is not included in the default build. To enable it, use the extra build option `--config-settings "ortx-user-option=pp-api,no-opencv"`. For example, you can install it with the following command: `python3 -m pip install --config-settings "ortx-user-option=pp-api,no-opencv" git+https://github.com/microsoft/onnxruntime-extensions.git`. The following code demonstrates how to use the Python API to validate the tokenizer output.

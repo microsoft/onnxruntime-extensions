@@ -3,6 +3,8 @@
 
 #include <filesystem>
 #include <locale>
+#include <array>
+#include <future>
 #include "gtest/gtest.h"
 
 #ifdef _WIN32
@@ -32,6 +34,100 @@ class TestJsonFastTokenizer : public JsonFastTokenizer {
  public:
   void SetPaddingLength(int64_t padding_length) { padding_length_ = padding_length; }
 };
+
+TEST(OrtxTokenizerTest, BoundedEncodingMatchesLegacyAndRecoversAfterQuotaFailure) {
+  OrtxTokenizer* raw{};
+  ASSERT_EQ(OrtxCreateTokenizer(&raw, "data/phi-2"), kOrtxOK);
+  std::unique_ptr<OrtxTokenizer, decltype(&OrtxDisposeOnly)> tokenizer{raw, &OrtxDisposeOnly};
+  ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK) << OrtxGetLastErrorMessage();
+  ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
+  const std::vector<std::string> inputs{"def f(x):\n    return x + 12345\n",
+                                        "caf\xc3\xa9 e\xcc\x81 \xe4\xb8\xad\xe6\x96\x87", "<|endoftext|> ordinary text",
+                                        std::string(4097, '9'), std::string(8193, 'a')};
+  for (const char* option : {"false", "TRUE"}) {
+    const char* keys[] = {"add_special_tokens"};
+    const char* values[] = {option};
+    ASSERT_EQ(OrtxUpdateTokenizerOptions(tokenizer.get(), keys, values, 1), kOrtxOK);
+    for (const auto& text : inputs) {
+      SCOPED_TRACE(text.substr(0, 40));
+      const char* input[] = {text.c_str()};
+      OrtxTokenId2DArray* legacy_raw{};
+      ASSERT_EQ(OrtxTokenize(tokenizer.get(), input, 1, &legacy_raw), kOrtxOK);
+      std::unique_ptr<OrtxTokenId2DArray, decltype(&OrtxDisposeOnly)> legacy{legacy_raw, &OrtxDisposeOnly};
+      const extTokenId_t* expected{};
+      size_t expected_count{};
+      ASSERT_EQ(OrtxTokenId2DArrayGetItem(legacy.get(), 0, &expected, &expected_count), kOrtxOK);
+      std::vector<extTokenId_t> output(text.size() + 2, 0xDEADBEEF);
+      size_t count = 99;
+      EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), text.c_str(), 0, output.data(), output.size(), &count),
+                kOrtxOK);
+      EXPECT_EQ(count, 0u);
+      EXPECT_TRUE(std::all_of(output.begin(), output.end(), [](auto id) { return id == 0xDEADBEEF; }));
+      ASSERT_EQ(OrtxTokenizeIntoBuffer(tokenizer.get(), text.c_str(), 128 * (text.size() + 1), output.data(),
+                                       output.size(), &count),
+                kOrtxOK)
+          << OrtxGetLastErrorMessage();
+      ASSERT_EQ(count, expected_count);
+      EXPECT_TRUE(std::equal(output.begin(), output.begin() + count, expected));
+    }
+  }
+}
+
+TEST(OrtxTokenizerTest, BoundedEncodingValidatesPreparationInputAndOutputBeforeWriting) {
+  OrtxTokenizer* raw{};
+  ASSERT_EQ(OrtxCreateTokenizer(&raw, "data/phi-2"), kOrtxOK);
+  std::unique_ptr<OrtxTokenizer, decltype(&OrtxDisposeOnly)> tokenizer{raw, &OrtxDisposeOnly};
+  std::array<extTokenId_t, 1> output{0xDEADBEEF};
+  size_t count = 99;
+  EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "many tokens in this buffer", 65536, output.data(), output.size(),
+                                   &count),
+            kOrtxOK);
+  EXPECT_EQ(count, 0u);
+  ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
+  for (const char* text : {"many tokens in this buffer", "\xff", "\xed\xa0\x80"}) {
+    count = 99;
+    EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), text, 65536, output.data(), output.size(), &count), kOrtxOK);
+    EXPECT_EQ(count, 0u);
+    EXPECT_EQ(output[0], 0xDEADBEEF);
+  }
+  EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "x", 65536, nullptr, 1, &count), kOrtxOK);
+  EXPECT_NE(OrtxTokenizeIntoBuffer(nullptr, "x", 65536, output.data(), 1, &count), kOrtxOK);
+  EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), nullptr, 65536, output.data(), 1, &count), kOrtxOK);
+  EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "x", 65536, output.data(), 1, nullptr), kOrtxOK);
+  EXPECT_NE(OrtxPrepareBoundedTokenization(nullptr), kOrtxOK);
+}
+
+TEST(OrtxTokenizerTest, BoundedEncodingQuotasAreIndependentAcrossThreadsAndAllocationPhases) {
+  OrtxTokenizer* raw{};
+  ASSERT_EQ(OrtxCreateTokenizer(&raw, "data/phi-2"), kOrtxOK);
+  std::unique_ptr<OrtxTokenizer, decltype(&OrtxDisposeOnly)> tokenizer{raw, &OrtxDisposeOnly};
+  ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
+  const std::string text(4097, '9');
+  std::vector<std::future<bool>> futures;
+  for (const size_t quota : {0u, 32768u, 65536u, 131072u, 1048576u}) {
+    futures.push_back(std::async(std::launch::async, [&, quota] {
+      std::vector<extTokenId_t> output(text.size() + 2, 0xDEADBEEF);
+      size_t count = 99;
+      const auto status =
+          OrtxTokenizeIntoBuffer(tokenizer.get(), text.c_str(), quota, output.data(), output.size(), &count);
+      if (quota == 1048576u) return status == kOrtxOK && count > 0;
+      return status != kOrtxOK && count == 0 &&
+             std::all_of(output.begin(), output.end(), [](auto id) { return id == 0xDEADBEEF; });
+    }));
+  }
+  for (auto& future : futures) EXPECT_TRUE(future.get());
+}
+
+TEST(OrtxTokenizerTest, BoundedEncodingRejectsUnsupportedBackendWithoutChangingLegacyEncoding) {
+  OrtxTokenizer* raw{};
+  ASSERT_EQ(OrtxCreateTokenizer(&raw, "data/tokenizer/fairseq/xlm-roberta-base"), kOrtxOK);
+  std::unique_ptr<OrtxTokenizer, decltype(&OrtxDisposeOnly)> tokenizer{raw, &OrtxDisposeOnly};
+  EXPECT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxErrorNotImplemented);
+  const char* input[] = {"ordinary text"};
+  OrtxTokenId2DArray* output{};
+  ASSERT_EQ(OrtxTokenize(tokenizer.get(), input, 1, &output), kOrtxOK);
+  EXPECT_EQ(ORTX_DISPOSE(output), kOrtxOK);
+}
 
 TEST(OrtxTokenizerTest, RegexTest) {
   std::u32string str = U"You'll enjoy the concert.";

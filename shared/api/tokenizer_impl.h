@@ -61,6 +61,9 @@ class TokenizerImpl : public OrtxObjectImpl {
 
   OrtxStatus BatchEncodeLiteral(const std::vector<std::string_view>& input,
                                 std::vector<std::vector<extTokenId_t>>& t_ids) const;
+  OrtxStatus PrepareBoundedEncoding() const;
+  OrtxStatus EncodeIntoBuffer(std::string_view input, extTokenId_t* output, size_t capacity, size_t& count,
+                              std::pmr::memory_resource& scratch) const;
 
   OrtxStatus BatchDecode(const std::vector<span<extTokenId_t const>>& t_ids,
                          std::vector<std::string>& t_text,

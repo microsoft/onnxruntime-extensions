@@ -349,11 +349,17 @@ class BpeModel {
 
   // REF:
   // https://github.com/huggingface/transformers/blob/c9e72f55b2dc4b9be4edb986dce0552582b328f2/src/transformers/tokenization_utils.py#L52
-  bpe::TokenPairs SplitByAddedAndSpecial(const ustring& input, const AddedTokenMap& t_map) const {
-    static const std::set<char32_t> ws_chars = {U' ', U'\n', U'\r', U'\t'};
+  template <typename TokenMap, typename Allocator = bpe::TokenPairs::allocator_type>
+  std::vector<bpe::TokenPairs::value_type, Allocator> SplitByAddedAndSpecial(std::u32string_view input,
+                                                                             const TokenMap& t_map,
+                                                                             const Allocator& allocator = {}) const {
+    static constexpr char32_t ws_chars[] = {U' ', U'\n', U'\r', U'\t'};
+    const auto is_whitespace = [](char32_t ch) {
+      return std::find(std::begin(ws_chars), std::end(ws_chars), ch) != std::end(ws_chars);
+    };
     // split by added tokens
-    bpe::TokenPairs added_result;
-    bpe::TokenPairs final_result;
+    std::vector<bpe::TokenPairs::value_type, Allocator> added_result{allocator};
+    std::vector<bpe::TokenPairs::value_type, Allocator> final_result{allocator};
     added_tokens_.Split(input, added_result);
 
     for (size_t n = 0; n < added_result.size(); ++n) {
@@ -363,7 +369,7 @@ class BpeModel {
 
       if (id != bpe::kInvalidTokenId) {
         if (has_left || has_right) {
-          auto iter_tok_extend = t_map.find(std::u32string(token));
+          auto iter_tok_extend = t_map.find(typename TokenMap::key_type(token));
           if (iter_tok_extend != t_map.end()) {
             if (has_right && iter_tok_extend->second.rstrip_) {
               auto& [next_token, next_id] = added_result[n + 1];
@@ -371,7 +377,7 @@ class BpeModel {
               if (next_id == bpe::kInvalidTokenId) {
                 final_result.emplace_back(token, id);
                 size_t pos = 0;
-                while (pos < next_token.size() && ws_chars.count(next_token[pos])) {
+                while (pos < next_token.size() && is_whitespace(next_token[pos])) {
                   pos++;
                 }
                 auto stripped_token = next_token.substr(pos);
@@ -385,7 +391,7 @@ class BpeModel {
               // l-strip means remove whitespaces from right side of previous token
               if (prev_id == bpe::kInvalidTokenId) {
                 size_t pos = token.size();
-                while (pos > 0 && ws_chars.count(token[pos - 1])) {
+                while (pos > 0 && is_whitespace(token[pos - 1])) {
                   pos--;
                 }
                 auto stripped_token = token.substr(0, pos);
@@ -398,7 +404,7 @@ class BpeModel {
         // if not additional processing, just add it to final result
         final_result.emplace_back(token, id);
       } else {
-        auto special_result = special_tokens_.SplitBySpecialTokens(token);
+        auto special_result = special_tokens_.SplitBySpecialTokens(token, allocator);
         for (const auto& [token, id] : special_result) {
           final_result.emplace_back(token, id);
         }
@@ -408,7 +414,8 @@ class BpeModel {
     return final_result;
   }
 
-  void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>>& vals) const {
+  template <typename Allocator>
+  void PerformBPE(std::vector<std::pair<uint32_t, uint32_t>, Allocator>& vals) const {
     if (vals.size() < 2) return;
 
     // Flat-array linked list for cache-friendly traversal.
@@ -422,14 +429,18 @@ class BpeModel {
     };
 
     const size_t n = vals.size();
+    if (n > static_cast<size_t>((std::numeric_limits<int32_t>::max)())) {
+      throw std::length_error("BPE input exceeds the linked-list index range.");
+    }
     // Stack buffer for common case (pre-tokens up to 128 chars); heap fallback for longer.
     constexpr size_t kStackSize = 128;
     BpeListNode stack_buf[kStackSize];
-    std::unique_ptr<BpeListNode[]> heap_buf;
+    using NodeAllocator = typename std::allocator_traits<Allocator>::template rebind_alloc<BpeListNode>;
+    std::vector<BpeListNode, NodeAllocator> heap_buf{NodeAllocator{vals.get_allocator()}};
     BpeListNode* nodes = stack_buf;
     if (n > kStackSize) {
-      heap_buf = std::make_unique<BpeListNode[]>(n);
-      nodes = heap_buf.get();
+      heap_buf.resize(n);
+      nodes = heap_buf.data();
     }
 
     // Initialize from vector (contiguous access, no linked-list traversal)
@@ -507,6 +518,20 @@ class BpeModel {
     }
   }
 
+  void PrepareTokenViews() {
+    std::unordered_map<std::string_view, uint32_t> views;
+    views.reserve(vocab_map_.size());
+    for (const auto& entry : vocab_map_) {
+      views.emplace(entry.first, entry.second);
+    }
+    token_views_ = std::move(views);
+  }
+
+  uint32_t GetTokenIdView(std::string_view key) const {
+    const auto found = token_views_.find(key);
+    return found == token_views_.end() ? bpe::kInvalidTokenId : found->second;
+  }
+
   uint32_t GetAddedTokenId(const std::string& key) const {
     size_t idx = 0;
     int id = added_tokens_.FindLongest(ustring(key), idx);
@@ -558,6 +583,7 @@ class BpeModel {
   std::unordered_map<uint64_t, BpeNode> bpe_rank_;
 
   std::unordered_map<std::string, uint32_t> vocab_map_;
+  std::unordered_map<std::string_view, uint32_t> token_views_;
   std::vector<std::string> id2token_map_;
 
   uint32_t unk_id_ = (std::numeric_limits<uint32_t>::max)();

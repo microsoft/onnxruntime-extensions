@@ -173,6 +173,21 @@ extError_t ORTX_API_CALL OrtxUpdateTokenizerOptions(OrtxTokenizer* tokenizer, co
 extError_t ORTX_API_CALL OrtxTokenize(const OrtxTokenizer* tokenizer, const char* input[], size_t batch_size,
                                       OrtxTokenId2DArray** output);
 
+/** Prepare immutable lookup data for bounded encoding during model initialization.
+ * Returns not-implemented for unsupported backends, transforms, or regex fallback.
+ * No concurrent model loading or destruction is permitted.
+ */
+extError_t ORTX_API_CALL OrtxPrepareBoundedTokenization(const OrtxTokenizer* tokenizer);
+
+/** Encode one null-terminated UTF-8 string into caller-owned storage.
+ * Preparation must have succeeded first. Input-dependent temporary allocations
+ * are limited to scratch_bytes, excluding caller buffers, model-owned lookup data
+ * and fixed error/status bookkeeping. This is not a process-memory/RSS limit.
+ * On failure, *count is zero and output is unchanged. Options are not mutated.
+ */
+extError_t ORTX_API_CALL OrtxTokenizeIntoBuffer(const OrtxTokenizer* tokenizer, const char* input, size_t scratch_bytes,
+                                                extTokenId_t* output, size_t capacity, size_t* count);
+
 /** \brief Encode null-terminated UTF-8 strings as literal text.
  *
  * Does not recognize registered added/special token strings or insert BOS/EOS.
