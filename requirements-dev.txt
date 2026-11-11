@@ -11,5 +11,5 @@ transformers     < 4.50.0
 tensorflow_text  >=2.5.0;python_version < '3.11'
 requests         >=2.26.0
 truststore
-sentencepiece    < 0.2.1
+sentencepiece
 scipy
