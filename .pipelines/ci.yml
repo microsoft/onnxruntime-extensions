@@ -157,7 +157,6 @@ stages:
         '
 
       displayName: Build ort-ext with exception propagation disabled
-      retryCountOnTaskFailure: 3
 
     # As an extra validation check CMakeCache.txt as well
     - script: |
@@ -182,7 +181,6 @@ stages:
         echo 'set (OCOS_ENABLE_BERT_TOKENIZER ON CACHE BOOL "" FORCE)' > cmake/_selectedoplist.cmake
         ./build.sh -DOCOS_ENABLE_CPP_EXCEPTIONS=OFF -DOCOS_ENABLE_SELECTED_OPLIST=ON -DOCOS_ENABLE_CTEST=OFF
       displayName: Build ort-extensions with only one operator was selected
-      retryCountOnTaskFailure: 3
 
   ##############################
   # Linux for pre-processing API
@@ -321,7 +319,6 @@ stages:
     - script: |
         python -m pip install -e .
       displayName: Build and install the wheel
-      retryCountOnTaskFailure: 3
 
     - script: python -m pip install -r requirements-dev.txt
       displayName: Install requirements-dev.txt
@@ -459,7 +456,6 @@ stages:
         set CMAKE_ARGS=-DOCOS_ONNXRUNTIME_VERSION=$(ort.version)
         python -m pip install -v .
       displayName: Build the wheel
-      retryCountOnTaskFailure: 3
 
     - script: |
         python -m pip install $(torch.packages)
@@ -536,7 +532,6 @@ stages:
         -DOCOS_ENABLE_CTEST=OFF  \
         -DOCOS_ENABLE_C_API=ON
       displayName: build ort-extensions as an executable
-      retryCountOnTaskFailure: 3
 
     - script: |
         bash ./build.sh \
@@ -590,7 +585,6 @@ stages:
         set +x
         echo "##vso[task.setvariable variable=ORT_EXTENSIONS_AAR_PATH]${AAR_PATH}"
       displayName: Build onnxruntime-extensions AAR package
-      retryCountOnTaskFailure: 3
 
   - job: AndroidCpp_BuildOnly
     pool:
@@ -614,9 +608,7 @@ stages:
     - script: brew install ninja
       displayName: Install ninja
 
-    - retryCountOnTaskFailure: 3
-      displayName: Build onnxruntime-extensions for Android
-      bash: |
+    - bash: |
         python -m pip install cmake==3.31.6
         python ./tools/build.py \
           --config RelWithDebInfo \
@@ -624,6 +616,7 @@ stages:
           --android_abi x86_64 \
           --enable_cxx_tests \
           --update --build --parallel
+      displayName: Build onnxruntime-extensions for Android
 
   - job: AndroidCAPI_BuildOnly
     pool:
@@ -647,9 +640,7 @@ stages:
     - script: brew install ninja
       displayName: Install ninja
 
-    - retryCountOnTaskFailure: 3
-      displayName: Build Android C API and shared-library consumer
-      bash: |
+    - bash: |
         set -e -x -u
         python -m pip install cmake==3.31.6
         python ./tools/build.py \
@@ -660,6 +651,7 @@ stages:
           --enable_cxx_tests \
           --update --build --parallel \
           --cmake_extra_defines OCOS_ENABLE_C_API=ON OCOS_BUILD_SHARED_LIB=ON
+      displayName: Build Android C API and shared-library consumer
 
     - bash: |
         set -e -x -u
@@ -704,9 +696,7 @@ stages:
         jdkArchitectureOption: 'x64'
         jdkSourceOption: 'PreInstalled'
 
-    - retryCountOnTaskFailure: 3
-      displayName: Build onnxruntime-extensions for Android
-      bash: |
+    - bash: |
         python tools/build.py \
           --android \
           --android_abi=arm64-v8a \
@@ -717,6 +707,7 @@ stages:
           --update \
           --parallel \
           --build
+      displayName: Build onnxruntime-extensions for Android
 
     - bash: |
         set -e

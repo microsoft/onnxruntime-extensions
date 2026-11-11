@@ -34,11 +34,10 @@ stages:
     steps:
     - task: UsePythonVersion@0
       inputs:
-        versionSpec: "3.12"
-        disableDownloadFromRegistry: true
+        versionSpec: "3.9"
         addToPath: true
         architecture: "x64"
-      displayName: "Use Python 3.12"
+      displayName: "Use Python 3.9"
 
     - task: JavaToolInstaller@0
       displayName: Use jdk 17
@@ -84,11 +83,10 @@ stages:
     steps:
       - task: UsePythonVersion@0
         inputs:
-          versionSpec: "3.12"
-          disableDownloadFromRegistry: true
+          versionSpec: "3.9"
           addToPath: true
           architecture: "x64"
-        displayName: "Use Python 3.12"
+        displayName: "Use Python 3.9"
 
       - task: JavaToolInstaller@0
         displayName: Use jdk 17
@@ -141,7 +139,6 @@ stages:
     - script: |
         python -m pip install --upgrade setuptools pip
         python -m pip install numpy
-        python -m pip install "humanfriendly>=10.0" pyreadline3
         python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
