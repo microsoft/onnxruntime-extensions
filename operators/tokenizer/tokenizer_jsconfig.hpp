@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <sstream>
 #include <string_view>
 #include "file_sys.h"
@@ -194,6 +195,20 @@ class TokenJsonConfig final {
     return ParseTokensFromConfig(json_config);
   }
 
+  // Accepts only relative paths that stay within the directory they are resolved against.
+  static bool IsPathInsideDirectory(const std::string& file) {
+    std::filesystem::path p(file);
+    if (p.is_absolute() || p.has_root_name() || p.has_root_directory()) {
+      return false;
+    }
+    for (const auto& part : p) {
+      if (part == "..") {
+        return false;
+      }
+    }
+    return true;
+  }
+
   OrtxStatus Load(const std::string& json_path) {
     if (json_path.empty()) {
       return OrtxStatus(kOrtxErrorInvalidArgument, "json_path is empty.");
@@ -263,6 +278,9 @@ class TokenJsonConfig final {
     model_max_length_ = json_config.value("model_max_length", 1e+30);
     std::string tiktoken_file = json_config.value("tiktoken_file", "");
     if (!tiktoken_file.empty()) {
+      if (!IsPathInsideDirectory(tiktoken_file)) {
+        return OrtxStatus(kOrtxErrorInvalidArgument, "tiktoken_file must be a relative path inside the tokenizer directory.");
+      }
       auto tktok_path = tok_dir / tiktoken_file;
       if (tktok_path.exists()) {
         vocab_path_ = tktok_path.string();

@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 #include <memory>
@@ -7,6 +7,7 @@
 #include <locale.h>
 #include <numeric>
 #include <algorithm>
+#include <filesystem>
 #include "gtest/gtest.h"
 
 #include "c_only_test.h"
@@ -755,4 +756,29 @@ TEST(OrtxTokenizerV5Test, SmolLM3_V5_CApi) {
   const char* text = nullptr;
   OrtxStringArrayGetItem(decoded_text.get(), 0, &text);
   EXPECT_STREQ(text, "Hello, world!");
+}
+
+TEST(CApiTest, TokenizerRejectsTiktokenFileOutsideTokenizerDir) {
+  namespace fs = std::filesystem;
+  const fs::path root = fs::temp_directory_path() / "ortx_tiktoken_path_test";
+  const fs::path tok_dir = root / "tok";
+  fs::remove_all(root);
+  fs::create_directories(tok_dir);
+  {
+    std::ofstream(root / "outside.tiktoken") << "IQ== 0\n";
+  }
+
+  const std::string outside_abs = (root / "outside.tiktoken").generic_string();
+  const std::string candidates[] = {"../outside.tiktoken", "sub/../../outside.tiktoken", outside_abs};
+  for (const auto& tiktoken_file : candidates) {
+    nlohmann::json config = {{"tokenizer_class", "GPT2Tokenizer"}, {"tiktoken_file", tiktoken_file}};
+    std::ofstream(tok_dir / "tokenizer_config.json", std::ios::trunc) << config.dump();
+
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, tok_dir.string().c_str());
+    EXPECT_NE(tokenizer.Code(), kOrtxOK) << tiktoken_file;
+    EXPECT_NE(std::string(OrtxGetLastErrorMessage()).find("inside the tokenizer directory"), std::string::npos)
+        << tiktoken_file;
+  }
+
+  fs::remove_all(root);
 }
