@@ -416,19 +416,19 @@ std::vector<int64_t> KernelBpeTokenizer::Tokenize(ustring& input, int64_t max_le
     input = str;
     input = std::move(ToLowerCase(input));
   }
-  return TokenizeImpl(std::u32string_view(input), max_length, compute_offset_mapping, offset_map, add_special_tokens,
-                      recognize_added_tokens, std::allocator<int64_t>{}, added_tokens_);
+  return TokenizeImpl(std::u32string_view(input), max_length, compute_offset_mapping ? &offset_map : nullptr,
+                      add_special_tokens, recognize_added_tokens, std::allocator<int64_t>{}, added_tokens_);
 }
 
 template <typename Allocator, typename TokenMap>
 std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_view input, int64_t max_length,
-                                                                 bool compute_offset_mapping,
-                                                                 std::list<OffsetMappingType>& offset_map,
+                                                                 std::list<OffsetMappingType>* offset_map,
                                                                  bool add_special_tokens, bool recognize_added_tokens,
                                                                  const Allocator& allocator,
                                                                  const TokenMap& added_tokens) const {
   PROFILE_SCOPE(total_ns);
   PROFILE_INCREMENT(call_count, 1);
+  const bool compute_offset_mapping = offset_map != nullptr;
   std::vector<int64_t, Allocator> res{allocator};
   res.reserve(input.size() / 3);
   const bool clean_up_spaces = ModelName() == kModel_CLIP;
@@ -442,7 +442,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
     if (compute_offset_mapping) {
       OffsetMappingType offsets;
       for (size_t i = 0; i < res.size(); ++i) offsets.emplace_back(0, 0);
-      offset_map.emplace_back(std::move(offsets));
+      offset_map->emplace_back(std::move(offsets));
     }
     return res;
   }
@@ -466,9 +466,10 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
   const bool append_eos = add_eos_token && add_special_tokens;
   const int64_t content_limit = append_eos && max_length > 0 ? max_length - 1 : max_length;
 
-  OffsetMappingType offset_mapping;
+  std::optional<OffsetMappingType> offset_mapping;
+  if (compute_offset_mapping) offset_mapping.emplace();
   if (compute_offset_mapping && add_bos_token && add_special_tokens) {
-    offset_mapping.emplace_back(0, 0);
+    offset_mapping->emplace_back(0, 0);
   }
 
   const auto utf8_byte_offsets = compute_offset_mapping ? Utf8ByteOffsets(input) : std::vector<size_t>{};
@@ -507,7 +508,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
   };
 
   // Helper lambda: byte-encode a pre-tokenized chunk, perform BPE, and append IDs to res.
-  auto process_bpe_chunk = [&](ScratchString& utf8_token, size_t& offset, OffsetMappingType& offset_mapping) {
+  auto process_bpe_chunk = [&](ScratchString& utf8_token, size_t& offset) {
     if (utf8_token.empty()) return;
     PROFILE_INCREMENT(pretokens_count, 1);
 
@@ -580,11 +581,11 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
       res.push_back(p.first);
       if (compute_offset_mapping) {
         if (clean_up_spaces) {
-          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
+          offset_mapping->emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + p.second)));
           offset += p.second;
         } else {
           auto adjusted = static_cast<size_t>(static_cast<int64_t>(p.second) + space_dif);
-          offset_mapping.emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + adjusted)));
+          offset_mapping->emplace_back(std::make_pair(offset, ort_extensions::narrow<size_t>(offset + adjusted)));
           offset += adjusted;
         }
       }
@@ -606,7 +607,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
     if (seg_id.second != bpe::kInvalidTokenId) {
       res.push_back(seg_id.second);
       if (compute_offset_mapping) {
-        offset_mapping.emplace_back(0, 0);
+        offset_mapping->emplace_back(0, 0);
       }
       continue;
     }
@@ -642,7 +643,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
       for (auto& chunk : chunks) {
         if (static_cast<int64_t>(res.size()) >= content_limit) break;
         ustring::ToUTF8Into(std::u32string_view(chunk), utf8_token);
-        process_bpe_chunk(utf8_token, offset, offset_mapping);
+        process_bpe_chunk(utf8_token, offset);
       }
     } else {
       // Single-regex pre-tokenization: create a local cursor (thread-safe, no shared mutable state)
@@ -657,7 +658,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
         }
         if (tok.empty()) break;
         ustring::ToUTF8Into(tok, utf8_token);
-        process_bpe_chunk(utf8_token, offset, offset_mapping);
+        process_bpe_chunk(utf8_token, offset);
       }
     }
 
@@ -667,12 +668,12 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
     // Add EOS token to result
     res.push_back(eos_token_id_);
     if (compute_offset_mapping) {
-      offset_mapping.emplace_back(0, 0);
+      offset_mapping->emplace_back(0, 0);
     }
   }
 
   if (compute_offset_mapping) {
-    offset_map.emplace_back(std::move(offset_mapping));
+    offset_map->emplace_back(std::move(*offset_mapping));
   }
 
   return res;
@@ -714,10 +715,9 @@ OrtxStatus KernelBpeTokenizer::EncodeIntoBuffer(std::string_view input, extToken
   }
   std::pmr::u32string text{&scratch};
   ustring::FromUTF8Into(input, text);
-  std::list<OffsetMappingType> offsets;
   const auto tokens =
-      TokenizeImpl(std::u32string_view(text), (std::numeric_limits<uint32_t>::max)(), false, offsets,
-                   add_special_tokens, true, std::pmr::polymorphic_allocator<int64_t>{&scratch}, added_token_views_);
+      TokenizeImpl(std::u32string_view(text), (std::numeric_limits<uint32_t>::max)(), nullptr, add_special_tokens, true,
+                   std::pmr::polymorphic_allocator<int64_t>{&scratch}, added_token_views_);
   if (tokens.size() > capacity) {
     return {kOrtxErrorInvalidArgument, "Token output exceeds the supplied buffer capacity."};
   }

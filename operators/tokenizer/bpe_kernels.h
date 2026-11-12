@@ -56,9 +56,9 @@ struct KernelBpeTokenizer {
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
   template <typename Allocator, typename TokenMap>
   std::vector<int64_t, Allocator> TokenizeImpl(std::u32string_view input, int64_t max_length,
-                                               bool compute_offset_mapping, std::list<OffsetMappingType>& offset_map,
-                                               bool add_special_tokens, bool recognize_added_tokens,
-                                               const Allocator& allocator, const TokenMap& added_tokens) const;
+                                               std::list<OffsetMappingType>* offset_map, bool add_special_tokens,
+                                               bool recognize_added_tokens, const Allocator& allocator,
+                                               const TokenMap& added_tokens) const;
   std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
                                 std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
                                 bool recognize_added_tokens) const;
