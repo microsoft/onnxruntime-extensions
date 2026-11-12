@@ -6,6 +6,7 @@
 #include <fstream>
 #include <locale>
 #include <algorithm>
+#include <iterator>
 #include "gtest/gtest.h"
 
 #include "c_only_test.h"
@@ -2882,9 +2883,10 @@ TEST(OrtxTokenizerTest, MinjaRangeRejectsInvalidArguments) {
             "0,1,2|1,3,5");
 
   const std::string messages_json = R"([{"role":"user","content":"hi"}])";
-  const char* templates[] = {"{{ range(1, 2, 1, 4, 5) | join(',') }}", "{{ range(0, 3, 0) | join(',') }}"};
-  const char* expected_errors[] = {"at most 3 positional arguments", "step must not be zero"};
-  for (size_t i = 0; i < 2; ++i) {
+  const char* templates[] = {"{{ range(1, 2, 1, 4, 5) | join(',') }}", "{{ range(0, 3, 0) | join(',') }}",
+                             "{{ range(0, 3, step=0) | join(',') }}"};
+  const char* expected_errors[] = {"at most 3 positional arguments", "step must not be zero", "step must not be zero"};
+  for (size_t i = 0; i < std::size(templates); ++i) {
     OrtxObjectPtr<OrtxTensorResult> result;
     auto err = OrtxApplyChatTemplateWithOptions(
         tokenizer.get(), templates[i], messages_json.c_str(), nullptr, nullptr, result.ToBeAssigned(), false, false);
