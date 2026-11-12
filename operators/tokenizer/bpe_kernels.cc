@@ -433,7 +433,7 @@ std::vector<int64_t, Allocator> KernelBpeTokenizer::TokenizeImpl(std::u32string_
   res.reserve(input.size() / 3);
   const bool clean_up_spaces = ModelName() == kModel_CLIP;
 
-  if (AllSpaceUstring(input) && ModelName() == kModel_CLIP) {
+  if (clean_up_spaces && AllSpaceUstring(input)) {
     if (!recognize_added_tokens) {
       return res;
     }
@@ -709,7 +709,7 @@ OrtxStatus KernelBpeTokenizer::EncodeIntoBuffer(std::string_view input, extToken
     return {kOrtxErrorNotImplemented, "Prepare bounded encoding before encoding input."};
   }
   if (input.size() > static_cast<size_t>((std::numeric_limits<ptrdiff_t>::max)()) ||
-      ustring::ValidateUTF8(input) != static_cast<ptrdiff_t>(input.size())) {
+      ustring::ValidateUTF8(input, true) != static_cast<ptrdiff_t>(input.size())) {
     return {kOrtxErrorInvalidArgument, "Bounded encoding requires valid UTF-8 input."};
   }
   std::pmr::u32string text{&scratch};

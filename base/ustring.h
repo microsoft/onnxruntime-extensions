@@ -78,7 +78,7 @@ class ustring : public std::u32string {
 
   // return a negative value for the first invalid utf8 char position,
   // otherwise the position of the terminating null character, which is the end of the string.
-  static ptrdiff_t ValidateUTF8(std::string_view data) {
+  static ptrdiff_t ValidateUTF8(std::string_view data, bool allow_noncharacters = false) {
     if (data.empty()) return 0;
     const unsigned char* s = reinterpret_cast<const unsigned char*>(data.data());
     const unsigned char* s_begin = s;
@@ -107,7 +107,7 @@ class ustring : public std::u32string {
             (s[2] & 0xc0) != 0x80 ||
             (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
             (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) || /* surrogate? */
-            (s[0] == 0xef && s[1] == 0xbf &&
+            (!allow_noncharacters && s[0] == 0xef && s[1] == 0xbf &&
              (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
           return s_begin - s;
         else

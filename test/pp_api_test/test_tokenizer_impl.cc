@@ -43,7 +43,8 @@ TEST(OrtxTokenizerTest, BoundedEncodingMatchesLegacyAndRecoversAfterQuotaFailure
   ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
   const std::vector<std::string> inputs{"def f(x):\n    return x + 12345\n",
                                         "caf\xc3\xa9 e\xcc\x81 \xe4\xb8\xad\xe6\x96\x87", "<|endoftext|> ordinary text",
-                                        std::string(4097, '9'), std::string(8193, 'a')};
+                                        std::string(4097, '9'), std::string(8193, 'a'),
+                                        "\xef\xbf\xbe", "\xef\xbf\xbf", "text \xef\xbf\xbe \xef\xbf\xbf end"};
   for (const char* option : {"false", "TRUE"}) {
     const char* keys[] = {"add_special_tokens"};
     const char* values[] = {option};
@@ -77,18 +78,24 @@ TEST(OrtxTokenizerTest, BoundedEncodingValidatesPreparationInputAndOutputBeforeW
   OrtxTokenizer* raw{};
   ASSERT_EQ(OrtxCreateTokenizer(&raw, "data/phi-2"), kOrtxOK);
   std::unique_ptr<OrtxTokenizer, decltype(&OrtxDisposeOnly)> tokenizer{raw, &OrtxDisposeOnly};
-  std::array<extTokenId_t, 1> output{0xDEADBEEF};
+  std::array<extTokenId_t, 64> output;
+  output.fill(0xDEADBEEF);
   size_t count = 99;
   EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "many tokens in this buffer", 65536, output.data(), output.size(),
                                    &count),
             kOrtxOK);
   EXPECT_EQ(count, 0u);
   ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
-  for (const char* text : {"many tokens in this buffer", "\xff", "\xed\xa0\x80"}) {
+  EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "many tokens in this buffer", 65536, output.data(), 1, &count),
+            kOrtxOK);
+  EXPECT_EQ(count, 0u);
+  EXPECT_TRUE(std::all_of(output.begin(), output.end(), [](auto id) { return id == 0xDEADBEEF; }));
+  for (const char* text : {"\xff", "\xed\xa0\x80", "\xc0\x80", "\xe0\x80\x80",
+                           "\xf0\x80\x80\x80", "\xf4\x90\x80\x80", "\xe2\x82", "\xf0\x9f\x92"}) {
     count = 99;
     EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), text, 65536, output.data(), output.size(), &count), kOrtxOK);
     EXPECT_EQ(count, 0u);
-    EXPECT_EQ(output[0], 0xDEADBEEF);
+    EXPECT_TRUE(std::all_of(output.begin(), output.end(), [](auto id) { return id == 0xDEADBEEF; }));
   }
   EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), "x", 65536, nullptr, 1, &count), kOrtxOK);
   EXPECT_NE(OrtxTokenizeIntoBuffer(nullptr, "x", 65536, output.data(), 1, &count), kOrtxOK);
