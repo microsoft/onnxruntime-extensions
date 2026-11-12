@@ -4043,6 +4043,9 @@ namespace minja
                                          {
     std::vector<int64_t> startEndStep(3);
     std::vector<bool> param_set(3);
+    if (args.args.size() > 3) {
+      throw std::runtime_error("range expects at most 3 positional arguments");
+    }
     if (args.args.size() == 1) {
       startEndStep[1] = args.args[0].get<int64_t>();
       param_set[1] = true;
@@ -4073,6 +4076,9 @@ namespace minja
     int64_t start = param_set[0] ? startEndStep[0] : 0;
     int64_t end = startEndStep[1];
     int64_t step = param_set[2] ? startEndStep[2] : 1;
+    if (step == 0) {
+      throw std::runtime_error("range step must not be zero");
+    }
 
     auto res = Value::array();
     if (step > 0) {
