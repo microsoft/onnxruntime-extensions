@@ -455,3 +455,22 @@ TEST(NemoMelTest, KernelPipeline) {
     EXPECT_NEAR(sum / frames, 0.0f, 1e-4f) << "Feature " << f << " not zero-mean";
   }
 }
+
+TEST(NemoMelTest, LogMelInitRejectsInvalidAttributes) {
+  auto expect_rejected = [](const char* key, int64_t value) {
+    AttrDict attrs = MakeNemoLogMelAttrs();
+    attrs[key] = value;
+    NemoLogMel kernel;
+    EXPECT_FALSE(kernel.Init(attrs).IsOk()) << key << "=" << value;
+  };
+
+  expect_rejected("win_length", 1024);  // larger than fft_size
+  expect_rejected("num_mels", 0);
+  expect_rejected("fft_size", -512);
+  expect_rejected("hop_length", 0);
+  expect_rejected("sample_rate", 0);
+  expect_rejected("fft_size", int64_t{1} << 32);  // does not fit in int
+
+  NemoLogMel kernel;
+  EXPECT_TRUE(kernel.Init(MakeNemoLogMelAttrs()).IsOk());
+}

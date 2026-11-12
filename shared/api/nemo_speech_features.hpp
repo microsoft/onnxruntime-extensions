@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdint>
+#include <limits>
 #include <variant>
 
 namespace ort_extensions {
@@ -105,17 +106,26 @@ class NemoLogMel {
  public:
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
+    // Integer attributes must be positive and fit in int; they size buffers and index frames.
+    auto get_positive_int = [](int64_t v, int& out) {
+      if (v <= 0 || v > std::numeric_limits<int>::max()) {
+        return false;
+      }
+      out = static_cast<int>(v);
+      return true;
+    };
+    bool ok = true;
     for (const auto& [key, value] : attrs) {
       if (key == "num_mels") {
-        cfg_.num_mels = static_cast<int>(std::get<int64_t>(value));
+        ok = get_positive_int(std::get<int64_t>(value), cfg_.num_mels);
       } else if (key == "fft_size") {
-        cfg_.fft_size = static_cast<int>(std::get<int64_t>(value));
+        ok = get_positive_int(std::get<int64_t>(value), cfg_.fft_size);
       } else if (key == "hop_length") {
-        cfg_.hop_length = static_cast<int>(std::get<int64_t>(value));
+        ok = get_positive_int(std::get<int64_t>(value), cfg_.hop_length);
       } else if (key == "win_length") {
-        cfg_.win_length = static_cast<int>(std::get<int64_t>(value));
+        ok = get_positive_int(std::get<int64_t>(value), cfg_.win_length);
       } else if (key == "sample_rate") {
-        cfg_.sample_rate = static_cast<int>(std::get<int64_t>(value));
+        ok = get_positive_int(std::get<int64_t>(value), cfg_.sample_rate);
       } else if (key == "preemph") {
         cfg_.preemph = static_cast<float>(std::get<double>(value));
       } else if (key == "log_eps") {
@@ -123,6 +133,13 @@ class NemoLogMel {
       } else if (key != "_comment") {
         return {kOrtxErrorInvalidArgument, "[NemoLogMel]: Invalid key in the JSON configuration."};
       }
+      if (!ok) {
+        return {kOrtxErrorInvalidArgument,
+                "[NemoLogMel]: Integer attributes must be positive and fit in a 32-bit int."};
+      }
+    }
+    if (cfg_.win_length > cfg_.fft_size) {
+      return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must not exceed fft_size."};
     }
     return {};
   }
