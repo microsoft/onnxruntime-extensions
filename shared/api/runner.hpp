@@ -49,6 +49,42 @@ class KernelDef {
     return std::tuple_cat(std::make_tuple(CastInputType<T>(tensors, n)), CastInputType<FxArgs...>(tensors, n + 1));
   }
 
+  template <typename A>
+  struct TensorElementType {
+    static constexpr bool is_tensor = false;
+  };
+
+  template <typename X>
+  struct TensorElementType<ortc::Tensor<X>> {
+    static constexpr bool is_tensor = true;
+    static ONNXTensorElementDataType Get() { return ortc::GetOrtDType<X>(); }
+  };
+
+  template <typename T>
+  static bool IsTensorArgCompatible(const TensorArgs& tensors, size_t n) {
+    using A = std::remove_cv_t<std::remove_reference_t<T>>;
+    if (tensors[n] == nullptr) {
+      return false;
+    }
+    if constexpr (TensorElementType<A>::is_tensor) {
+      return tensors[n]->Type() == TensorElementType<A>::Get();
+    } else {
+      return true;
+    }
+  }
+
+  // Checks the tensor count and element types against the kernel signature before the unchecked casts.
+  template <typename... Args>
+  static OrtxStatus ValidateTensorArgs(const TensorArgs& tensors) {
+    if (tensors.size() < sizeof...(Args)) {
+      return {kOrtxErrorInvalidArgument, "Too few tensors for the kernel arguments."};
+    }
+    size_t n = 0;
+    if (!(IsTensorArgCompatible<Args>(tensors, n++) && ...)) {
+      return {kOrtxErrorInvalidArgument, "Tensor element type does not match the kernel argument type."};
+    }
+    return {};
+  }
   template <typename T>
   static std::tuple<T> CastOutputImpl(TensorArgs::iterator tensor) {
     return std::make_tuple(static_cast<T>(*tensor));
@@ -128,6 +164,10 @@ class KernelFunction : public KernelDef {
     all_args.reserve(inputs.size() + outputs.size());
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
     all_args.insert(all_args.end(), outputs.begin(), outputs.end());
+    auto status = ValidateTensorArgs<Args...>(all_args);
+    if (!status.IsOk()) {
+      return status;
+    }
     auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
     return std::apply([this](auto&&... args) { return this->Compute(std::forward<decltype(*args)>(*args)...); },
                       std::move(args_tuple));
@@ -204,6 +244,10 @@ class KernelStruct : public KernelDef {
     all_args.reserve(inputs.size() + outputs.size());
     all_args.insert(all_args.end(), inputs.begin(), inputs.end());
     all_args.insert(all_args.end(), outputs.begin(), outputs.end());
+    auto status = ValidateTensorArgs<Args...>(all_args);
+    if (!status.IsOk()) {
+      return status;
+    }
     auto args_tuple = std::tuple_cat(CastTensors<Args...>(all_args));
     return std::apply(
         [this](auto&&... args) { return (instance_.get()->*body_)(std::forward<decltype(*args)>(*args)...); },
