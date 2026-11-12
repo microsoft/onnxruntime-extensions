@@ -279,7 +279,8 @@ class TokenJsonConfig final {
     std::string tiktoken_file = json_config.value("tiktoken_file", "");
     if (!tiktoken_file.empty()) {
       if (!IsPathInsideDirectory(tiktoken_file)) {
-        return OrtxStatus(kOrtxErrorInvalidArgument, "tiktoken_file must be a relative path inside the tokenizer directory.");
+        return OrtxStatus(kOrtxErrorInvalidArgument,
+                          "tiktoken_file must be a relative path inside the tokenizer directory.");
       }
       auto tktok_path = tok_dir / tiktoken_file;
       if (tktok_path.exists()) {
