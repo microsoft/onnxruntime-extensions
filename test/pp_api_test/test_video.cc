@@ -93,13 +93,14 @@ TEST(VideoLoadingTest, BFramesAreSelectedInPresentationOrder) {
       << OrtxGetLastErrorMessage();
   const uint8_t colors[][3] = {{240, 20, 20},  {20, 240, 20},  {20, 20, 240},
                                {240, 240, 20}, {20, 240, 240}, {240, 20, 240}};
+  const size_t decode_indices[] = {0, 2, 3, 1, 5, 4};
   for (size_t i = 0; i < 6; ++i) {
     OrtxFrame frame{};
     OrtxVideoSample sample{};
     ASSERT_EQ(OrtxGetRawFrame(frames.get(), i, &frame), kOrtxOK);
     ASSERT_EQ(OrtxGetVideoSample(frames.get(), i, &sample), kOrtxOK);
     EXPECT_DOUBLE_EQ(frame.timestamp_seconds, static_cast<double>(i) / 2);
-    EXPECT_EQ(sample.source_frame_index, i);
+    EXPECT_EQ(sample.source_frame_index, decode_indices[i]);
     const auto* rgb = static_cast<const uint8_t*>(frame.data) + (32 * 96 + 48) * 3;
     for (size_t channel = 0; channel < 3; ++channel) EXPECT_NEAR(rgb[channel], colors[i][channel], 5);
   }
@@ -162,6 +163,15 @@ TEST(VideoLoadingTest, ExplicitTimesAreStrictAndFailedLoadsReturnNoPartialHandle
     EXPECT_EQ(OrtxLoadVideo(&rejected, "data/video/cfr.mp4", &options, nullptr), kOrtxErrorOutOfRange);
     EXPECT_EQ(rejected, nullptr);
   }
+}
+
+TEST(VideoLoadingTest, RejectsContainerOnlyNonSquarePixels) {
+  const auto options = Count(1);
+  OrtxRawFrames* frames = reinterpret_cast<OrtxRawFrames*>(uintptr_t{1});
+  EXPECT_EQ(OrtxLoadVideo(&frames, "data/video/container_sar.mp4", &options, nullptr), kOrtxErrorNotImplemented)
+      << OrtxGetLastErrorMessage();
+  EXPECT_EQ(frames, nullptr);
+  if (frames != nullptr) ORTX_DISPOSE(frames);
 }
 
 TEST(VideoLoadingTest, VfrUsesPresentationTimesNotAverageFrameIndices) {
@@ -286,7 +296,24 @@ TEST(VideoLoadingTest, EnforcesOutputReadPacketFrameAndCodecGeometryQuotas) {
   ASSERT_EQ(OrtxLoadVideo(recovered.ToBeAssigned(), "data/video/cfr.mp4", &options, nullptr), kOrtxOK);
 }
 
-TEST(VideoLoadingTest, UnicodePathAndTruncatedPacketRejectsCountUnderfill) {
+TEST(VideoLoadingTest, ExactPacketQuotaStillDrainsDelayedFrames) {
+  const auto options = Count(6);
+  auto limits = Limits();
+  limits.max_packets = 6;
+  limits.max_decoded_frames = 6;
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  ASSERT_EQ(OrtxLoadVideo(frames.ToBeAssigned(), "data/video/bframes.mp4", &options, &limits), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxFrame last{};
+  ASSERT_EQ(OrtxGetRawFrame(frames.get(), 5, &last), kOrtxOK);
+  EXPECT_DOUBLE_EQ(last.timestamp_seconds, 2.5);
+  limits.max_packets = 5;
+  OrtxRawFrames* rejected = reinterpret_cast<OrtxRawFrames*>(uintptr_t{1});
+  EXPECT_EQ(OrtxLoadVideo(&rejected, "data/video/bframes.mp4", &options, &limits), kOrtxErrorOutOfRange);
+  EXPECT_EQ(rejected, nullptr);
+}
+
+TEST(VideoLoadingTest, UnicodePathAndTruncatedPacketsRejectUnderfill) {
   std::ifstream input("data/video/cfr.mp4", std::ios::binary);
   ASSERT_TRUE(input);
   const std::vector<char> bytes{std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
@@ -308,14 +335,20 @@ TEST(VideoLoadingTest, UnicodePathAndTruncatedPacketRejectsCountUnderfill) {
     ASSERT_EQ(OrtxLoadVideo(complete.ToBeAssigned(), path.c_str(), &options, nullptr), kOrtxOK)
         << OrtxGetLastErrorMessage();
   }
-  {
-    std::ofstream output(temporary.path, std::ios::binary);
-    output.write(bytes.data(), static_cast<std::streamsize>(bytes.size() - 128));
-    ASSERT_TRUE(output);
+  const OrtxVideoLoadOptions fps{sizeof(OrtxVideoLoadOptions), kOrtxVideoSamplingFps, 2, 0, nullptr, 0, 0, 3, 1};
+  for (const size_t removed : {65u, 128u}) {
+    {
+      std::ofstream output(temporary.path, std::ios::binary);
+      output.write(bytes.data(), static_cast<std::streamsize>(bytes.size() - removed));
+      ASSERT_TRUE(output);
+    }
+    for (const auto& sampling : {options, fps}) {
+      OrtxRawFrames* frames = reinterpret_cast<OrtxRawFrames*>(uintptr_t{1});
+      EXPECT_EQ(OrtxLoadVideo(&frames, path.c_str(), &sampling, nullptr), kOrtxErrorCorruptData) << removed;
+      EXPECT_EQ(frames, nullptr);
+      if (frames != nullptr) ORTX_DISPOSE(frames);
+    }
   }
-  OrtxRawFrames* frames = reinterpret_cast<OrtxRawFrames*>(uintptr_t{1});
-  EXPECT_NE(OrtxLoadVideo(&frames, path.c_str(), &options, nullptr), kOrtxOK);
-  EXPECT_EQ(frames, nullptr);
 }
 #else
 TEST(VideoLoadingTest, DecoderDisabledRetainsSymbolsAndFrameInputs) {

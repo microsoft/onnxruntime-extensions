@@ -178,6 +178,19 @@ OrtxStatus Validate(const OrtxVideoLoadOptions& options, const OrtxVideoLimits& 
   return {};
 }
 
+OrtxStatus ValidateSampleExtents(AVStream& stream, FileInput& input) {
+  const int count = avformat_index_get_entries_count(&stream);
+  for (int i = 0; i < count; ++i) {
+    if (FileInput::Interrupt(&input)) return {kOrtxErrorOutOfRange, input.failure};
+    const auto* entry = avformat_index_get_entry(&stream, i);
+    if (entry == nullptr || entry->pos < 0 || entry->size < 0 || entry->pos > input.size ||
+        entry->size > input.size - entry->pos) {
+      return {kOrtxErrorCorruptData, "MP4 sample extends beyond the video file"};
+    }
+  }
+  return {};
+}
+
 OrtxStatus CopyRgb(Decoder& decoder, const OrtxVideoLimits& limits, const AVCodecParameters& parameters,
                    std::vector<uint8_t>& pixels, int& width, int& height) {
   const auto& frame = *decoder.frame;
@@ -341,11 +354,16 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
     }
   }
   if (stream_index < 0) return {kOrtxErrorInvalidFile, "MP4 contains no video stream"};
-  const auto& stream = *decoder.format->streams[stream_index];
+  auto& stream = *decoder.format->streams[stream_index];
   const auto& parameters = *stream.codecpar;
   if (parameters.codec_id != AV_CODEC_ID_H264 || stream.time_base.num <= 0 || stream.time_base.den <= 0) {
     return {kOrtxErrorNotImplemented, "Video loading requires H.264 with a valid presentation time base"};
   }
+  if (stream.sample_aspect_ratio.num > 0 && stream.sample_aspect_ratio.den > 0 &&
+      stream.sample_aspect_ratio.num != stream.sample_aspect_ratio.den) {
+    return {kOrtxErrorNotImplemented, "Video loading requires square-pixel presentation geometry"};
+  }
+  ORTX_RETURN_IF_ERROR(ValidateSampleExtents(stream, input));
   if (parameters.width <= 0 || parameters.height <= 0 || parameters.width > limits.max_dimension ||
       parameters.height > limits.max_dimension ||
       static_cast<uint64_t>(parameters.width) * static_cast<uint64_t>(parameters.height) > 16777216) {
@@ -363,6 +381,7 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
     return {kOrtxErrorCorruptData, "Invalid H.264 decoder parameters"};
   }
   decoder.codec->thread_count = 1;
+  decoder.codec->flags |= AV_CODEC_FLAG_COPY_OPAQUE;
   decoder.codec->opaque = &input;
   decoder.codec->get_buffer2 = FileInput::GetBuffer;
   decoder.codec->max_pixels = (std::min)(limits.max_dimension * limits.max_dimension, int64_t{16777216});
@@ -371,7 +390,7 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
     return {kOrtxErrorCorruptData, "Could not initialize H.264 decoder"};
 
   metadata = {sizeof(OrtxVideoMetadata), stream.time_base.num, stream.time_base.den, stream.start_time, 0, 0};
-  size_t target_index = 0, decoded_frames = 0, packet_count = 0, rgb_bytes = 0;
+  size_t target_index = 0, decoded_frames = 0, packet_count = 0, video_packets = 0, rgb_bytes = 0;
   int64_t last_pts = AV_NOPTS_VALUE;
   bool done = false, draining = false;
   auto target_at = [&](size_t index) -> double {
@@ -384,10 +403,10 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
     if (input.failure != nullptr) return {kOrtxErrorOutOfRange, input.failure};
     if (result == AVERROR(EAGAIN)) {
       if (draining) return {kOrtxErrorCorruptData, "H.264 decoder did not drain"};
-      if (packet_count == limits.max_packets) return {kOrtxErrorOutOfRange, "Video packet-work quota exceeded"};
       result = av_read_frame(decoder.format, decoder.packet);
       if (input.failure != nullptr) return {kOrtxErrorOutOfRange, input.failure};
       if (result == AVERROR_EOF) {
+        ORTX_RETURN_IF_ERROR(ValidateSampleExtents(stream, input));
         draining = true;
         if (avcodec_send_packet(decoder.codec, nullptr) < 0)
           return {kOrtxErrorCorruptData, "Could not drain H.264 decoder"};
@@ -396,9 +415,17 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
       if (result < 0 || (decoder.packet->flags & AV_PKT_FLAG_CORRUPT) != 0) {
         return {kOrtxErrorCorruptData, "Corrupt MP4 packet"};
       }
+      if (packet_count == limits.max_packets) return {kOrtxErrorOutOfRange, "Video packet-work quota exceeded"};
       ++packet_count;
-      if (decoder.packet->stream_index == stream_index && avcodec_send_packet(decoder.codec, decoder.packet) < 0) {
-        return {kOrtxErrorCorruptData, "Corrupt H.264 packet"};
+      if (decoder.packet->stream_index == stream_index) {
+        av_buffer_unref(&decoder.packet->opaque_ref);
+        decoder.packet->opaque_ref = av_buffer_alloc(sizeof(video_packets));
+        if (decoder.packet->opaque_ref == nullptr)
+          return {kOrtxErrorOutOfMemory, "Video packet identity allocation failed"};
+        std::memcpy(decoder.packet->opaque_ref->data, &video_packets, sizeof(video_packets));
+        if (avcodec_send_packet(decoder.codec, decoder.packet) < 0)
+          return {kOrtxErrorCorruptData, "Corrupt H.264 packet"};
+        ++video_packets;
       }
       av_packet_unref(decoder.packet);
       continue;
@@ -406,7 +433,12 @@ OrtxStatus DecodeVideo(const char* path, const OrtxVideoLoadOptions& options, co
     if (result == AVERROR_EOF) break;
     if (result < 0 || decoder.frame->decode_error_flags != 0) return {kOrtxErrorCorruptData, "Corrupt H.264 frame"};
     if (decoded_frames == limits.max_decoded_frames) return {kOrtxErrorOutOfRange, "Video frame-work quota exceeded"};
-    const size_t source_index = decoded_frames++;
+    ++decoded_frames;
+    if (decoder.frame->opaque_ref == nullptr || decoder.frame->opaque_ref->size != sizeof(size_t)) {
+      return {kOrtxErrorCorruptData, "Decoded video frame has no source packet identity"};
+    }
+    size_t source_index{};
+    std::memcpy(&source_index, decoder.frame->opaque_ref->data, sizeof(source_index));
     const int64_t pts = decoder.frame->pts;
     if (pts == AV_NOPTS_VALUE || (last_pts != AV_NOPTS_VALUE && pts < last_pts)) {
       return {kOrtxErrorCorruptData, "Video has missing or decreasing presentation timestamps"};

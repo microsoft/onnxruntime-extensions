@@ -711,6 +711,66 @@ TEST(ProcessorTest, ResolvedImagesUsePerImageGeometryAndCheckSources) {
   }
 }
 
+TEST(ProcessorTest, ResolvedImagesPreservePortraitAndLandscapePixelsWhenStacked) {
+  const char* definition = R"({"processor":{"transforms":[
+    {"operation":{"name":"decode","type":"DecodeImage"}},
+    {"operation":{"name":"rgb","type":"ConvertRGB"}},
+    {"operation":{"name":"resize","type":"Resize","attrs":{"height":2,"width":2}}},
+    {"operation":{"name":"rescale","type":"Rescale"}}
+  ]}})";
+  const char* paths[] = {"data/processor/australia.jpg", "data/processor/australia.jpg"};
+  OrtxObjectPtr<OrtxRawImages> images, single;
+  OrtxObjectPtr<OrtxProcessor> processor;
+  ASSERT_EQ(OrtxLoadImages(images.ToBeAssigned(), paths, 2, nullptr), kOrtxOK);
+  ASSERT_EQ(OrtxLoadImages(single.ToBeAssigned(), paths, 1, nullptr), kOrtxOK);
+  ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), definition), kOrtxOK);
+  std::array<OrtxImagePreProcessOptions, 2> options{{
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 2, 4},
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 4, 2},
+  }};
+  for (int order = 0; order < 2; ++order) {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    ASSERT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(),
+                                             result.ToBeAssigned()),
+              kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    OrtxObjectPtr<OrtxTensor> tensor;
+    ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+    const void* batch_data{};
+    const int64_t* shape{};
+    size_t rank{};
+    ASSERT_EQ(OrtxGetTensorData(tensor.get(), &batch_data, &shape, &rank), kOrtxOK);
+    ASSERT_EQ(rank, 4u);
+    ASSERT_EQ(std::vector<int64_t>(shape, shape + rank), (std::vector<int64_t>{2, 4, 4, 3}));
+    for (size_t image = 0; image < options.size(); ++image) {
+      OrtxObjectPtr<OrtxTensorResult> expected;
+      ASSERT_EQ(
+          OrtxImagePreProcessWithOptions(processor.get(), single.get(), &options[image], 1, expected.ToBeAssigned()),
+          kOrtxOK);
+      OrtxObjectPtr<OrtxTensor> expected_tensor;
+      ASSERT_EQ(OrtxTensorResultGetAt(expected.get(), 0, expected_tensor.ToBeAssigned()), kOrtxOK);
+      const void* expected_data{};
+      ASSERT_EQ(OrtxGetTensorData(expected_tensor.get(), &expected_data, &shape, &rank), kOrtxOK);
+      ASSERT_EQ(rank, 4u);
+      ASSERT_EQ(shape[0], 1);
+      ASSERT_EQ(shape[1], options[image].height);
+      ASSERT_EQ(shape[2], options[image].width);
+      ASSERT_EQ(shape[3], 3);
+      for (int64_t y = 0; y < 4; ++y) {
+        for (int64_t x = 0; x < 4; ++x) {
+          for (int64_t channel = 0; channel < 3; ++channel) {
+            const float value = y < shape[1] && x < shape[2]
+                                    ? static_cast<const float*>(expected_data)[(y * shape[2] + x) * 3 + channel]
+                                    : 0;
+            EXPECT_EQ(static_cast<const float*>(batch_data)[image * 48 + (y * 4 + x) * 3 + channel], value);
+          }
+        }
+      }
+    }
+    std::swap(options[0], options[1]);
+  }
+}
+
 TEST(ProcessorTest, TestGemma4ImageProcessing) {
   // Use a single test image to verify the Gemma 4 vision preprocessing pipeline:
   // DecodeImage -> Gemma4ImageTransform (aspect-ratio resize + patchify + position IDs)
