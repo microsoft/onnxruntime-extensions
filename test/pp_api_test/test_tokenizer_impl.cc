@@ -5,6 +5,8 @@
 #include <locale>
 #include <array>
 #include <future>
+#include <utility>
+#include <vector>
 #include "gtest/gtest.h"
 
 #ifdef _WIN32
@@ -42,9 +44,13 @@ TEST(OrtxTokenizerTest, BoundedEncodingMatchesLegacyAndRecoversAfterQuotaFailure
   ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK) << OrtxGetLastErrorMessage();
   ASSERT_EQ(OrtxPrepareBoundedTokenization(tokenizer.get()), kOrtxOK);
   const std::vector<std::string> inputs{"def f(x):\n    return x + 12345\n",
-                                        "caf\xc3\xa9 e\xcc\x81 \xe4\xb8\xad\xe6\x96\x87", "<|endoftext|> ordinary text",
-                                        std::string(4097, '9'), std::string(8193, 'a'),
-                                        "\xef\xbf\xbe", "\xef\xbf\xbf", "text \xef\xbf\xbe \xef\xbf\xbf end"};
+                                        "caf\xc3\xa9 e\xcc\x81 \xe4\xb8\xad\xe6\x96\x87",
+                                        "<|endoftext|> ordinary text",
+                                        std::string(4097, '9'),
+                                        std::string(8193, 'a'),
+                                        "\xef\xbf\xbe",
+                                        "\xef\xbf\xbf",
+                                        "text \xef\xbf\xbe \xef\xbf\xbf end"};
   for (const char* option : {"false", "TRUE"}) {
     const char* keys[] = {"add_special_tokens"};
     const char* values[] = {option};
@@ -90,8 +96,8 @@ TEST(OrtxTokenizerTest, BoundedEncodingValidatesPreparationInputAndOutputBeforeW
             kOrtxOK);
   EXPECT_EQ(count, 0u);
   EXPECT_TRUE(std::all_of(output.begin(), output.end(), [](auto id) { return id == 0xDEADBEEF; }));
-  for (const char* text : {"\xff", "\xed\xa0\x80", "\xc0\x80", "\xe0\x80\x80",
-                           "\xf0\x80\x80\x80", "\xf4\x90\x80\x80", "\xe2\x82", "\xf0\x9f\x92"}) {
+  for (const char* text : {"\xff", "\xed\xa0\x80", "\xc0\x80", "\xe0\x80\x80", "\xf0\x80\x80\x80", "\xf4\x90\x80\x80",
+                           "\xe2\x82", "\xf0\x9f\x92"}) {
     count = 99;
     EXPECT_NE(OrtxTokenizeIntoBuffer(tokenizer.get(), text, 65536, output.data(), output.size(), &count), kOrtxOK);
     EXPECT_EQ(count, 0u);
@@ -154,6 +160,50 @@ TEST(OrtxTokenizerTest, RegexTest) {
   }
   
   EXPECT_EQ(res, out_tokens);
+}
+
+TEST(OrtxTokenizerTest, Gpt4oPunctuationSlashSuffix) {
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"( ?[^\s\p{L}\p{N}]+[\r\n/]*)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  for (const std::u32string text : {U" {\n\n//", U" {\r\n//", U" {/\n//", U" {\n/\n/"}) {
+    splitter.Set(text);
+    EXPECT_EQ(splitter.GetNextToken(), text);
+    EXPECT_TRUE(splitter.GetNextToken().empty());
+    auto cursor = splitter.CreateCursor();
+    cursor.Set(text);
+    EXPECT_EQ(cursor.GetNextToken(), text);
+    EXPECT_TRUE(cursor.GetNextToken().empty());
+  }
+}
+
+TEST(OrtxTokenizerTest, PunctuationCrlfOnlySuffixPreserved) {
+  ort_extensions::bpe::PreTokenizerWithRegEx splitter;
+  auto status = splitter.Compile(R"( ?[^\s\p{L}\p{N}]+[\r\n]*)");
+  ASSERT_TRUE(status.IsOk()) << status.ToString();
+
+  const std::vector<std::pair<std::u32string, std::vector<std::u32string>>> cases = {
+      {U" {\n\n//", {U" {\n\n", U"//"}},
+      {U" {\r\n//", {U" {\r\n", U"//"}},
+      {U" {/\n//", {U" {/\n", U"//"}},
+      {U" {\n/\n/", {U" {\n", U"/\n", U"/"}},
+  };
+  for (const auto& [text, expected] : cases) {
+    splitter.Set(text);
+    std::vector<std::u32string> actual;
+    for (auto token = splitter.GetNextToken(); !token.empty(); token = splitter.GetNextToken()) {
+      actual.emplace_back(token);
+    }
+    EXPECT_EQ(actual, expected);
+    auto cursor = splitter.CreateCursor();
+    cursor.Set(text);
+    actual.clear();
+    for (auto token = cursor.GetNextToken(); !token.empty(); token = cursor.GetNextToken()) {
+      actual.emplace_back(token);
+    }
+    EXPECT_EQ(actual, expected);
+  }
 }
 
 TEST(OrtxTokenizerTest, Lfm25RegexTest) {

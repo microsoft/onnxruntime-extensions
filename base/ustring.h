@@ -103,12 +103,9 @@ class ustring : public std::u32string {
         if (s + 2 >= s_end) {
           return s_begin - s;
         }
-        if ((s[1] & 0xc0) != 0x80 ||
-            (s[2] & 0xc0) != 0x80 ||
-            (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
-            (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) || /* surrogate? */
-            (!allow_noncharacters && s[0] == 0xef && s[1] == 0xbf &&
-             (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
+        if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
+            (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) ||                                       /* surrogate? */
+            (!allow_noncharacters && s[0] == 0xef && s[1] == 0xbf && (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
           return s_begin - s;
         else
           s += 3;
