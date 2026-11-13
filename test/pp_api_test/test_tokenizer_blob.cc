@@ -314,7 +314,7 @@ TEST(TikTokenPathValidationTest, AcceptsEnclosedRelativePathsAndExtensionlessVoc
 
     ort_extensions::TokenJsonConfig cfg;
     ASSERT_TRUE(cfg.Load(tok_dir.string()).IsOk());
-    EXPECT_EQ(cfg.vocab_path_, (tok_dir / "sub\\vocab.tiktoken").string());
+    EXPECT_EQ(cfg.GetVocabDataFile(), (tok_dir / "sub\\vocab.tiktoken").string());
 
     std::unique_ptr<std::istream> vocab_stream;
     ASSERT_TRUE(cfg.OpenVocabFile(vocab_stream).IsOk());
