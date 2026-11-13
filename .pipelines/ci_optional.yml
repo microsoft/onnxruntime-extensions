@@ -137,9 +137,15 @@ stages:
       displayName: Use ADO python task
 
     - script: |
-        python -m pip install --upgrade setuptools pip
-        python -m pip install numpy
-        python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly
+        python -m venv "$(Agent.TempDirectory)\ort-nightly-venv" || exit /b 1
+        echo ##vso[task.prependpath]$(Agent.TempDirectory)\ort-nightly-venv\Scripts
+      displayName: Create isolated Python environment
+
+    - script: |
+        python -m pip install --upgrade setuptools pip || exit /b 1
+        rem Older humanfriendly versions install pyreadline, which fails on Python 3.12.
+        python -m pip install numpy "humanfriendly>=10" || exit /b 1
+        python -m pip install -U --index-url https://pkgs.dev.azure.com/aiinfra/PublicPackages/_packaging/ORT-Nightly/pypi/simple/ ort-nightly || exit /b 1
         python -m pip install -v -e .
       displayName: Build onnxruntime-extensions in editable mode.
 
