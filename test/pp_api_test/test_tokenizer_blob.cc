@@ -297,6 +297,10 @@ TEST(TikTokenPathValidationTest, AcceptsEnclosedRelativePathsAndExtensionlessVoc
 #ifdef _WIN32
   EXPECT_EQ(ort_extensions::path("C:\\tokenizer.json").parent_path(), "C:\\");
   EXPECT_EQ((ort_extensions::path("C:\\") / "tokenizer_config.json").string(), "C:\\tokenizer_config.json");
+#else
+  EXPECT_EQ(ort_extensions::path("/tmp/model\\/tokenizer.json").parent_path(), "/tmp/model\\");
+  EXPECT_EQ((ort_extensions::path("/tmp/model\\") / "tokenizer_config.json").string(),
+            "/tmp/model\\/tokenizer_config.json");
 #endif
 }
 
@@ -362,6 +366,9 @@ TEST(TikTokenPathValidationTest, RejectsTraversalAbsoluteDeviceDirectoryAndEscap
   std::filesystem::create_directory_symlink(outside_dir, tok_dir / "linked_out", symlink_ec);
   ASSERT_FALSE(symlink_ec) << symlink_ec.message();
   rejected_paths.push_back("linked_out/outside.tiktoken");
+  if (::mkfifo((tok_dir / "fifo.tiktoken").string().c_str(), 0600) == 0) {
+    rejected_paths.push_back("fifo.tiktoken");
+  }
 #endif
 
   // 1. Via tokenizer_config.json (without tokenizer_module.json override)

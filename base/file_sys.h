@@ -49,6 +49,22 @@ class path {
       '/';
 #endif
 
+  static constexpr const char* separators() {
+#ifdef _WIN32
+    return "\\/";
+#else
+    return "/";
+#endif
+  }
+
+  static constexpr bool is_separator(char ch) {
+#ifdef _WIN32
+    return ch == '\\' || ch == '/';
+#else
+    return ch == '/';
+#endif
+  }
+
   using ios_base = std::ios_base;
   std::ifstream open(ios_base::openmode mode = ios_base::in) const {
     // if Windows, need to convert the string to UTF-16
@@ -65,7 +81,7 @@ class path {
     if (path_.empty()) {
       return path(str);
     }
-    if (path_.back() == '/' || path_.back() == '\\') {
+    if (is_separator(path_.back())) {
       return path(path_ + str);
     }
     return path(path_ + separator + str);
@@ -86,7 +102,7 @@ class path {
   }
 
   std::string extension() const {
-    auto sep_pos = path_.find_last_of("/\\");
+    auto sep_pos = path_.find_last_of(separators());
     auto dot_pos = path_.find_last_of('.');
     if (dot_pos == std::string::npos || (sep_pos != std::string::npos && dot_pos < sep_pos)) {
       return "";
@@ -95,15 +111,11 @@ class path {
   }
 
   std::string parent_path() const {
-    std::string sep = {separator};
-#ifdef _WIN32
-    sep += "/";
-#endif  // _WIN32
-    auto pos = path_.find_last_of(sep);
+    auto pos = path_.find_last_of(separators());
     if (pos == std::string::npos) {
       return "";
     }
-    while (pos > 0 && (path_[pos - 1] == '/' || path_[pos - 1] == '\\')) {
+    while (pos > 0 && is_separator(path_[pos - 1])) {
       --pos;
     }
     if (pos == 0) {
@@ -336,6 +348,11 @@ class path {
 #else
     constexpr int kCloExec = 0;
 #endif
+#ifdef O_NONBLOCK
+    constexpr int kNonBlock = O_NONBLOCK;
+#else
+    constexpr int kNonBlock = 0;
+#endif
 
     ScopedFd dir_fd{::open(path_.c_str(), O_RDONLY | O_DIRECTORY | kCloExec)};
     if (dir_fd.fd < 0) {
@@ -351,7 +368,7 @@ class path {
       dir_fd.fd = next;
     }
 
-    ScopedFd file_fd{::openat(dir_fd.fd, segments.back().c_str(), O_RDONLY | O_NOFOLLOW | kCloExec)};
+    ScopedFd file_fd{::openat(dir_fd.fd, segments.back().c_str(), O_RDONLY | O_NOFOLLOW | kNonBlock | kCloExec)};
     if (file_fd.fd < 0) {
       return false;
     }
@@ -361,6 +378,13 @@ class path {
         static_cast<uint64_t>(st.st_size) > kMaxEnclosedFileBytes) {
       return false;
     }
+
+#ifdef O_NONBLOCK
+    int flags = ::fcntl(file_fd.fd, F_GETFL);
+    if (flags >= 0 && (flags & O_NONBLOCK) != 0) {
+      (void)::fcntl(file_fd.fd, F_SETFL, flags & ~O_NONBLOCK);
+    }
+#endif
 
     std::string data;
     data.reserve(static_cast<size_t>(st.st_size));
