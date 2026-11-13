@@ -10,6 +10,7 @@
 
 #include "c_only_test.h"
 #include "ortx_cpp_helper.h"
+#include "shared/api/chat_template_utils.h"
 
 using namespace ort_extensions;
 
@@ -1885,6 +1886,130 @@ TEST(OrtxTokenizerTest, ToolsNormalizedWhenNoToolDotFunction) {
       << "Normalized tools should NOT have 'function' key. Output: " << output;
 }
 
+TEST(OrtxTokenizerTest, GemmaToolMacroDetectorMatchesFormalParametersOnly) {
+  const std::pair<const char*, bool> cases[] = {
+      {R"({% macro format_function_declaration(tool_data) %})", true},
+      {R"({%- macro format_function_declaration(other, tool_data=None) -%})", true},
+      {R"({%+ macro format_function_declaration(x=call(1, [2, {'a': ')'}]), tool_data=None) +%})", true},
+      {R"({% macro format_function_declaration(x=tool_data) %})", false},
+      {R"({% macro format_function_declaration(x=call(tool_data=1)) %})", false},
+      {R"({% macro format_function_declaration(x=[tool_data]) %})", false},
+      {R"({% macro format_function_declaration(tool_data_extra) %})", false},
+      {R"({% macro format_function_declaration_extra(tool_data) %})", false},
+      {R"({% macro format_function_declaration(other) %}{{ tool_data }}{% endmacro %})", false},
+      {R"({% raw %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({%- raw -%}unmatched ' quote {# {{ {% macro format_function_declaration(tool_data) %}{%- endraw -%}{% macro format_function_declaration(tool_data) %})", true},
+      {R"({% raw %}{% endraw - %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw %}{% endraw + %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw %}{% raw %}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({% raw~%}{% macro format_function_declaration(tool_data) %}{% endraw %})", false},
+      {R"({%~ raw ~%}{% macro format_function_declaration(tool_data) %}{%~ endraw~%})", false},
+      {R"({% raw~%}{% endraw~%}{% macro format_function_declaration(tool_data) %})", true},
+      {R"({% raw %}{% macro format_function_declaration(tool_data) %})", false},
+      {R"({# {% raw %}{% endraw %}{% macro format_function_declaration(tool_data) %} #})", false},
+      {R"({% macro format_function_declaration(tool_data %})", false},
+  };
+
+  for (const auto& [tmpl, expected] : cases) {
+    EXPECT_EQ(detail::TemplateUsesGemmaToolDefinitionMacro(tmpl), expected) << tmpl;
+  }
+
+  std::string raw_with_many_statement_starts = "{% raw %}";
+  for (size_t i = 0; i < 10000; ++i) {
+    raw_with_many_statement_starts += "{%";
+  }
+  raw_with_many_statement_starts += "{% macro format_function_declaration(tool_data) %}{% endraw %}";
+  EXPECT_FALSE(detail::TemplateUsesGemmaToolDefinitionMacro(raw_with_many_statement_starts));
+}
+
+// Gemma 4's function-declaration macro identifies templates that need raw tools.
+TEST(OrtxTokenizerTest, GemmaFunctionDeclarationMacroPreservesRawTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+
+  const char* templates[] = {
+      R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data["function"]["name"] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({% macro format_function_declaration(tool_data) %}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data[ 'function' ]['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({%- macro format_function_declaration(tool_data) -%}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{%- endmacro -%}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+      R"({% macro format_function_declaration(tool_data) ~%}{% for k, v in tool_data.items() %}KEY={{k}} {% endfor %}NAME={{ tool_data['function']['name'] }}{% endmacro %}{% for tool in tools %}{{format_function_declaration(tool)}}{% endfor %})",
+  };
+
+  for (const char* minimal_template : templates) {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), minimal_template,
+        messages_json.c_str(), tools_json.c_str(),
+        templated_text.ToBeAssigned(), true, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+    std::string output(text_ptr);
+
+    EXPECT_NE(output.find("KEY=type"), std::string::npos) << "Raw tools should have 'type'. Output: " << output;
+    EXPECT_NE(output.find("KEY=function"), std::string::npos) << "Raw tools should have 'function'. Output: " << output;
+    EXPECT_NE(output.find("NAME=foo"), std::string::npos) << "Bracket access should read the function name. Output: " << output;
+    EXPECT_EQ(output.find("KEY=description"), std::string::npos)
+        << "Description stays inside function. Output: " << output;
+  }
+}
+
+TEST(OrtxTokenizerTest, BracketFunctionAccessInToolCallHistoryKeepsToolsNormalized) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json =
+      R"([{"role":"user","content":"hi"},{"role":"assistant","content":"","tool_calls":[{"function":{"name":"history","arguments":{}}}],"metadata":{"tool":{"function":{"name":"history"}}}}])";
+  std::string tools_json = R"([{"type":"function","function":{"name":"foo","description":"bar","parameters":{"type":"object","properties":{}}}}])";
+  const std::pair<const char*, const char*> cases[] = {
+      {R"({{ messages[1]['tool_calls'][0]['function']['name'] }}|{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "history|KEY=foo"},
+      {R"({% for called_tool in messages[1]['tool_calls'] %}{{ called_tool['function']['name'] }}{% endfor %}|{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "history|KEY=foo"},
+      {R"({% for tool in messages[1]['tool_calls'] %}{{ tool['function']['name'] }}{% endfor %}|{% for definition in tools %}KEY={{definition.name}}{% endfor %})",
+       "history|KEY=foo"},
+      {R"({% for tool in tools %}{{messages[1].metadata.tool['function']['name']}}|KEY={{tool.name}}{% endfor %})",
+       "history|KEY=foo"},
+      {R"({% for tool in tools %}{% set tool = messages[1]['tool_calls'][0] %}{{tool['function']['name']}}{% endfor %}|{% for definition in tools %}KEY={{definition.name}}{% endfor %})",
+       "history|KEY=foo"},
+      {R"({# tool['function'] #}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+      {R"({% set marker = "tool['function']" %}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+      {R"({# {% macro format_function_declaration(tool_data) %} #}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+      {R"({% set marker = "{% macro format_function_declaration(tool_data) %}" %}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+      {R"({# tool . function #}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+      {R"({% set marker = "tool . function" %}{% for tool in tools %}KEY={{tool.name}}{% endfor %})",
+       "KEY=foo"},
+  };
+
+  for (const auto& [minimal_template, expected] : cases) {
+    OrtxObjectPtr<OrtxTensorResult> templated_text;
+    auto err = OrtxApplyChatTemplate(
+        tokenizer.get(), minimal_template,
+        messages_json.c_str(), tools_json.c_str(),
+        templated_text.ToBeAssigned(), false, false);
+    ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+    OrtxObjectPtr<OrtxTensor> tensor;
+    OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+    ASSERT_EQ(tensor.Code(), kOrtxOK);
+    const char* text_ptr = nullptr;
+    OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+    EXPECT_EQ(std::string(text_ptr), expected);
+  }
+}
+
 /*
   Verify that minja supports Jinja2 implicit concatenation of adjacent string
   literals, e.g. {{ "foo" "bar" }} -> "foobar". This mirrors Python/Jinja2
@@ -2203,6 +2328,89 @@ TEST(OrtxTokenizerTest, Gemma4ChatTemplate) {
   OrtxObjectPtr<OrtxStringArray> decoded_text2;
   OrtxDetokenize(tokenizer.get(), token_ids2.get(), decoded_text2.ToBeAssigned());
   EXPECT_EQ(decoded_text2.Code(), kOrtxOK);
+}
+
+/*
+  Gemma 4's format_function_declaration reads tool['function'] and then
+  uppercases JSON Schema types. Both the raw-tool detector and the upper
+  filter are required; without the detector this throws
+  "Trying to access property 'name' on null".
+*/
+TEST(OrtxTokenizerTest, Gemma4ChatTemplateWithTools) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensorResult> templated_text;
+  std::string messages_json = R"([{"role":"user","content":"What is the weather?"}])";
+  std::string tools_json = R"(
+    [
+      {
+        "type": "function",
+        "function": {
+          "name": "get_weather",
+          "description": "Get the weather for a city",
+          "parameters": {
+            "type": "object",
+            "properties": {
+              "location": { "type": "string", "description": "City name" },
+              "nickname": { "type": ["string", "null"] }
+            },
+            "required": ["location"]
+          }
+        }
+      }
+    ])";
+
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), nullptr,
+      messages_json.c_str(), tools_json.c_str(),
+      templated_text.ToBeAssigned(), true, false);
+  ASSERT_EQ(err, kOrtxOK) << "Error: " << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(templated_text.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text_ptr = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text_ptr), nullptr, nullptr);
+  std::string output(text_ptr);
+
+  const std::string expected =
+      "<bos><|turn>system\n"
+      "<|tool>declaration:get_weather{description:<|\"|>Get the weather for a city<|\"|>,parameters:{properties:{location:{description:<|\"|>City name<|\"|>,type:<|\"|>STRING<|\"|>},nickname:{type:<|\"|>['STRING', 'NULL']<|\"|>}},required:[<|\"|>location<|\"|>],type:<|\"|>OBJECT<|\"|>}}<tool|><turn|>\n"
+      "<|turn>user\nWhat is the weather?<turn|>\n<|turn>model\n";
+  EXPECT_EQ(output, expected) << output;
+}
+
+// Gemma 4 parameter types use `| upper` and, for a list of types, `| map('upper')`.
+TEST(OrtxTokenizerTest, MinjaUpperFilter) {
+  OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, "data/models/gemma-4");
+  ASSERT_EQ(tokenizer.Code(), kOrtxOK) << "Failed to create Gemma 4 tokenizer: " << OrtxGetLastErrorMessage();
+
+  std::string messages_json = R"([{"role":"user","content":"hi"}])";
+  OrtxObjectPtr<OrtxTensorResult> result;
+  auto err = OrtxApplyChatTemplate(
+      tokenizer.get(), "{{ 'object' | upper }}|{{ ['string', 'null'] | map('upper') | join(',') }}",
+      messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+
+  OrtxObjectPtr<OrtxTensor> tensor;
+  OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  const char* text = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+  EXPECT_EQ(std::string(text), "OBJECT|STRING,NULL");
+
+  messages_json = R"([{"role":"user","content":"caf\u00e9 \u20ac \ud801\udc37"}])";
+  err = OrtxApplyChatTemplate(
+      tokenizer.get(),
+      "{{ messages[0].content | upper }}|{{ messages | map(attribute='content') | map('upper') | join(',') }}",
+      messages_json.c_str(), nullptr, result.ToBeAssigned(), false, false);
+  ASSERT_EQ(err, kOrtxOK) << OrtxGetLastErrorMessage();
+  OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned());
+  ASSERT_EQ(tensor.Code(), kOrtxOK);
+  text = nullptr;
+  OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&text), nullptr, nullptr);
+  EXPECT_EQ(std::string(text), "CAF\xc3\xa9 \xe2\x82\xac \xf0\x90\x90\xb7|CAF\xc3\xa9 \xe2\x82\xac \xf0\x90\x90\xb7");
 }
 
 // Test that string slicing with step != 1 and out-of-range indices does not

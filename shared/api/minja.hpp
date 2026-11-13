@@ -3762,6 +3762,15 @@ namespace minja
     auto str = text.get<std::string>();
     std::transform(str.begin(), str.end(), std::back_inserter(res), ::tolower);
     return Value(res); }));
+    globals.set("upper", simple_function("upper", {"text"}, [](const std::shared_ptr<Context> &, Value &args)
+                                         {
+    auto text = args.at("text");
+    if (text.is_null()) return text;
+    std::string res;
+    auto str = text.to_str();
+    std::transform(str.begin(), str.end(), std::back_inserter(res), [](unsigned char c)
+                   { return static_cast<char>(c >= 'a' && c <= 'z' ? c - ('a' - 'A') : c); });
+    return Value(res); }));
     globals.set("default", Value::callable([=](const std::shared_ptr<Context> &, ArgumentsValue &args)
                                            {
     args.expectArgs("default", {2, 3}, {0, 1});

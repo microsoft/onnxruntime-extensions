@@ -3,6 +3,7 @@
 
 #include <cctype>
 
+#include "chat_template_utils.h"
 #include "tokenizer_impl.h"
 namespace ort_extensions {
 
@@ -334,16 +335,20 @@ static json NormalizeTools(const char* tools_str) {
  * NormalizeTools() rewrites tools into the flat Phi-4/Minja shape, which is lossy: it
  * unwraps {"type":"function","function":{...}}, drops "required", "enum", "items" and any
  * nested property schema, and renames the "string" type to "str". That is only safe for
- * templates written against the flat shape. Two families need the raw objects instead:
+ * templates written against the flat shape. These families need the raw objects instead:
  *
  *   - Harmony/GPT-OSS templates, which reach into `tool.function` themselves.
  *   - Qwen-style templates, which serialize each tool verbatim with `tool | tojson`.
+ *   - Gemma 4, whose `format_function_declaration(tool_data)` macro reads nested
+ *     OpenAI tools through `tool_data['function']`.
  *
- * Feeding a normalized tool to the latter silently changes the prompt the model was
- * trained on, so it emits argument values that violate the real schema.
+ * Feeding a normalized tool to one of those templates either throws while rendering
+ * (Gemma 4 indexes a null `function`) or silently changes the prompt the model was
+ * trained on. The Gemma macro marker avoids treating bracket accesses to assistant
+ * tool-call history as evidence that tool definitions should stay raw.
  */
 static bool TemplateWantsRawTools(const std::string& tmpl) {
-  if (tmpl.find("tool.function") != std::string::npos) {
+  if (detail::TemplateUsesGemmaToolDefinitionMacro(tmpl)) {
     return true;
   }
 
@@ -354,6 +359,10 @@ static bool TemplateWantsRawTools(const std::string& tmpl) {
     if (!std::isspace(static_cast<unsigned char>(c))) {
       compact.push_back(c);
     }
+  }
+
+  if (tmpl.find("tool.function") != std::string::npos) {
+    return true;
   }
 
   return compact.find("tool|tojson") != std::string::npos || compact.find("tools|tojson") != std::string::npos;
