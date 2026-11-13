@@ -12,6 +12,62 @@
 
 using namespace ort_extensions;
 
+namespace {
+class TokenizerScratch final : public std::pmr::memory_resource {
+ public:
+  explicit TokenizerScratch(size_t limit) : limit_{limit} {}
+
+ private:
+  void* do_allocate(size_t bytes, size_t alignment) override {
+    if (bytes > limit_ - live_) throw std::bad_alloc{};
+    void* memory = std::pmr::new_delete_resource()->allocate(bytes, alignment);
+    live_ += bytes;
+    return memory;
+  }
+  void do_deallocate(void* pointer, size_t bytes, size_t alignment) override {
+    std::pmr::new_delete_resource()->deallocate(pointer, bytes, alignment);
+    live_ -= bytes;
+  }
+  bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override { return this == &other; }
+  size_t limit_, live_{};
+};
+}  // namespace
+
+extError_t ORTX_API_CALL OrtxPrepareBoundedTokenization(const OrtxTokenizer* tokenizer) try {
+  if (!tokenizer) {
+    ReturnableStatus::last_error_message_ = "Tokenizer must not be null";
+    return kOrtxErrorInvalidArgument;
+  }
+  const auto* implementation = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status{implementation->IsInstanceOf(kOrtxKindTokenizer)};
+  if (status.IsOk()) status = implementation->PrepareBoundedEncoding();
+  return status.Code();
+} catch (const std::exception&) {
+  ReturnableStatus::last_error_message_ = "Unable to prepare bounded tokenization";
+  return kOrtxErrorInvalidArgument;
+}
+
+extError_t ORTX_API_CALL OrtxTokenizeIntoBuffer(const OrtxTokenizer* tokenizer, const char* input, size_t scratch_bytes,
+                                                extTokenId_t* output, size_t capacity, size_t* count) try {
+  if (count) *count = 0;
+  if (!tokenizer || !input || !count || (capacity && !output)) {
+    ReturnableStatus::last_error_message_ = "Invalid bounded-tokenization argument";
+    return kOrtxErrorInvalidArgument;
+  }
+  const auto* implementation = static_cast<const TokenizerImpl*>(tokenizer);
+  ReturnableStatus status{implementation->IsInstanceOf(kOrtxKindTokenizer)};
+  if (!status.IsOk()) return status.Code();
+  TokenizerScratch scratch{scratch_bytes};
+  status = implementation->EncodeIntoBuffer(input, output, capacity, *count, scratch);
+  return status.Code();
+} catch (const std::bad_alloc&) {
+  ReturnableStatus::last_error_message_ = "Tokenization scratch allowance exhausted or allocation failed";
+  return kOrtxErrorInvalidArgument;
+} catch (const std::exception&) {
+  ReturnableStatus::last_error_message_ = "Bounded tokenization failed";
+  return kOrtxErrorInvalidArgument;
+}
+
 extError_t ORTX_API_CALL OrtxGetTokenWordPieceInfo(const OrtxTokenizer* tokenizer, extTokenId_t vocab_id,
                                                    OrtxWordPieceInfo* out) {
   if (!tokenizer || !out) {

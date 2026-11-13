@@ -8,6 +8,8 @@
 
 #include "tokenizer_impl.h"
 
+#include <cctype>
+
 namespace ort_extensions {
 
 TokenizerImpl::TokenizerImpl()
@@ -135,6 +137,37 @@ std::optional<std::string> TokenizerImpl::GetOption(const std::string& name) con
   }
 
   return option->second;
+}
+
+OrtxStatus TokenizerImpl::PrepareBoundedEncoding() const {
+  const auto tokenizer = std::get_if<bpe_tokenizer_t>(&tokenizer_);
+  if (!tokenizer || !*tokenizer) {
+    return {kOrtxErrorNotImplemented, "This tokenizer backend does not support bounded encoding."};
+  }
+  return (*tokenizer)->PrepareBoundedEncoding();
+}
+
+OrtxStatus TokenizerImpl::EncodeIntoBuffer(std::string_view input, extTokenId_t* output, size_t capacity, size_t& count,
+                                           std::pmr::memory_resource& scratch) const {
+  const auto tokenizer = std::get_if<bpe_tokenizer_t>(&tokenizer_);
+  if (!tokenizer || !*tokenizer) {
+    return {kOrtxErrorNotImplemented, "This tokenizer backend does not support bounded encoding."};
+  }
+  bool add_special_tokens = true;
+  {
+    std::lock_guard<std::mutex> lock{options_mutex_};
+    for (const auto& entry : options_map_) {
+      if (entry.first == "add_special_tokens") {
+        const auto& value = entry.second;
+        add_special_tokens = value != "0" && !(value.size() == 5 && std::equal(value.begin(), value.end(), "false",
+                                                                               [](unsigned char ch, char expected) {
+                                                                                 return std::tolower(ch) == expected;
+                                                                               }));
+        break;
+      }
+    }
+  }
+  return (*tokenizer)->EncodeIntoBuffer(input, output, capacity, count, add_special_tokens, scratch);
 }
 
 OrtxStatus TokenizerImpl::BatchEncode(const std::vector<std::string_view>& input,

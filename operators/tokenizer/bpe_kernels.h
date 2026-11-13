@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 #include <functional>
+#include <atomic>
+#include <memory_resource>
 
 #include "tokenizer_common.h"
 
@@ -42,6 +44,9 @@ struct KernelBpeTokenizer {
                          bool add_special_tokens = true);
 
   OrtxStatus ComputeLiteral(const std::string& input, std::vector<extTokenId_t>& tokenize_output) const;
+  OrtxStatus PrepareBoundedEncoding();
+  OrtxStatus EncodeIntoBuffer(std::string_view input, extTokenId_t* output, size_t capacity, size_t& count,
+                              bool add_special_tokens, std::pmr::memory_resource& scratch) const;
 
   const std::string& ModelName() const { return model_name_; }
   uint32_t GetTokenId(const std::string& token) const;
@@ -49,6 +54,11 @@ struct KernelBpeTokenizer {
 
  protected:
   using OffsetMappingType = std::list<std::pair<size_t, size_t>>;
+  template <typename Allocator, typename TokenMap>
+  std::vector<int64_t, Allocator> TokenizeImpl(std::u32string_view input, int64_t max_length,
+                                               std::list<OffsetMappingType>* offset_map, bool add_special_tokens,
+                                               bool recognize_added_tokens, const Allocator& allocator,
+                                               const TokenMap& added_tokens) const;
   std::vector<int64_t> Tokenize(ustring& input, int64_t max_length, bool compute_offset_mapping,
                                 std::list<OffsetMappingType>& offset_map, bool add_special_tokens,
                                 bool recognize_added_tokens) const;
@@ -92,6 +102,9 @@ struct KernelBpeTokenizer {
   // Cached compiled pre-tokenizer splitters (compiled once, reused per call via CreateCursor())
   mutable std::unique_ptr<CachedSplitters> cached_splitters_;
   mutable std::once_flag compile_pretokenizer_flag_;
+  std::once_flag bounded_encoding_flag_;
+  std::atomic<bool> bounded_encoding_ready_{false};
+  std::unordered_map<std::u32string_view, ort_extensions::AddedToken> added_token_views_;
 };
 
 struct GPT2Tokenizer : KernelBpeTokenizer {

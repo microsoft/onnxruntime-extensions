@@ -154,6 +154,19 @@ if (OCOS_ENABLE_C_API AND OCOS_BUILD_SHARED_LIB)
     "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
     "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
 
+  if(NOT IOS)
+    # Keep allocation interception isolated from the other test executables.
+    add_test_target(TARGET tokenizer_allocation_test
+      TEST_SOURCES "${TEST_SRC_DIR}/tokenizer_allocation_test/test_tokenizer_allocation.cc"
+      LIBRARIES onnxruntime_extensions ${ocos_libraries}
+      TEST_DATA_DIRECTORIES ${TEST_SRC_DIR}/data)
+    target_compile_definitions(tokenizer_allocation_test PRIVATE ${OCOS_COMPILE_DEFINITIONS})
+    target_include_directories(tokenizer_allocation_test PRIVATE
+      ${PROJECT_SOURCE_DIR}/
+      "$<TARGET_PROPERTY:ortcustomops,INTERFACE_INCLUDE_DIRECTORIES>"
+      "$<TARGET_PROPERTY:ocos_operators,INTERFACE_INCLUDE_DIRECTORIES>")
+  endif()
+
   add_test_target(TARGET tokenizer_shared_api_test
     TEST_SOURCES "${TEST_SRC_DIR}/shared_api_test/test_tokenizer_literal.cc"
     LIBRARIES extensions_shared

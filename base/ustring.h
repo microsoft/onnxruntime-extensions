@@ -78,15 +78,13 @@ class ustring : public std::u32string {
 
   // return a negative value for the first invalid utf8 char position,
   // otherwise the position of the terminating null character, which is the end of the string.
-  static ptrdiff_t ValidateUTF8(const std::string& data) {
-    const unsigned char* s = reinterpret_cast<const unsigned char*>(data.c_str());
+  static ptrdiff_t ValidateUTF8(std::string_view data, bool allow_noncharacters = false) {
+    if (data.empty()) return 0;
+    const unsigned char* s = reinterpret_cast<const unsigned char*>(data.data());
     const unsigned char* s_begin = s;
     const unsigned char* s_end = s + data.size();
 
-    if (*s_end != '\0')
-      return 0;
-
-    while (*s) {
+    while (s < s_end && *s) {
       if (*s < 0x80)
         /* 0xxxxxxx */
         s++;
@@ -105,12 +103,9 @@ class ustring : public std::u32string {
         if (s + 2 >= s_end) {
           return s_begin - s;
         }
-        if ((s[1] & 0xc0) != 0x80 ||
-            (s[2] & 0xc0) != 0x80 ||
-            (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
-            (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) || /* surrogate? */
-            (s[0] == 0xef && s[1] == 0xbf &&
-             (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
+        if ((s[1] & 0xc0) != 0x80 || (s[2] & 0xc0) != 0x80 || (s[0] == 0xe0 && (s[1] & 0xe0) == 0x80) || /* overlong? */
+            (s[0] == 0xed && (s[1] & 0xe0) == 0xa0) ||                                       /* surrogate? */
+            (!allow_noncharacters && s[0] == 0xef && s[1] == 0xbf && (s[2] & 0xfe) == 0xbe)) /* U+FFFE or U+FFFF? */
           return s_begin - s;
         else
           s += 3;
@@ -139,6 +134,15 @@ class ustring : public std::u32string {
   static u32string FromUTF8(const std::string_view& utf8) {
     u32string ucs32;
     ucs32.reserve(utf8.length() / 2);  // a rough estimation for less memory allocation.
+    FromUTF8Into(utf8, ucs32);
+    return ucs32;
+  }
+
+ public:
+  template <typename Allocator>
+  static void FromUTF8Into(std::string_view utf8,
+                           std::basic_string<char32_t, std::char_traits<char32_t>, Allocator>& ucs32) {
+    ucs32.clear();
     for (size_t i = 0; i < utf8.size();) {
       char32_t codepoint = 0;
       size_t remaining = utf8.size() - i;
@@ -160,10 +164,8 @@ class ustring : public std::u32string {
       }
       ucs32.push_back(codepoint);
     }
-    return ucs32;
   }
 
- public:
   static std::string ToUTF8(const u32string& ucs32) {
     std::string utf8;
     utf8.reserve(ucs32.length() * 2);  // most chars are 1-2 bytes
@@ -189,7 +191,9 @@ class ustring : public std::u32string {
   }
 
   // Write UTF-8 into an existing string (reuses its capacity to avoid heap allocations)
-  static void ToUTF8Into(const std::u32string_view& ucs32, std::string& utf8) {
+  template <typename Allocator>
+  static void ToUTF8Into(const std::u32string_view& ucs32,
+                         std::basic_string<char, std::char_traits<char>, Allocator>& utf8) {
     utf8.clear();
     char buf[4];
     for (char32_t codepoint : ucs32) {
