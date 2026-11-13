@@ -12,16 +12,20 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
-#include <cwchar>
+#else
+#include <errno.h>
+#include <fcntl.h>
+#include <unistd.h>
 #endif  // _WIN32
 
 #include <sys/stat.h>
 
 #include <cctype>
-#include <cstdlib>
+#include <cstdint>
 #include <fstream>
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ort_extensions {
 
@@ -61,6 +65,9 @@ class path {
     if (path_.empty()) {
       return path(str);
     }
+    if (path_.back() == '/' || path_.back() == '\\') {
+      return path(path_ + str);
+    }
     return path(path_ + separator + str);
   }
 
@@ -96,6 +103,17 @@ class path {
     if (pos == std::string::npos) {
       return "";
     }
+    while (pos > 0 && (path_[pos - 1] == '/' || path_[pos - 1] == '\\')) {
+      --pos;
+    }
+    if (pos == 0) {
+      return path_.substr(0, 1);
+    }
+#ifdef _WIN32
+    if (pos == 2 && std::isalpha(static_cast<unsigned char>(path_[0])) && path_[1] == ':') {
+      return path_.substr(0, 3);
+    }
+#endif  // _WIN32
     return path_.substr(0, pos);
   }
 
@@ -142,10 +160,30 @@ class path {
     return last_is_file;
   }
 
-  // Resolves rel_path relative to this directory and verifies that the canonical target
-  // is an existing regular file strictly enclosed within the canonical directory.
-  bool resolve_enclosed_regular_file(const std::string& rel_path, std::string& resolved_out) const {
+  // Opens rel_path relative to this directory without following escaping links, verifies
+  // that the opened handle/descriptor is a regular file strictly enclosed within this
+  // directory, and reads its bytes directly from that verified handle/descriptor.
+  bool open_enclosed_regular_file(const std::string& rel_path,
+                                  std::string& content_out,
+                                  std::string& resolved_out) const {
+    constexpr uint64_t kMaxEnclosedFileBytes = 512ULL * 1024ULL * 1024ULL;
     if (path_.empty() || path_.find('\0') != std::string::npos || !is_safe_relative_path(rel_path)) {
+      return false;
+    }
+
+    std::vector<std::string> segments;
+    std::string seg;
+    for (size_t i = 0; i <= rel_path.size(); ++i) {
+      if (i == rel_path.size() || rel_path[i] == '/' || rel_path[i] == '\\') {
+        if (!seg.empty() && seg != ".") {
+          segments.push_back(seg);
+        }
+        seg.clear();
+      } else {
+        seg.push_back(rel_path[i]);
+      }
+    }
+    if (segments.empty()) {
       return false;
     }
 
@@ -157,6 +195,21 @@ class path {
 
     struct ScopedHandle {
       HANDLE h{INVALID_HANDLE_VALUE};
+      ScopedHandle() = default;
+      explicit ScopedHandle(HANDLE handle) : h(handle) {}
+      ScopedHandle(const ScopedHandle&) = delete;
+      ScopedHandle& operator=(const ScopedHandle&) = delete;
+      ScopedHandle(ScopedHandle&& other) noexcept : h(other.h) { other.h = INVALID_HANDLE_VALUE; }
+      ScopedHandle& operator=(ScopedHandle&& other) noexcept {
+        if (this != &other) {
+          if (h != INVALID_HANDLE_VALUE) {
+            CloseHandle(h);
+          }
+          h = other.h;
+          other.h = INVALID_HANDLE_VALUE;
+        }
+        return *this;
+      }
       ~ScopedHandle() {
         if (h != INVALID_HANDLE_VALUE) {
           CloseHandle(h);
@@ -175,15 +228,43 @@ class path {
       return false;
     }
 
-    ScopedHandle file_handle{CreateFileW(candidate.w_path_.c_str(), GENERIC_READ,
+    path cur = *this;
+    std::vector<ScopedHandle> intermediate_handles;
+    intermediate_handles.reserve(segments.size() - 1);
+    for (size_t i = 0; i + 1 < segments.size(); ++i) {
+      cur = cur.join(segments[i]);
+      if (cur.w_path_.empty()) {
+        return false;
+      }
+      ScopedHandle sub_handle{CreateFileW(cur.w_path_.c_str(), 0,
+                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                                          OPEN_EXISTING,
+                                          FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr)};
+      if (sub_handle.h == INVALID_HANDLE_VALUE) {
+        return false;
+      }
+      BY_HANDLE_FILE_INFORMATION sub_info{};
+      if (!GetFileInformationByHandle(sub_handle.h, &sub_info) ||
+          (sub_info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) == 0 ||
+          (sub_info.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT) != 0) {
+        return false;
+      }
+      intermediate_handles.push_back(std::move(sub_handle));
+    }
+
+    const path leaf_path = cur.join(segments.back());
+    if (leaf_path.w_path_.empty()) {
+      return false;
+    }
+    ScopedHandle file_handle{CreateFileW(leaf_path.w_path_.c_str(), GENERIC_READ,
                                          FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr, OPEN_EXISTING,
-                                         FILE_ATTRIBUTE_NORMAL, nullptr)};
+                                         FILE_FLAG_OPEN_REPARSE_POINT, nullptr)};
     if (file_handle.h == INVALID_HANDLE_VALUE || GetFileType(file_handle.h) != FILE_TYPE_DISK) {
       return false;
     }
     BY_HANDLE_FILE_INFORMATION file_info{};
     if (!GetFileInformationByHandle(file_handle.h, &file_info) ||
-        (file_info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+        (file_info.dwFileAttributes & (FILE_ATTRIBUTE_DIRECTORY | FILE_ATTRIBUTE_REPARSE_POINT)) != 0) {
       return false;
     }
 
@@ -193,9 +274,8 @@ class path {
 
     std::wstring canon_dir;
     std::wstring canon_file;
-    bool used_dos_path = get_final_path(dir_handle.h, kFileNameNormalized | kVolumeNameDos, canon_dir) &&
-                         get_final_path(file_handle.h, kFileNameNormalized | kVolumeNameDos, canon_file);
-    if (!used_dos_path) {
+    if (!(get_final_path(dir_handle.h, kFileNameNormalized | kVolumeNameDos, canon_dir) &&
+          get_final_path(file_handle.h, kFileNameNormalized | kVolumeNameDos, canon_file))) {
       // Restricted sandboxes (e.g., LPAC AppContainer) may block MountPointManager;
       // fall back to kernel NT volume paths so canonical containment is still enforced.
       if (!get_final_path(dir_handle.h, kFileNameNormalized | kVolumeNameNt, canon_dir) ||
@@ -207,40 +287,103 @@ class path {
     while (!canon_dir.empty() && canon_dir.back() == L'\\') {
       canon_dir.pop_back();
     }
+    // GetFinalPathNameByHandleW with FILE_NAME_NORMALIZED returns exact on-disk entry casing
+    // for shared ancestor directories, so exact ordinal comparison works on case-insensitive
+    // volumes while rejecting case-sensitive sibling directories (e.g., tok vs TOK).
     if (canon_dir.empty() || canon_file.size() <= canon_dir.size() + 1 || canon_file[canon_dir.size()] != L'\\' ||
-        !equals_ordinal_ignore_case(canon_file.c_str(), canon_dir.c_str(), canon_dir.size())) {
+        canon_file.compare(0, canon_dir.size(), canon_dir) != 0) {
       return false;
     }
 
-    resolved_out = used_dos_path ? from_wstring(normalize_dos_final_path(canon_file)) : candidate.string();
-    return !resolved_out.empty();
+    LARGE_INTEGER file_size{};
+    if (!GetFileSizeEx(file_handle.h, &file_size) || file_size.QuadPart < 0 ||
+        static_cast<uint64_t>(file_size.QuadPart) > kMaxEnclosedFileBytes) {
+      return false;
+    }
+
+    std::string data;
+    data.reserve(static_cast<size_t>(file_size.QuadPart));
+    char chunk[65536];
+    for (;;) {
+      DWORD bytes_read = 0;
+      if (!ReadFile(file_handle.h, chunk, sizeof(chunk), &bytes_read, nullptr)) {
+        return false;
+      }
+      if (bytes_read == 0) {
+        break;
+      }
+      if (static_cast<uint64_t>(data.size()) + static_cast<uint64_t>(bytes_read) > kMaxEnclosedFileBytes) {
+        return false;
+      }
+      data.append(chunk, bytes_read);
+    }
+
+    content_out = std::move(data);
+    resolved_out = candidate.string();
+    return true;
 #else
-    std::unique_ptr<char, decltype(&std::free)> raw_dir(realpath(path_.c_str(), nullptr), &std::free);
-    std::unique_ptr<char, decltype(&std::free)> raw_file(realpath(candidate.path_.c_str(), nullptr), &std::free);
-    if (!raw_dir || !raw_file) {
+    struct ScopedFd {
+      int fd{-1};
+      ~ScopedFd() {
+        if (fd >= 0) {
+          ::close(fd);
+        }
+      }
+    };
+
+#ifdef O_CLOEXEC
+    constexpr int kCloExec = O_CLOEXEC;
+#else
+    constexpr int kCloExec = 0;
+#endif
+
+    ScopedFd dir_fd{::open(path_.c_str(), O_RDONLY | O_DIRECTORY | kCloExec)};
+    if (dir_fd.fd < 0) {
       return false;
     }
 
-    std::string canon_dir(raw_dir.get());
-    std::string canon_file(raw_file.get());
-    while (canon_dir.size() > 1 && canon_dir.back() == '/') {
-      canon_dir.pop_back();
+    for (size_t i = 0; i + 1 < segments.size(); ++i) {
+      int next = ::openat(dir_fd.fd, segments[i].c_str(), O_RDONLY | O_DIRECTORY | O_NOFOLLOW | kCloExec);
+      if (next < 0) {
+        return false;
+      }
+      ::close(dir_fd.fd);
+      dir_fd.fd = next;
     }
 
-    const bool inside = (canon_dir == "/") ? (canon_file.size() > 1 && canon_file[0] == '/')
-                                           : (canon_file.size() > canon_dir.size() + 1 &&
-                                              canon_file.compare(0, canon_dir.size(), canon_dir) == 0 &&
-                                              canon_file[canon_dir.size()] == '/');
-    if (!inside) {
+    ScopedFd file_fd{::openat(dir_fd.fd, segments.back().c_str(), O_RDONLY | O_NOFOLLOW | kCloExec)};
+    if (file_fd.fd < 0) {
       return false;
     }
 
     struct stat st{};
-    if (stat(canon_file.c_str(), &st) != 0 || !S_ISREG(st.st_mode)) {
+    if (::fstat(file_fd.fd, &st) != 0 || !S_ISREG(st.st_mode) || st.st_size < 0 ||
+        static_cast<uint64_t>(st.st_size) > kMaxEnclosedFileBytes) {
       return false;
     }
 
-    resolved_out = std::move(canon_file);
+    std::string data;
+    data.reserve(static_cast<size_t>(st.st_size));
+    char chunk[65536];
+    for (;;) {
+      ssize_t n = ::read(file_fd.fd, chunk, sizeof(chunk));
+      if (n < 0) {
+        if (errno == EINTR) {
+          continue;
+        }
+        return false;
+      }
+      if (n == 0) {
+        break;
+      }
+      if (static_cast<uint64_t>(data.size()) + static_cast<uint64_t>(n) > kMaxEnclosedFileBytes) {
+        return false;
+      }
+      data.append(chunk, static_cast<size_t>(n));
+    }
+
+    content_out = std::move(data);
+    resolved_out = candidate.string();
     return true;
 #endif
   }
@@ -323,30 +466,6 @@ class path {
     buffer.resize(written);
     out = std::move(buffer);
     return true;
-  }
-
-  static bool equals_ordinal_ignore_case(const wchar_t* lhs, const wchar_t* rhs, size_t count) {
-    using CompareOrdinalFn = int(WINAPI*)(LPCWCH, int, LPCWCH, int, BOOL);
-    static const CompareOrdinalFn fn = []() -> CompareOrdinalFn {
-      HMODULE kernel32 = GetModuleHandleW(L"kernel32.dll");
-      return kernel32 ? reinterpret_cast<CompareOrdinalFn>(GetProcAddress(kernel32, "CompareStringOrdinal")) : nullptr;
-    }();
-    if (fn) {
-      constexpr int kCstrEqual = 2;
-      return fn(lhs, static_cast<int>(count), rhs, static_cast<int>(count), TRUE) == kCstrEqual;
-    }
-    return _wcsnicmp(lhs, rhs, count) == 0;
-  }
-
-  static std::wstring normalize_dos_final_path(const std::wstring& final_path) {
-    if (final_path.compare(0, 8, L"\\\\?\\UNC\\") == 0 && final_path.size() - 6 < MAX_PATH) {
-      return L"\\\\" + final_path.substr(8);
-    }
-    if (final_path.compare(0, 4, L"\\\\?\\") == 0 && final_path.size() >= 6 && final_path[5] == L':' &&
-        final_path.size() - 4 < MAX_PATH) {
-      return final_path.substr(4);
-    }
-    return final_path;
   }
 
   static bool is_windows_reserved_segment(const std::string& segment) {

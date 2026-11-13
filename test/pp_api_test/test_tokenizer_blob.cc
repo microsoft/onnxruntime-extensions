@@ -262,6 +262,42 @@ TEST(TikTokenPathValidationTest, AcceptsEnclosedRelativePathsAndExtensionlessVoc
     ASSERT_NO_FATAL_FAILURE(Encode(tokenizer.get(), "This is a test.", &actual_ids));
     EXPECT_EQ(actual_ids, expected_ids);
   }
+
+#ifdef _WIN32
+  {
+    std::string lower_dir = tok_dir.string();
+    for (char& ch : lower_dir) {
+      ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, lower_dir.c_str());
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  }
+#endif
+
+  // Verified vocabulary bytes are retained from the opened handle rather than reopened by pathname.
+  {
+    json mod = base_module;
+    mod["tiktoken_file"] = "cl100k_base.tiktoken";
+    write_file(tok_dir / "tokenizer_module.json", mod.dump());
+    ort_extensions::TokenJsonConfig cfg;
+    ASSERT_TRUE(cfg.Load(tok_dir.string()).IsOk());
+    std::filesystem::remove(tok_dir / "cl100k_base.tiktoken");
+
+    std::unique_ptr<std::istream> vocab_stream;
+    ASSERT_TRUE(cfg.OpenVocabFile(vocab_stream).IsOk());
+    ASSERT_NE(vocab_stream, nullptr);
+    const std::string loaded_bytes{std::istreambuf_iterator<char>{*vocab_stream}, {}};
+    EXPECT_EQ(loaded_bytes, raw_tiktoken);
+  }
+
+  // Rooted file paths preserve their root directory instead of collapsing parent_path() to empty.
+  EXPECT_EQ(ort_extensions::path("tokenizer.json").parent_path(), "");
+  EXPECT_EQ(ort_extensions::path("/tokenizer.json").parent_path(), "/");
+  EXPECT_EQ((ort_extensions::path("/") / "tokenizer_config.json").string(), "/tokenizer_config.json");
+#ifdef _WIN32
+  EXPECT_EQ(ort_extensions::path("C:\\tokenizer.json").parent_path(), "C:\\");
+  EXPECT_EQ((ort_extensions::path("C:\\") / "tokenizer_config.json").string(), "C:\\tokenizer_config.json");
+#endif
 }
 
 TEST(TikTokenPathValidationTest, RejectsTraversalAbsoluteDeviceDirectoryAndEscapingLinks) {
