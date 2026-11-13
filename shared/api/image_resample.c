@@ -715,11 +715,10 @@ precompute_coeffs(
 
     /* check for overflow using size_t arithmetic to avoid signed int overflow
        in the check itself */
-    if (ksize <= 0 ||
-        (size_t)ksize > SIZE_MAX / sizeof(double) ||
+    if (ksize <= 0 || (size_t)outSize > (size_t)INT_MAX / (size_t)ksize || (size_t)ksize > SIZE_MAX / sizeof(double) ||
         (size_t)outSize > SIZE_MAX / ((size_t)ksize * sizeof(double))) {
-        ImagingError_MemoryError();
-        return 0;
+      ImagingError_MemoryError();
+      return 0;
     }
 
     /* coefficient buffer */
@@ -778,19 +777,19 @@ precompute_coeffs(
 
 void
 normalize_coeffs_8bpc(int outSize, int ksize, double *prekk) {
-    int x;
-    int32_t *kk;
+  size_t x;
+  int32_t* kk;
 
-    // use the same buffer for normalized coefficients
-    kk = (int32_t *)prekk;
+  // use the same buffer for normalized coefficients
+  kk = (int32_t*)prekk;
 
-    for (x = 0; x < outSize * ksize; x++) {
-        if (prekk[x] < 0) {
-            kk[x] = (int)(-0.5 + prekk[x] * (1 << PRECISION_BITS));
-        } else {
-            kk[x] = (int)(0.5 + prekk[x] * (1 << PRECISION_BITS));
-        }
+  for (x = 0; x < (size_t)outSize * (size_t)ksize; x++) {
+    if (prekk[x] < 0) {
+      kk[x] = (int)(-0.5 + prekk[x] * (1 << PRECISION_BITS));
+    } else {
+      kk[x] = (int)(0.5 + prekk[x] * (1 << PRECISION_BITS));
     }
+  }
 }
 
 void
@@ -1045,6 +1044,39 @@ ImagingResampleVertical_32bpc(
 typedef void (*ResampleFunction)(
     Imaging imOut, Imaging imIn, int offset, int ksize, int *bounds, double *kk);
 
+static void quantize_coeffs_int16(int outSize, int ksize, double* coeffs) {
+  const size_t count = (size_t)outSize * (size_t)ksize;
+  double maximum = 0.0;
+  size_t index;
+  unsigned int precision = 0;
+  for (index = 0; index < count; ++index) {
+    if (coeffs[index] > maximum) {
+      maximum = coeffs[index];
+    }
+  }
+  while (precision < PRECISION_BITS && (int)(0.5 + ldexp(maximum, precision + 1)) < 32768) {
+    ++precision;
+  }
+  for (index = 0; index < count; ++index) {
+    const double value = ldexp(coeffs[index], precision);
+    const int quantized = (int)(value < 0.0 ? value - 0.5 : value + 0.5);
+    /* Keep exact binary coefficients so the existing 22-bit convolution
+       performs the same integer rounding without another pixel kernel. */
+    coeffs[index] = ldexp((double)quantized, -(int)precision);
+  }
+}
+
+static void ImagingResampleHorizontal_int16(Imaging imOut, Imaging imIn, int offset, int ksize, int* bounds,
+                                            double* kk) {
+  quantize_coeffs_int16(imOut->xsize, ksize, kk);
+  ImagingResampleHorizontal_8bpc(imOut, imIn, offset, ksize, bounds, kk);
+}
+
+static void ImagingResampleVertical_int16(Imaging imOut, Imaging imIn, int offset, int ksize, int* bounds, double* kk) {
+  quantize_coeffs_int16(imOut->ysize, ksize, kk);
+  ImagingResampleVertical_8bpc(imOut, imIn, offset, ksize, bounds, kk);
+}
+
 Imaging
 ImagingResampleInner(
     Imaging imIn,
@@ -1055,78 +1087,85 @@ ImagingResampleInner(
     ResampleFunction ResampleHorizontal,
     ResampleFunction ResampleVertical);
 
-Imaging
-ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]) {
-    struct filter *filterp;
-    ResampleFunction ResampleHorizontal;
-    ResampleFunction ResampleVertical;
+static Imaging ImagingResampleImpl(Imaging imIn, int xsize, int ysize, int filter, float box[4], int int16_coeffs) {
+  struct filter* filterp;
+  ResampleFunction ResampleHorizontal;
+  ResampleFunction ResampleVertical;
 
-    /* Validate output size */
-    if (xsize <= 0 || ysize <= 0) {
-        return (Imaging)ImagingError_ValueError("invalid output size");
-    }
+  /* Validate output size */
+  if (xsize <= 0 || ysize <= 0) {
+    return (Imaging)ImagingError_ValueError("invalid output size");
+  }
 
-    /* Validate box coordinates: must be finite, properly ordered, and within image bounds */
-    if (!isfinite(box[0]) || !isfinite(box[1]) ||
-        !isfinite(box[2]) || !isfinite(box[3])) {
-        return (Imaging)ImagingError_ValueError("invalid box (non-finite)");
-    }
-    if (box[0] >= box[2] || box[1] >= box[3]) {
-        return (Imaging)ImagingError_ValueError("invalid box coordinates");
-    }
-    if (box[0] < 0 || box[1] < 0 ||
-        box[2] > (float)imIn->xsize || box[3] > (float)imIn->ysize) {
-        return (Imaging)ImagingError_ValueError("box exceeds image bounds");
-    }
+  /* Validate box coordinates: must be finite, properly ordered, and within image bounds */
+  if (!isfinite(box[0]) || !isfinite(box[1]) || !isfinite(box[2]) || !isfinite(box[3])) {
+    return (Imaging)ImagingError_ValueError("invalid box (non-finite)");
+  }
+  if (box[0] >= box[2] || box[1] >= box[3]) {
+    return (Imaging)ImagingError_ValueError("invalid box coordinates");
+  }
+  if (box[0] < 0 || box[1] < 0 || box[2] > (float)imIn->xsize || box[3] > (float)imIn->ysize) {
+    return (Imaging)ImagingError_ValueError("box exceeds image bounds");
+  }
 
-    if (strcmp(imIn->mode, "P") == 0 || strcmp(imIn->mode, "1") == 0) {
+  if (strcmp(imIn->mode, "P") == 0 || strcmp(imIn->mode, "1") == 0) {
+    return (Imaging)ImagingError_ModeError();
+  }
+
+  if (imIn->type == IMAGING_TYPE_SPECIAL) {
+    return (Imaging)ImagingError_ModeError();
+  } else if (imIn->image8) {
+    ResampleHorizontal = int16_coeffs ? ImagingResampleHorizontal_int16 : ImagingResampleHorizontal_8bpc;
+    ResampleVertical = int16_coeffs ? ImagingResampleVertical_int16 : ImagingResampleVertical_8bpc;
+  } else {
+    switch (imIn->type) {
+      case IMAGING_TYPE_UINT8:
+        ResampleHorizontal = int16_coeffs ? ImagingResampleHorizontal_int16 : ImagingResampleHorizontal_8bpc;
+        ResampleVertical = int16_coeffs ? ImagingResampleVertical_int16 : ImagingResampleVertical_8bpc;
+        break;
+      case IMAGING_TYPE_INT32:
+      case IMAGING_TYPE_FLOAT32:
+        ResampleHorizontal = ImagingResampleHorizontal_32bpc;
+        ResampleVertical = ImagingResampleVertical_32bpc;
+        break;
+      default:
         return (Imaging)ImagingError_ModeError();
     }
+  }
 
-    if (imIn->type == IMAGING_TYPE_SPECIAL) {
-        return (Imaging)ImagingError_ModeError();
-    } else if (imIn->image8) {
-        ResampleHorizontal = ImagingResampleHorizontal_8bpc;
-        ResampleVertical = ImagingResampleVertical_8bpc;
-    } else {
-        switch (imIn->type) {
-            case IMAGING_TYPE_UINT8:
-                ResampleHorizontal = ImagingResampleHorizontal_8bpc;
-                ResampleVertical = ImagingResampleVertical_8bpc;
-                break;
-            case IMAGING_TYPE_INT32:
-            case IMAGING_TYPE_FLOAT32:
-                ResampleHorizontal = ImagingResampleHorizontal_32bpc;
-                ResampleVertical = ImagingResampleVertical_32bpc;
-                break;
-            default:
-                return (Imaging)ImagingError_ModeError();
-        }
-    }
+  /* check filter */
+  switch (filter) {
+    case IMAGING_TRANSFORM_BOX:
+      filterp = &BOX;
+      break;
+    case IMAGING_TRANSFORM_BILINEAR:
+      filterp = &BILINEAR;
+      break;
+    case IMAGING_TRANSFORM_HAMMING:
+      filterp = &HAMMING;
+      break;
+    case IMAGING_TRANSFORM_BICUBIC:
+      filterp = &BICUBIC;
+      break;
+    case IMAGING_TRANSFORM_LANCZOS:
+      filterp = &LANCZOS;
+      break;
+    default:
+      return (Imaging)ImagingError_ValueError("unsupported resampling filter");
+  }
 
-    /* check filter */
-    switch (filter) {
-        case IMAGING_TRANSFORM_BOX:
-            filterp = &BOX;
-            break;
-        case IMAGING_TRANSFORM_BILINEAR:
-            filterp = &BILINEAR;
-            break;
-        case IMAGING_TRANSFORM_HAMMING:
-            filterp = &HAMMING;
-            break;
-        case IMAGING_TRANSFORM_BICUBIC:
-            filterp = &BICUBIC;
-            break;
-        case IMAGING_TRANSFORM_LANCZOS:
-            filterp = &LANCZOS;
-            break;
-        default:
-            return (Imaging)ImagingError_ValueError("unsupported resampling filter");
-    }
+  return ImagingResampleInner(imIn, xsize, ysize, filterp, box, ResampleHorizontal, ResampleVertical);
+}
 
-    return ImagingResampleInner(
-        imIn, xsize, ysize, filterp, box, ResampleHorizontal, ResampleVertical);
+Imaging ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]) {
+  return ImagingResampleImpl(imIn, xsize, ysize, filter, box, 0);
+}
+
+Imaging ImagingResampleInt16(Imaging imIn, int xsize, int ysize, int filter, float box[4]) {
+  if (imIn->type != IMAGING_TYPE_UINT8) {
+    return (Imaging)ImagingError_ModeError();
+  }
+  return ImagingResampleImpl(imIn, xsize, ysize, filter, box, 1);
 }
 
 Imaging

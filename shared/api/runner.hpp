@@ -594,8 +594,12 @@ class OrtxRunner {
             dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT && dtype != ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL) {
             return {kOrtxErrorInvalidArgument, "[StackTensors]: shapes of tensors to stack are not the same."};
           }
-          if (IsGreaterShape(ts[axis]->Shape(), shape)) {
-            shape = ts[axis]->Shape();
+          const auto& input_shape = ts[axis]->Shape();
+          if (input_shape.size() != shape.size()) {
+            return {kOrtxErrorInvalidArgument, "[StackTensors]: ranks of tensors to stack are not the same."};
+          }
+          for (size_t dimension = 0; dimension < shape.size(); ++dimension) {
+            shape[dimension] = (std::max)(shape[dimension], input_shape[dimension]);
           }
         }
         ts_ptrs.push_back(ts[axis]);

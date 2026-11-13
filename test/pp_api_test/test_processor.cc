@@ -7,17 +7,359 @@
 #include <fstream>
 #include <filesystem>
 #include <chrono>
+#include <limits>
+#include <map>
+#include <numeric>
+#include <variant>
 
 #include "gtest/gtest.h"
 #include "ortx_cpp_helper.h"
 #include "shared/api/image_processor.h"
 #include "shared/api/image_transforms_gemma4.hpp"
 #include "shared/api/image_transforms.hpp"
+#include "shared/api/image_transforms_qwen2_5.hpp"
 
 using namespace ort_extensions;
 
-const char* test_image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg", "data/processor/exceltable.png"};
+const char* test_image_paths[] = {"data/processor/standard_s.jpg", "data/processor/australia.jpg",
+                                  "data/processor/exceltable.png"};
 const size_t test_image_count = sizeof(test_image_paths) / sizeof(test_image_paths[0]);
+
+TEST(ProcessorTest, RawFramesOwnPackedPixelsAndPresentationTimes) {
+  std::vector<uint8_t> pixels{1, 2, 3, 4, 5, 6, 255, 255, 7, 8, 9, 10, 11, 12};
+  OrtxFrame descriptors[] = {{pixels.data(), pixels.size(), 2, 2, 8, 10.25},
+                             {pixels.data(), pixels.size(), 2, 2, 8, 10.25}};
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  ASSERT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), descriptors, 2, nullptr), kOrtxOK);
+  std::fill(pixels.begin(), pixels.end(), 0);
+  size_t count{};
+  ASSERT_EQ(OrtxGetRawFrameCount(frames.get(), &count), kOrtxOK);
+  ASSERT_EQ(count, 2);
+  for (size_t i = 0; i < count; ++i) {
+    OrtxFrame view{};
+    ASSERT_EQ(OrtxGetRawFrame(frames.get(), i, &view), kOrtxOK);
+    EXPECT_EQ(view.row_stride, 6);
+    EXPECT_EQ(view.data_size, 12);
+    EXPECT_EQ(view.timestamp_seconds, 10.25);
+    const auto* data = static_cast<const uint8_t*>(view.data);
+    EXPECT_EQ(std::vector<uint8_t>(data, data + view.data_size),
+              (std::vector<uint8_t>{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}));
+  }
+  OrtxFrame view{};
+  EXPECT_EQ(OrtxGetRawFrame(frames.get(), count, &view), kOrtxErrorOutOfRange);
+}
+
+TEST(ProcessorTest, RawFramesValidateAllDescriptorsBeforeReadingPixels) {
+  OrtxFrame descriptors[] = {{reinterpret_cast<const void*>(uintptr_t{1}), 12, 2, 2, 6, 0.0},
+                             {reinterpret_cast<const void*>(uintptr_t{1}), 12, 2, 2, 0, 1.0}};
+  OrtxRawFrames* frames = reinterpret_cast<OrtxRawFrames*>(uintptr_t{1});
+  EXPECT_EQ(OrtxCreateRawFrames(&frames, descriptors, 2, nullptr), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(frames, nullptr);
+  descriptors[1].row_stride = 6;
+  const OrtxFrameLimits limits{sizeof(OrtxFrameLimits), 2, 23, 2};
+  EXPECT_EQ(OrtxCreateRawFrames(&frames, descriptors, 2, &limits), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(frames, nullptr);
+}
+
+TEST(ProcessorTest, RawFramesRejectInvalidGeometryExtentsAndTimes) {
+  std::vector<uint8_t> pixels(14, 7);
+  const OrtxFrame valid{pixels.data(), pixels.size(), 2, 2, 8, 1.0};
+  std::vector<OrtxFrame> invalid(10, valid);
+  invalid[0].data = nullptr;
+  invalid[1].data_size = 13;
+  invalid[2].row_stride = 5;
+  invalid[3].row_stride = 0;
+  invalid[4].width = 0;
+  invalid[5].height = -1;
+  invalid[6].width = 16385;
+  invalid[7].timestamp_seconds = -1;
+  invalid[8].timestamp_seconds = std::numeric_limits<double>::infinity();
+  invalid[9].timestamp_seconds = std::numeric_limits<double>::quiet_NaN();
+  for (const auto& descriptor : invalid) {
+    OrtxObjectPtr<OrtxRawFrames> frames;
+    EXPECT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), &descriptor, 1, nullptr), kOrtxErrorInvalidArgument);
+    EXPECT_EQ(frames.get(), nullptr);
+  }
+  OrtxFrame ordered[] = {valid, valid};
+  ordered[1].timestamp_seconds = 0;
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  EXPECT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), ordered, 2, nullptr), kOrtxErrorInvalidArgument);
+  ordered[0].width = std::numeric_limits<int64_t>::max();
+  const OrtxFrameLimits limits{sizeof(OrtxFrameLimits), 2, std::numeric_limits<size_t>::max(),
+                               std::numeric_limits<int64_t>::max()};
+  EXPECT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), ordered, 2, &limits), kOrtxErrorInvalidArgument);
+  ordered[0] = valid;
+  ordered[0].height = 3;
+  ordered[0].row_stride = std::numeric_limits<size_t>::max();
+  EXPECT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), ordered, 2, &limits), kOrtxErrorInvalidArgument);
+}
+
+TEST(ProcessorTest, RawFramesEnforceExactQuotasAndHandleKinds) {
+  uint8_t pixels[12]{};
+  OrtxFrame descriptors[] = {{pixels, sizeof(pixels), 2, 2, 6, 0.0}, {pixels, sizeof(pixels), 2, 2, 6, 1.0}};
+  OrtxFrameLimits limits{sizeof(OrtxFrameLimits), 2, 24, 2};
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  ASSERT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), descriptors, 2, &limits), kOrtxOK);
+  OrtxRawFrames* rejected{};
+  limits.max_frames = 1;
+  EXPECT_EQ(OrtxCreateRawFrames(&rejected, descriptors, 2, &limits), kOrtxErrorInvalidArgument);
+  limits.max_frames = 2;
+  limits.struct_size--;
+  EXPECT_EQ(OrtxCreateRawFrames(&rejected, descriptors, 2, &limits), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(OrtxCreateRawFrames(&rejected, descriptors, 0, nullptr), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(OrtxCreateRawFrames(nullptr, descriptors, 2, nullptr), kOrtxErrorInvalidArgument);
+  OrtxObjectPtr<OrtxRawImages> images;
+  const void* data[] = {pixels};
+  const int64_t sizes[] = {sizeof(pixels)};
+  ASSERT_EQ(OrtxCreateRawImages(images.ToBeAssigned(), data, sizes, 1), kOrtxOK);
+  size_t count{};
+  EXPECT_EQ(OrtxGetRawFrameCount(images.get(), &count), kOrtxErrorInvalidArgument);
+  OrtxFrame view{};
+  EXPECT_EQ(OrtxGetRawFrame(images.get(), 0, &view), kOrtxErrorInvalidArgument);
+}
+
+TEST(ProcessorTest, PatchImagePacksDistinctFramesInSourceOrder) {
+  for (const auto& shape : std::vector<std::vector<int64_t>>{{3, 4, 8, 3}, {4, 4, 6, 3}, {1, 4, 8, 3}}) {
+    const int64_t patch = shape[2] == 8 ? 2 : 1;
+    const int64_t merge = 2;
+    const int64_t temporal = 2;
+    const int64_t grid_h = shape[1] / patch;
+    const int64_t grid_w = shape[2] / patch;
+    const int64_t rows_per_group = grid_h * grid_w;
+    std::vector<float> data(static_cast<size_t>(shape[0] * shape[1] * shape[2] * shape[3]));
+    std::iota(data.begin(), data.end(), 0.f);
+    ortc::Tensor<float> input(shape, data.data());
+    ortc::Tensor<float> output(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> grid(&CppAllocator::Instance());
+    PatchImage operation;
+    ASSERT_TRUE(operation
+                    .Init(std::map<std::string, std::variant<int64_t>>{
+                        {"patch_size", patch}, {"temporal_patch_size", temporal}, {"merge_size", merge}})
+                    .IsOk());
+    ASSERT_TRUE(operation.Compute(input, output, grid).IsOk());
+    ASSERT_EQ(output.Shape(),
+              (std::vector<int64_t>{((shape[0] + 1) / 2) * rows_per_group, shape[3] * temporal * patch * patch}));
+    for (int64_t row = 0; row < output.Shape()[0]; ++row) {
+      const int64_t spatial_row = row % rows_per_group;
+      const int64_t block = spatial_row / (merge * merge);
+      const int64_t within_block = spatial_row % (merge * merge);
+      const int64_t patch_y = block / (grid_w / merge) * merge + within_block / merge;
+      const int64_t patch_x = block % (grid_w / merge) * merge + within_block % merge;
+      for (int64_t column = 0; column < output.Shape()[1]; ++column) {
+        const int64_t frame =
+            std::min(row / rows_per_group * temporal + column / (patch * patch) % temporal, shape[0] - 1);
+        const int64_t channel = column / (temporal * patch * patch);
+        const int64_t y = patch_y * patch + column / patch % patch;
+        const int64_t x = patch_x * patch + column % patch;
+        EXPECT_EQ(output.Data()[row * output.Shape()[1] + column],
+                  data[static_cast<size_t>(((frame * shape[1] + y) * shape[2] + x) * shape[3] + channel)]);
+      }
+    }
+    if (shape[0] == 1) {
+      ortc::Tensor<float> image({shape[1], shape[2], shape[3]}, data.data());
+      ortc::Tensor<float> image_output(&CppAllocator::Instance());
+      ASSERT_TRUE(operation.Compute(image, image_output, grid).IsOk());
+      EXPECT_EQ(std::vector<float>(image_output.Data(), image_output.Data() + data.size() * temporal),
+                std::vector<float>(output.Data(), output.Data() + data.size() * temporal));
+    }
+  }
+}
+
+TEST(ProcessorTest, PatchImageRejectsInvalidVideoGeometryBeforeAllocation) {
+  float data{};
+  ortc::Tensor<float> input({3, 4, 6, 3}, &data);
+  ortc::Tensor<float> output(&CppAllocator::Instance());
+  ortc::Tensor<int64_t> grid(&CppAllocator::Instance());
+  for (int64_t patch : {0, -1, 2}) {
+    PatchImage operation;
+    ASSERT_TRUE(
+        operation.Init(std::map<std::string, std::variant<int64_t>>{{"patch_size", patch}, {"merge_size", int64_t{2}}})
+            .IsOk());
+    EXPECT_FALSE(operation.Compute(input, output, grid).IsOk());
+    EXPECT_FALSE(static_cast<bool>(output));
+    EXPECT_FALSE(static_cast<bool>(grid));
+  }
+}
+
+TEST(ProcessorTest, RawFramesUseSharedTransformsBeforeTemporalPacking) {
+  const char* definition = R"({"processor":{"transforms":[
+    {"operation":{"name":"rescale","type":"Rescale"}},
+    {"operation":{"name":"normalize","type":"Normalize","attrs":{"mean":[0.5,0.5,0.5],"std":[0.5,0.5,0.5]}}},
+    {"operation":{"name":"patch","type":"PatchImage","attrs":{"patch_size":1,"temporal_patch_size":2,"merge_size":2}}}
+  ]}})";
+  OrtxObjectPtr<OrtxProcessor> processor;
+  ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), definition), kOrtxOK);
+  std::vector<uint8_t> first(48), second(48), third(48);
+  for (size_t i = 0; i < first.size(); i += 3) {
+    first[i] = 255;
+    first[i + 1] = 128;
+    second[i + 1] = 255;
+    second[i + 2] = 128;
+    third[i] = 64;
+    third[i + 1] = 192;
+    third[i + 2] = 255;
+  }
+  const OrtxFrame descriptors[] = {{first.data(), first.size(), 4, 4, 12, 0},
+                                   {second.data(), second.size(), 4, 4, 12, 0.5},
+                                   {third.data(), third.size(), 4, 4, 12, 0.8}};
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  ASSERT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), descriptors, 3, nullptr), kOrtxOK);
+  OrtxObjectPtr<OrtxTensorResult> result;
+  ASSERT_EQ(OrtxFramesPreProcess(processor.get(), frames.get(), nullptr, result.ToBeAssigned()), kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxObjectPtr<OrtxTensor> tensor;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+  const void* raw{};
+  const int64_t* shape{};
+  size_t rank{};
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), &raw, &shape, &rank), kOrtxOK);
+  ASSERT_EQ(rank, 2);
+  ASSERT_EQ(shape[0], 32);
+  ASSERT_EQ(shape[1], 6);
+  const auto* data = static_cast<const float*>(raw);
+  const float middle = (128.f / 255.f - 0.5f) / 0.5f;
+  const float expected[] = {1.f, -1.f, middle, 1.f, -1.f, middle};
+  for (size_t row = 0; row < 16; ++row)
+    for (size_t column = 0; column < 6; ++column) EXPECT_FLOAT_EQ(data[row * 6 + column], expected[column]);
+  for (size_t row = 16; row < 32; ++row)
+    for (size_t column = 0; column < 6; ++column)
+      EXPECT_FLOAT_EQ(data[row * 6 + column], (static_cast<float>(third[column / 2]) / 255.f - 0.5f) / 0.5f);
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned()), kOrtxOK);
+  ASSERT_EQ(OrtxGetTensorData(tensor.get(), &raw, &shape, &rank), kOrtxOK);
+  const auto* grid = static_cast<const int64_t*>(raw);
+  EXPECT_EQ(std::vector<int64_t>(grid, grid + 3), (std::vector<int64_t>{2, 4, 4}));
+  OrtxObjectPtr<OrtxProcessor> image_processor;
+  ASSERT_EQ(OrtxCreateProcessor(image_processor.ToBeAssigned(), "data/processor/clip_image.json"), kOrtxOK);
+  OrtxTensorResult* rejected{};
+  EXPECT_EQ(OrtxFramesPreProcess(image_processor.get(), frames.get(), nullptr, &rejected), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+}
+
+TEST(ProcessorTest, RawFramesValidateStorageWithoutReadingPixels) {
+  const auto* unreadable = reinterpret_cast<const void*>(uintptr_t{1});
+  OrtxFrame descriptors[] = {{unreadable, 14, 2, 2, 8, 0}, {unreadable, 14, 2, 2, 8, 1}};
+  size_t bytes = 99;
+  EXPECT_EQ(OrtxValidateRawFrames(descriptors, 2, nullptr, &bytes), kOrtxOK);
+  EXPECT_EQ(bytes, 24);
+  descriptors[1].row_stride = 5;
+  EXPECT_EQ(OrtxValidateRawFrames(descriptors, 2, nullptr, &bytes), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(bytes, 0);
+}
+
+TEST(ProcessorTest, RawFramesResolvedGeometryDoesNotMutateTheProcessor) {
+  const char* definition = R"({"processor":{"transforms":[
+    {"operation":{"name":"resize","type":"Resize","attrs":{"height":2,"width":2,"smart_resize":1,
+      "min_pixels":4,"max_pixels":4,"patch_size":1,"merge_size":2}}},
+    {"operation":{"name":"rescale","type":"Rescale"}},
+    {"operation":{"name":"patch","type":"PatchImage","attrs":{"patch_size":1,"temporal_patch_size":2,"merge_size":2}}}
+  ]}})";
+  OrtxObjectPtr<OrtxProcessor> processor;
+  ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), definition), kOrtxOK);
+  const std::array<uint8_t, 12> pixels{};
+  const OrtxFrame descriptors[] = {{pixels.data(), pixels.size(), 2, 2, 6, 0},
+                                   {pixels.data(), pixels.size(), 2, 2, 6, 1}};
+  OrtxObjectPtr<OrtxRawFrames> frames;
+  ASSERT_EQ(OrtxCreateRawFrames(frames.ToBeAssigned(), descriptors, 2, nullptr), kOrtxOK);
+  const OrtxFramePreProcessOptions resolved{sizeof(OrtxFramePreProcessOptions), 4, 6};
+  for (const auto* options : std::array<const OrtxFramePreProcessOptions*, 3>{nullptr, &resolved, nullptr}) {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    ASSERT_EQ(OrtxFramesPreProcess(processor.get(), frames.get(), options, result.ToBeAssigned()), kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    OrtxObjectPtr<OrtxTensor> tensor;
+    ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 1, tensor.ToBeAssigned()), kOrtxOK);
+    const void* data{};
+    const int64_t* shape{};
+    size_t rank{};
+    ASSERT_EQ(OrtxGetTensorData(tensor.get(), &data, &shape, &rank), kOrtxOK);
+    const auto* grid = static_cast<const int64_t*>(data);
+    EXPECT_EQ(std::vector<int64_t>(grid, grid + 3),
+              (options ? std::vector<int64_t>{1, 4, 6} : std::vector<int64_t>{1, 2, 2}));
+  }
+  OrtxTensorResult* rejected{};
+  const size_t short_options_size = sizeof(size_t);
+  EXPECT_EQ(OrtxFramesPreProcess(processor.get(), frames.get(),
+                                 reinterpret_cast<const OrtxFramePreProcessOptions*>(&short_options_size), &rejected),
+            kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+  const OrtxFramePreProcessOptions invalid{sizeof(OrtxFramePreProcessOptions), 0, 6};
+  EXPECT_EQ(OrtxFramesPreProcess(processor.get(), frames.get(), &invalid, &rejected), kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+}
+
+TEST(ProcessorTest, ResizeUsesTensorCoefficientsWithoutChangingImageDefaults) {
+  std::vector<uint8_t> pixels(11 * 19 * 3);
+  for (size_t i = 0; i < pixels.size(); ++i) pixels[i] = static_cast<uint8_t>(i * 37 + 19);
+  ortc::Tensor<uint8_t> input({11, 19, 3}, pixels.data());
+  ortc::Tensor<uint8_t> output(&CppAllocator::Instance());
+  Resize operation;
+  std::map<std::string, std::variant<int64_t, std::string>> attrs{
+      {"height", int64_t{7}}, {"width", int64_t{13}}, {"interpolation", std::string{"CUBIC"}}};
+  ASSERT_TRUE(operation.Init(attrs).IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  EXPECT_EQ(output.Data()[(4 * 13 + 6) * 3], 135);
+  attrs["coefficient_type"] = std::string{"int16"};
+  ASSERT_TRUE(operation.Init(attrs).IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  // Independent pinned tensor-resize reference; the legacy PIL byte is 135.
+  EXPECT_EQ(output.Data()[(4 * 13 + 6) * 3], 136);
+  attrs["coefficient_type"] = std::string{"int32"};
+  ASSERT_TRUE(operation.Init(attrs).IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  EXPECT_EQ(output.Data()[(4 * 13 + 6) * 3], 135);
+  attrs["coefficient_type"] = std::string{"float"};
+  EXPECT_FALSE(operation.Init(attrs).IsOk());
+}
+
+TEST(ProcessorTest, ResizeOpenCVCubicPreservesBordersAndRoundsOnce) {
+  std::array<uint8_t, 6> pixels{0, 0, 0, 255, 255, 255};
+  ortc::Tensor<uint8_t> input({1, 2, 3}, pixels.data());
+  ortc::Tensor<uint8_t> output(&CppAllocator::Instance());
+  Resize operation;
+  using Attributes = std::map<std::string, std::variant<int64_t, std::string>>;
+  Attributes attrs{{"height", int64_t{1}}, {"width", int64_t{4}}, {"interpolation", std::string{"CUBIC_OPENCV"}}};
+  ASSERT_TRUE(operation.Init(attrs).IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  EXPECT_EQ(std::vector<uint8_t>(output.Data(), output.Data() + 12),
+            (std::vector<uint8_t>{0, 0, 0, 58, 58, 58, 197, 197, 197, 255, 255, 255}));
+  pixels = {0, 1, 254, 1, 2, 255};
+  attrs["width"] = int64_t{1};
+  ASSERT_TRUE(operation.Init(attrs).IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  EXPECT_EQ(std::vector<uint8_t>(output.Data(), output.Data() + 3), (std::vector<uint8_t>{0, 2, 254}));
+}
+
+TEST(ProcessorTest, ResizeOpenCVCubicMatchesPinnedSourceDownsample) {
+  std::vector<uint8_t> pixels(3 * 5 * 3);
+  for (size_t i = 0; i < pixels.size(); ++i) pixels[i] = static_cast<uint8_t>(i * 47 + 13);
+  ortc::Tensor<uint8_t> input({3, 5, 3}, pixels.data());
+  ortc::Tensor<uint8_t> output(&CppAllocator::Instance());
+  Resize operation;
+  ASSERT_TRUE(operation
+                  .Init(std::map<std::string, std::variant<int64_t, std::string>>{
+                      {"height", int64_t{2}}, {"width", int64_t{3}}, {"interpolation", std::string{"CUBIC_OPENCV"}}})
+                  .IsOk());
+  ASSERT_TRUE(operation.Compute(input, output).IsOk());
+  // OpenCV 4.12.0 INTER_CUBIC with floating-coefficient acceleration.
+  EXPECT_EQ(std::vector<uint8_t>(output.Data(), output.Data() + 18),
+            (std::vector<uint8_t>{88, 139, 140, 85, 65, 121, 88, 138, 118, 117, 167, 180, 190, 170, 19, 116, 167, 92}));
+}
+
+TEST(ProcessorTest, ResizeRejectsUnrepresentableFrameGeometryBeforePixelAccess) {
+  std::array<uint8_t, 3> pixel{};
+  Resize operation;
+  for (const auto& shape :
+       std::vector<std::vector<int64_t>>{{0, 1, 3},
+                                         {1, 0, 3},
+                                         {static_cast<int64_t>((std::numeric_limits<int>::max)()) + 1, 1, 3},
+                                         {1, static_cast<int64_t>(UINT32_MAX) + 2, 3},
+                                         {static_cast<int64_t>(UINT32_MAX) + 2, 1, 3},
+                                         {1, 1, static_cast<int64_t>(UINT32_MAX) + 4}}) {
+    ortc::Tensor<uint8_t> output(&CppAllocator::Instance());
+    ortc::Tensor<uint8_t> input(shape, pixel.data());
+    EXPECT_EQ(operation.Compute(input, output).Code(), kOrtxErrorInvalidArgument);
+    EXPECT_FALSE(static_cast<bool>(output));
+  }
+}
 
 TEST(ProcessorTest, TestPhi3VImageProcessing) {
   auto [input_data, n_data] = ort_extensions::LoadRawImages(test_image_paths, test_image_count);
@@ -128,22 +470,21 @@ TEST(ProcessorTest, TestMLlamaImageProcessing) {
 
 TEST(ProcessorTest, TestMLlamaNonSquareTileSizeRejected) {
   OrtxObjectPtr<OrtxProcessor> processor;
-  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
-                                       "data/processor/mllama/llama_3_image_nonsquare.json");
+  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/mllama/llama_3_image_nonsquare.json");
   ASSERT_NE(err, kOrtxOK) << "Non-square tile size must be rejected by Llama3ImageTransform::Init";
 }
 
 TEST(ProcessorTest, TestMLlamaMissingMaxImageTilesRejected) {
   OrtxObjectPtr<OrtxProcessor> processor;
-  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
-                                       "data/processor/mllama/llama_3_image_missing_max_tiles.json");
+  extError_t err =
+      OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/mllama/llama_3_image_missing_max_tiles.json");
   ASSERT_NE(err, kOrtxOK) << "Missing 'max_image_tiles' must be rejected by Llama3ImageTransform::Init";
 }
 
 TEST(ProcessorTest, TestMLlamaMissingSizeRejected) {
   OrtxObjectPtr<OrtxProcessor> processor;
-  extError_t err = OrtxCreateProcessor(processor.ToBeAssigned(),
-                                       "data/processor/mllama/llama_3_image_missing_size.json");
+  extError_t err =
+      OrtxCreateProcessor(processor.ToBeAssigned(), "data/processor/mllama/llama_3_image_missing_size.json");
   ASSERT_NE(err, kOrtxOK) << "Missing 'size' must be rejected by Llama3ImageTransform::Init";
 }
 
@@ -183,8 +524,7 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&int_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(std::vector<int64_t>(shape, shape + num_dims), std::vector<int64_t>({3, 2}));
-  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 6),
-            std::vector<int64_t>({1344, 1344, 896, 1344, 448, 896}));
+  EXPECT_EQ(std::vector<int64_t>(int_data, int_data + 6), std::vector<int64_t>({1344, 1344, 896, 1344, 448, 896}));
 
   // mask data (float32)
   err = OrtxTensorResultGetAt(result.get(), 2, tensor.ToBeAssigned());
@@ -206,11 +546,14 @@ TEST(ProcessorTest, TestPhi4VisionProcessor) {
 TEST(ProcessorTest, TestSmartResizeMatchesHuggingFace) {
   // LFM2-VL settings; expected sizes are from transformers' Lfm2VlImageProcessor.smart_resize
   Resize resize;
-  AttrDict attrs = {{"smart_resize", int64_t{1}}, {"min_pixels", int64_t{65536}}, {"max_pixels", int64_t{262144}},
-                    {"patch_size", int64_t{16}}, {"merge_size", int64_t{2}}};
+  AttrDict attrs = {{"smart_resize", int64_t{1}},
+                    {"min_pixels", int64_t{65536}},
+                    {"max_pixels", int64_t{262144}},
+                    {"patch_size", int64_t{16}},
+                    {"merge_size", int64_t{2}}};
   ASSERT_TRUE(resize.Init(attrs).IsOk());
   EXPECT_EQ(resize.smart_resize(400, 500), std::make_tuple(int64_t{384}, int64_t{512}));  // 400 / 32 = 12.5 -> 12
-  EXPECT_EQ(resize.smart_resize(17, 30), std::make_tuple(int64_t{224}, int64_t{352}));  // no truncation before ceil
+  EXPECT_EQ(resize.smart_resize(17, 30), std::make_tuple(int64_t{224}, int64_t{352}));    // no truncation before ceil
 
   // A zero factor would divide by zero in smart_resize
   EXPECT_FALSE(Resize().Init(AttrDict{{"patch_size", int64_t{0}}}).IsOk());
@@ -269,7 +612,6 @@ TEST(ProcessorTest, TestQwen2_5VLImageProcessing) {
   // Compute MSE
   double mse = 0.0;
   for (size_t i = 0; i < 1000; i++) {
-
     double diff = static_cast<double>(cpp_data[i]) - static_cast<double>(reference[i]);
     mse += diff * diff;
   }
@@ -317,6 +659,118 @@ TEST(ProcessorTest, TestQwen3VLImageProcessing) {
   ASSERT_EQ(patch_dim, 1536);
 }
 
+TEST(ProcessorTest, ResolvedImagesUsePerImageGeometryAndCheckSources) {
+  const char* paths[] = {"data/processor/australia.jpg", "data/processor/australia.jpg"};
+  OrtxObjectPtr<OrtxRawImages> images;
+  ASSERT_EQ(OrtxLoadImages(images.ToBeAssigned(), paths, 2, nullptr), kOrtxOK);
+  OrtxObjectPtr<OrtxProcessor> processor;
+  ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), "data/qwen3vl/vision_processor.json"), kOrtxOK);
+  std::array<OrtxImagePreProcessOptions, 2> options{{
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 64, 96},
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 96, 64},
+  }};
+  OrtxObjectPtr<OrtxTensorResult> result;
+  ASSERT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(),
+                                           result.ToBeAssigned()),
+            kOrtxOK)
+      << OrtxGetLastErrorMessage();
+  OrtxObjectPtr<OrtxTensor> grid;
+  ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 1, grid.ToBeAssigned()), kOrtxOK);
+  const int64_t* data{};
+  const int64_t* shape{};
+  size_t rank{};
+  ASSERT_EQ(OrtxGetTensorData(grid.get(), reinterpret_cast<const void**>(&data), &shape, &rank), kOrtxOK);
+  ASSERT_EQ(rank, 3u);
+  ASSERT_EQ(shape[0], 2);
+  ASSERT_EQ(shape[1], 1);
+  ASSERT_EQ(shape[2], 3);
+  const std::array<int64_t, 6> expected{1, 4, 6, 1, 6, 4};
+  EXPECT_TRUE(std::equal(expected.begin(), expected.end(), data));
+  OrtxTensorResult* rejected{};
+  EXPECT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), 1, &rejected),
+            kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+  options[1].source_width = 1299;
+  EXPECT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(), &rejected),
+            kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+  options[1].source_width = 1300;
+  options[1].height = 0;
+  EXPECT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(), &rejected),
+            kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+  EXPECT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), nullptr, options.size(), &rejected),
+            kOrtxErrorInvalidArgument);
+  EXPECT_EQ(rejected, nullptr);
+  options[1].height = 96;
+  for (size_t size : {sizeof(OrtxImagePreProcessOptions) - 1, sizeof(OrtxImagePreProcessOptions) + 8}) {
+    options[1].struct_size = size;
+    EXPECT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(), &rejected),
+              kOrtxErrorInvalidArgument);
+    EXPECT_EQ(rejected, nullptr);
+  }
+}
+
+TEST(ProcessorTest, ResolvedImagesPreservePortraitAndLandscapePixelsWhenStacked) {
+  const char* definition = R"({"processor":{"transforms":[
+    {"operation":{"name":"decode","type":"DecodeImage"}},
+    {"operation":{"name":"rgb","type":"ConvertRGB"}},
+    {"operation":{"name":"resize","type":"Resize","attrs":{"height":2,"width":2}}},
+    {"operation":{"name":"rescale","type":"Rescale"}}
+  ]}})";
+  const char* paths[] = {"data/processor/australia.jpg", "data/processor/australia.jpg"};
+  OrtxObjectPtr<OrtxRawImages> images, single;
+  OrtxObjectPtr<OrtxProcessor> processor;
+  ASSERT_EQ(OrtxLoadImages(images.ToBeAssigned(), paths, 2, nullptr), kOrtxOK);
+  ASSERT_EQ(OrtxLoadImages(single.ToBeAssigned(), paths, 1, nullptr), kOrtxOK);
+  ASSERT_EQ(OrtxCreateProcessor(processor.ToBeAssigned(), definition), kOrtxOK);
+  std::array<OrtxImagePreProcessOptions, 2> options{{
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 2, 4},
+      {sizeof(OrtxImagePreProcessOptions), 876, 1300, 4, 2},
+  }};
+  for (int order = 0; order < 2; ++order) {
+    OrtxObjectPtr<OrtxTensorResult> result;
+    ASSERT_EQ(OrtxImagePreProcessWithOptions(processor.get(), images.get(), options.data(), options.size(),
+                                             result.ToBeAssigned()),
+              kOrtxOK)
+        << OrtxGetLastErrorMessage();
+    OrtxObjectPtr<OrtxTensor> tensor;
+    ASSERT_EQ(OrtxTensorResultGetAt(result.get(), 0, tensor.ToBeAssigned()), kOrtxOK);
+    const void* batch_data{};
+    const int64_t* shape{};
+    size_t rank{};
+    ASSERT_EQ(OrtxGetTensorData(tensor.get(), &batch_data, &shape, &rank), kOrtxOK);
+    ASSERT_EQ(rank, 4u);
+    ASSERT_EQ(std::vector<int64_t>(shape, shape + rank), (std::vector<int64_t>{2, 4, 4, 3}));
+    for (size_t image = 0; image < options.size(); ++image) {
+      OrtxObjectPtr<OrtxTensorResult> expected;
+      ASSERT_EQ(
+          OrtxImagePreProcessWithOptions(processor.get(), single.get(), &options[image], 1, expected.ToBeAssigned()),
+          kOrtxOK);
+      OrtxObjectPtr<OrtxTensor> expected_tensor;
+      ASSERT_EQ(OrtxTensorResultGetAt(expected.get(), 0, expected_tensor.ToBeAssigned()), kOrtxOK);
+      const void* expected_data{};
+      ASSERT_EQ(OrtxGetTensorData(expected_tensor.get(), &expected_data, &shape, &rank), kOrtxOK);
+      ASSERT_EQ(rank, 4u);
+      ASSERT_EQ(shape[0], 1);
+      ASSERT_EQ(shape[1], options[image].height);
+      ASSERT_EQ(shape[2], options[image].width);
+      ASSERT_EQ(shape[3], 3);
+      for (int64_t y = 0; y < 4; ++y) {
+        for (int64_t x = 0; x < 4; ++x) {
+          for (int64_t channel = 0; channel < 3; ++channel) {
+            const float value = y < shape[1] && x < shape[2]
+                                    ? static_cast<const float*>(expected_data)[(y * shape[2] + x) * 3 + channel]
+                                    : 0;
+            EXPECT_EQ(static_cast<const float*>(batch_data)[image * 48 + (y * 4 + x) * 3 + channel], value);
+          }
+        }
+      }
+    }
+    std::swap(options[0], options[1]);
+  }
+}
+
 TEST(ProcessorTest, TestGemma4ImageProcessing) {
   // Use a single test image to verify the Gemma 4 vision preprocessing pipeline:
   // DecodeImage -> Gemma4ImageTransform (aspect-ratio resize + patchify + position IDs)
@@ -347,8 +801,8 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   size_t num_dims;
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pv_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(num_dims, 3ULL);           // (batch, max_patches, patch_dim)
-  ASSERT_EQ(shape[0], 1);              // single image
+  ASSERT_EQ(num_dims, 3ULL);  // (batch, max_patches, patch_dim)
+  ASSERT_EQ(shape[0], 1);     // single image
   // Default max_patches = 280 * 9 = 2520
   constexpr int64_t kMaxPatches = 280 * 9;
   constexpr int64_t kPatchDim = 16 * 16 * 3;  // 768
@@ -373,25 +827,17 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   // The float-domain resize can differ by up to ~2e-3 in uniform regions because
   // coefficient precomputation differs slightly from Pillow's integer rounding.
   // Patch 0, first 10 values (HWC order within each patch):
-  const float kPatch0Expected[] = {
-      0.18823531f, 0.05490196f, 0.01960784f,
-      0.18823531f, 0.05490196f, 0.01960784f,
-      0.18823531f, 0.05490196f, 0.01960784f,
-      0.18823531f};
+  const float kPatch0Expected[] = {0.18823531f, 0.05490196f, 0.01960784f, 0.18823531f, 0.05490196f,
+                                   0.01960784f, 0.18823531f, 0.05490196f, 0.01960784f, 0.18823531f};
   for (int i = 0; i < 10; ++i) {
-    EXPECT_NEAR(pv_data[i], kPatch0Expected[i], 2e-3f)
-        << "Patch 0, value " << i << " mismatch vs HF reference";
+    EXPECT_NEAR(pv_data[i], kPatch0Expected[i], 2e-3f) << "Patch 0, value " << i << " mismatch vs HF reference";
   }
   // Patch 1, first 10 values:
-  const float kPatch1Expected[] = {
-      0.18039216f, 0.04705883f, 0.01176471f,
-      0.18039216f, 0.04705883f, 0.01176471f,
-      0.17647059f, 0.04313726f, 0.00784314f,
-      0.17647059f};
+  const float kPatch1Expected[] = {0.18039216f, 0.04705883f, 0.01176471f, 0.18039216f, 0.04705883f,
+                                   0.01176471f, 0.17647059f, 0.04313726f, 0.00784314f, 0.17647059f};
   const float* patch1 = pv_data + kPatchDim;  // start of patch 1
   for (int i = 0; i < 10; ++i) {
-    EXPECT_NEAR(patch1[i], kPatch1Expected[i], 2e-3f)
-        << "Patch 1, value " << i << " mismatch vs HF reference";
+    EXPECT_NEAR(patch1[i], kPatch1Expected[i], 2e-3f) << "Patch 1, value " << i << " mismatch vs HF reference";
   }
 
   // Output 1: position_ids — int64 (batch, max_patches, 2)
@@ -401,7 +847,7 @@ TEST(ProcessorTest, TestGemma4ImageProcessing) {
   const int64_t* pos_data{};
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pos_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(num_dims, 3ULL);           // (batch, max_patches, 2)
+  ASSERT_EQ(num_dims, 3ULL);  // (batch, max_patches, 2)
   ASSERT_EQ(shape[1], kMaxPatches);
   ASSERT_EQ(shape[2], 2);
 
@@ -495,7 +941,7 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   err = OrtxGetTensorData(tensor.get(), reinterpret_cast<const void**>(&pos_data), &shape, &num_dims);
   ASSERT_EQ(err, kOrtxOK);
   // Guard the raw pos_data indexing below against an unexpected layout.
-  ASSERT_EQ(num_dims, 3ULL);              // (batch, max_soft_tokens, 2)
+  ASSERT_EQ(num_dims, 3ULL);  // (batch, max_soft_tokens, 2)
   ASSERT_EQ(shape[0], 1);
   ASSERT_EQ(shape[1], kMaxSoftTokens);
   ASSERT_EQ(shape[2], 2);
@@ -513,7 +959,7 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   size_t nst_dims{};
   err = OrtxGetTensorData(nst_tensor.get(), reinterpret_cast<const void**>(&nst), &nst_shape, &nst_dims);
   ASSERT_EQ(err, kOrtxOK);
-  ASSERT_EQ(nst_dims, 2ULL);   // (batch, 1)
+  ASSERT_EQ(nst_dims, 2ULL);  // (batch, 1)
   ASSERT_EQ(nst_shape[0], 1);
   EXPECT_EQ(nst[0], 260) << "merged soft-token count for australia.jpg (HF reference)";
   const int64_t num_merged = nst[0];
@@ -557,8 +1003,8 @@ TEST(ProcessorTest, TestGemma4UnifiedImageProcessing) {
   //   teacher flat index: ((r*16 + col)*3 + c)
   constexpr int64_t kTeacherPatchDim = 16 * 16 * 3;  // 768
   // Guard the raw indexing below against an unexpected teacher tensor layout.
-  ASSERT_EQ(teacher_dims, 3ULL);              // (batch, num_patches, patch_dim)
-  ASSERT_GE(teacher_shape[1], 1);             // at least patch 0
+  ASSERT_EQ(teacher_dims, 3ULL);   // (batch, num_patches, patch_dim)
+  ASSERT_GE(teacher_shape[1], 1);  // at least patch 0
   ASSERT_EQ(teacher_shape[2], kTeacherPatchDim);
   for (int64_t r = 0; r < 16; ++r) {
     for (int64_t col = 0; col < 16; ++col) {
@@ -664,11 +1110,8 @@ TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
     const char* label;
   };
   TestCase cases[] = {
-      {224, 224, "small square"},
-      {640, 480, "standard"},
-      {1300, 876, "australia.jpg"},
-      {1920, 1080, "Full HD"},
-      {3024, 4032, "phone photo"},
+      {224, 224, "small square"}, {640, 480, "standard"},      {1300, 876, "australia.jpg"},
+      {1920, 1080, "Full HD"},    {3024, 4032, "phone photo"},
   };
 
   constexpr int kWarmup = 1;
@@ -693,21 +1136,19 @@ TEST(ProcessorTest, TestGemma4ImageResizeBenchmark) {
 
     // Warmup
     for (int i = 0; i < kWarmup; ++i) {
-      ort_extensions::BicubicResizeU8ToFloatRGB(
-          dst.data(), src.data(), tc.h, tc.w,
-          static_cast<int>(tgt_h), static_cast<int>(tgt_w));
+      ort_extensions::BicubicResizeU8ToFloatRGB(dst.data(), src.data(), tc.h, tc.w, static_cast<int>(tgt_h),
+                                                static_cast<int>(tgt_w));
     }
     // Timed
     auto start = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < kIters; ++i) {
-      ort_extensions::BicubicResizeU8ToFloatRGB(
-          dst.data(), src.data(), tc.h, tc.w,
-          static_cast<int>(tgt_h), static_cast<int>(tgt_w));
+      ort_extensions::BicubicResizeU8ToFloatRGB(dst.data(), src.data(), tc.h, tc.w, static_cast<int>(tgt_h),
+                                                static_cast<int>(tgt_w));
     }
     auto end = std::chrono::high_resolution_clock::now();
     double ms = std::chrono::duration<double, std::milli>(end - start).count() / kIters;
-    std::cout << "  " << tc.w << "x" << tc.h << " (" << tc.label
-              << ") -> " << tgt_w << "x" << tgt_h << ": " << ms << " ms\n";
+    std::cout << "  " << tc.w << "x" << tc.h << " (" << tc.label << ") -> " << tgt_w << "x" << tgt_h << ": " << ms
+              << " ms\n";
   }
 }
 
@@ -720,29 +1161,25 @@ TEST(ProcessorTest, TestCMYKJpegRejected) {
   // Minimal 4x4 CMYK JPEG generated by PIL (Image.new("CMYK", (4,4), (128,64,32,255)))
   // Contains an APP14 Adobe marker indicating CMYK color space.
   static const uint8_t cmyk_jpeg[] = {
-    0xff,0xd8,0xff,0xee,0x00,0x0e,0x41,0x64,0x6f,0x62,0x65,0x00,0x64,0x00,0x00,0x00,
-    0x00,0x00,0xff,0xdb,0x00,0x43,0x00,0x08,0x06,0x06,0x07,0x06,0x05,0x08,0x07,0x07,
-    0x07,0x09,0x09,0x08,0x0a,0x0c,0x14,0x0d,0x0c,0x0b,0x0b,0x0c,0x19,0x12,0x13,0x0f,
-    0x14,0x1d,0x1a,0x1f,0x1e,0x1d,0x1a,0x1c,0x1c,0x20,0x24,0x2e,0x27,0x20,0x22,0x2c,
-    0x23,0x1c,0x1c,0x28,0x37,0x29,0x2c,0x30,0x31,0x34,0x34,0x34,0x1f,0x27,0x39,0x3d,
-    0x38,0x32,0x3c,0x2e,0x33,0x34,0x32,0xff,0xc0,0x00,0x14,0x08,0x00,0x04,0x00,0x04,
-    0x04,0x43,0x11,0x00,0x4d,0x11,0x00,0x59,0x11,0x00,0x4b,0x11,0x00,0xff,0xc4,0x00,
-    0x1f,0x00,0x00,0x01,0x05,0x01,0x01,0x01,0x01,0x01,0x01,0x00,0x00,0x00,0x00,0x00,
-    0x00,0x00,0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08,0x09,0x0a,0x0b,0xff,0xc4,
-    0x00,0xb5,0x10,0x00,0x02,0x01,0x03,0x03,0x02,0x04,0x03,0x05,0x05,0x04,0x04,0x00,
-    0x00,0x01,0x7d,0x01,0x02,0x03,0x00,0x04,0x11,0x05,0x12,0x21,0x31,0x41,0x06,0x13,
-    0x51,0x61,0x07,0x22,0x71,0x14,0x32,0x81,0x91,0xa1,0x08,0x23,0x42,0xb1,0xc1,0x15,
-    0x52,0xd1,0xf0,0x24,0x33,0x62,0x72,0x82,0x09,0x0a,0x16,0x17,0x18,0x19,0x1a,0x25,
-    0x26,0x27,0x28,0x29,0x2a,0x34,0x35,0x36,0x37,0x38,0x39,0x3a,0x43,0x44,0x45,0x46,
-    0x47,0x48,0x49,0x4a,0x53,0x54,0x55,0x56,0x57,0x58,0x59,0x5a,0x63,0x64,0x65,0x66,
-    0x67,0x68,0x69,0x6a,0x73,0x74,0x75,0x76,0x77,0x78,0x79,0x7a,0x83,0x84,0x85,0x86,
-    0x87,0x88,0x89,0x8a,0x92,0x93,0x94,0x95,0x96,0x97,0x98,0x99,0x9a,0xa2,0xa3,0xa4,
-    0xa5,0xa6,0xa7,0xa8,0xa9,0xaa,0xb2,0xb3,0xb4,0xb5,0xb6,0xb7,0xb8,0xb9,0xba,0xc2,
-    0xc3,0xc4,0xc5,0xc6,0xc7,0xc8,0xc9,0xca,0xd2,0xd3,0xd4,0xd5,0xd6,0xd7,0xd8,0xd9,
-    0xda,0xe1,0xe2,0xe3,0xe4,0xe5,0xe6,0xe7,0xe8,0xe9,0xea,0xf1,0xf2,0xf3,0xf4,0xf5,
-    0xf6,0xf7,0xf8,0xf9,0xfa,0xff,0xda,0x00,0x0e,0x04,0x43,0x00,0x4d,0x00,0x59,0x00,
-    0x4b,0x00,0x00,0x3f,0x00,0x4a,0xef,0xeb,0xd7,0xeb,0xe7,0xfa,0xff,0xd9
-  };
+      0xff, 0xd8, 0xff, 0xee, 0x00, 0x0e, 0x41, 0x64, 0x6f, 0x62, 0x65, 0x00, 0x64, 0x00, 0x00, 0x00, 0x00, 0x00, 0xff,
+      0xdb, 0x00, 0x43, 0x00, 0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07, 0x07, 0x07, 0x09, 0x09, 0x08, 0x0a, 0x0c,
+      0x14, 0x0d, 0x0c, 0x0b, 0x0b, 0x0c, 0x19, 0x12, 0x13, 0x0f, 0x14, 0x1d, 0x1a, 0x1f, 0x1e, 0x1d, 0x1a, 0x1c, 0x1c,
+      0x20, 0x24, 0x2e, 0x27, 0x20, 0x22, 0x2c, 0x23, 0x1c, 0x1c, 0x28, 0x37, 0x29, 0x2c, 0x30, 0x31, 0x34, 0x34, 0x34,
+      0x1f, 0x27, 0x39, 0x3d, 0x38, 0x32, 0x3c, 0x2e, 0x33, 0x34, 0x32, 0xff, 0xc0, 0x00, 0x14, 0x08, 0x00, 0x04, 0x00,
+      0x04, 0x04, 0x43, 0x11, 0x00, 0x4d, 0x11, 0x00, 0x59, 0x11, 0x00, 0x4b, 0x11, 0x00, 0xff, 0xc4, 0x00, 0x1f, 0x00,
+      0x00, 0x01, 0x05, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02,
+      0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0xff, 0xc4, 0x00, 0xb5, 0x10, 0x00, 0x02, 0x01, 0x03, 0x03,
+      0x02, 0x04, 0x03, 0x05, 0x05, 0x04, 0x04, 0x00, 0x00, 0x01, 0x7d, 0x01, 0x02, 0x03, 0x00, 0x04, 0x11, 0x05, 0x12,
+      0x21, 0x31, 0x41, 0x06, 0x13, 0x51, 0x61, 0x07, 0x22, 0x71, 0x14, 0x32, 0x81, 0x91, 0xa1, 0x08, 0x23, 0x42, 0xb1,
+      0xc1, 0x15, 0x52, 0xd1, 0xf0, 0x24, 0x33, 0x62, 0x72, 0x82, 0x09, 0x0a, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x25, 0x26,
+      0x27, 0x28, 0x29, 0x2a, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x3a, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4a,
+      0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6a, 0x73, 0x74, 0x75,
+      0x76, 0x77, 0x78, 0x79, 0x7a, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x92, 0x93, 0x94, 0x95, 0x96, 0x97,
+      0x98, 0x99, 0x9a, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6, 0xb7, 0xb8,
+      0xb9, 0xba, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xd2, 0xd3, 0xd4, 0xd5, 0xd6, 0xd7, 0xd8, 0xd9,
+      0xda, 0xe1, 0xe2, 0xe3, 0xe4, 0xe5, 0xe6, 0xe7, 0xe8, 0xe9, 0xea, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
+      0xf9, 0xfa, 0xff, 0xda, 0x00, 0x0e, 0x04, 0x43, 0x00, 0x4d, 0x00, 0x59, 0x00, 0x4b, 0x00, 0x00, 0x3f, 0x00, 0x4a,
+      0xef, 0xeb, 0xd7, 0xeb, 0xe7, 0xfa, 0xff, 0xd9};
 
   // Write CMYK JPEG to a temp file
   std::filesystem::path temp_path = std::filesystem::temp_directory_path() / "cmyk_test_security.jpg";
@@ -803,7 +1240,8 @@ TEST(ProcessorTest, TestPixtralImageProcessingSingleImage) {
   const float* pixel_data{};
   const int64_t* pv_shape{};
   size_t pv_num_dims{};
-  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape,
+                          &pv_num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(pv_num_dims, 4ULL);  // [N, C, H, W]
   ASSERT_EQ(pv_shape[0], 1);     // single image
@@ -817,7 +1255,8 @@ TEST(ProcessorTest, TestPixtralImageProcessingSingleImage) {
   const int64_t* sizes_data{};
   const int64_t* is_shape{};
   size_t is_num_dims{};
-  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  err =
+      OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(is_num_dims, 2ULL);  // [N, 2]
   ASSERT_EQ(is_shape[0], 1);     // single image
@@ -833,9 +1272,7 @@ TEST(ProcessorTest, TestPixtralImageProcessingSingleImage) {
 }
 
 // Helper: run Pixtral processor on a single image and return pixel_values shape + data copy.
-static void RunPixtralSingleImage(const char* image_path,
-                                  std::vector<float>& out_pixels,
-                                  int64_t out_shape[4],
+static void RunPixtralSingleImage(const char* image_path, std::vector<float>& out_pixels, int64_t out_shape[4],
                                   int64_t out_hw[2]) {
   OrtxObjectPtr<OrtxRawImages> raw{};
   ASSERT_EQ(OrtxLoadImages(raw.ToBeAssigned(), &image_path, 1, nullptr), kOrtxOK);
@@ -906,7 +1343,8 @@ TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
   const float* pixel_data{};
   const int64_t* pv_shape{};
   size_t pv_num_dims{};
-  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape, &pv_num_dims);
+  err = OrtxGetTensorData(pixel_values_tensor.get(), reinterpret_cast<const void**>(&pixel_data), &pv_shape,
+                          &pv_num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(pv_num_dims, 4ULL);
   ASSERT_EQ(pv_shape[0], 2);  // two images
@@ -925,7 +1363,8 @@ TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
   const int64_t* sizes_data{};
   const int64_t* is_shape{};
   size_t is_num_dims{};
-  err = OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
+  err =
+      OrtxGetTensorData(image_sizes_tensor.get(), reinterpret_cast<const void**>(&sizes_data), &is_shape, &is_num_dims);
   ASSERT_EQ(err, kOrtxOK);
   ASSERT_EQ(is_num_dims, 2ULL);
   ASSERT_EQ(is_shape[0], 2);
@@ -942,9 +1381,7 @@ TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
   auto batch_idx = [&](int64_t n, int64_t c, int64_t h, int64_t w) {
     return n * C * max_H * max_W + c * max_H * max_W + h * max_W + w;
   };
-  auto single_idx = [](int64_t c, int64_t h, int64_t w, int64_t sH, int64_t sW) {
-    return c * sH * sW + h * sW + w;
-  };
+  auto single_idx = [](int64_t c, int64_t h, int64_t w, int64_t sH, int64_t sW) { return c * sH * sW + h * sW + w; };
 
   // Check image 0: unpadded region matches single-image output
   for (int64_t c = 0; c < C; ++c) {

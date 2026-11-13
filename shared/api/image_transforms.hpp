@@ -3,6 +3,12 @@
 
 #pragma once
 
+#include <array>
+#include <cmath>
+#include <limits>
+#include <memory>
+#include <type_traits>
+
 #include "ext_status.h"
 #include "op_def_struct.h"
 #include "image_resample.h"
@@ -94,12 +100,11 @@ inline OrtxStatus convert_to_rgb(const ortc::Tensor<uint8_t>& input, ortc::Tenso
 
 struct Resize {
   static const std::unordered_map<std::string, int>& InterpolationMethods() {
-    static std::unordered_map<std::string, int> methods = {
-      {"NEAREST", IMAGING_TRANSFORM_NEAREST},
-      {"LINEAR", IMAGING_TRANSFORM_BILINEAR},
-      {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
-      {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}
-    };
+    static std::unordered_map<std::string, int> methods = {{"NEAREST", IMAGING_TRANSFORM_NEAREST},
+                                                           {"LINEAR", IMAGING_TRANSFORM_BILINEAR},
+                                                           {"CUBIC", IMAGING_TRANSFORM_BICUBIC},
+                                                           {"CUBIC_OPENCV", IMAGING_TRANSFORM_BICUBIC},
+                                                           {"LANCZOS", IMAGING_TRANSFORM_LANCZOS}};
 
     return methods;
   }
@@ -152,29 +157,21 @@ struct Resize {
     if (dimensions.size() != 3ULL) {
       return {kOrtxErrorInvalidArgument, "[Resize]: Only raw image formats"};
     }
-
-    auto* input_data = input.Data();
-    int h = static_cast<int>(dimensions[0]);
-    int w = static_cast<int>(dimensions[1]);
-    int c = static_cast<int>(dimensions[2]);
-
-    if (c != 3) {
-      return {kOrtxErrorInvalidArgument, "[Resize]: Expected 3-channel RGB input, got " + std::to_string(c) + " channels"};
+    if (dimensions[2] != 3) {
+      return {kOrtxErrorInvalidArgument,
+              "[Resize]: Expected 3-channel RGB input, got " + std::to_string(dimensions[2]) + " channels"};
     }
-
-    Imaging rgb_image = ImagingNew("RGB", w, h);
-    for (int32_t i = 0; i < h; ++i) {
-      for (int32_t j = 0; j < w; ++j) {
-        uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
-        pixel[0] = input_data[(i * w + j) * 3];
-        pixel[1] = input_data[(i * w + j) * 3 + 1];
-        pixel[2] = input_data[(i * w + j) * 3 + 2];
-        pixel[3] = 0;  // unused
-      }
+    if (dimensions[0] <= 0 || dimensions[1] <= 0 || dimensions[0] > (std::numeric_limits<int>::max)() ||
+        dimensions[1] > (std::numeric_limits<int>::max)() / 4 ||
+        static_cast<uint64_t>(dimensions[0]) >
+            (std::numeric_limits<size_t>::max)() / (static_cast<size_t>(dimensions[1]) * 3)) {
+      return {kOrtxErrorInvalidArgument,
+              "[Resize]: input geometry must fit positive imaging dimensions and RGB storage"};
     }
-
-    int interp = InterpolationMethods().at(interpolation_);
-    float box[4] = {0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
+    const int source_height = static_cast<int>(dimensions[0]);
+    const int source_width = static_cast<int>(dimensions[1]);
+    int h = source_height, w = source_width;
+    constexpr int c = 3;
 
     // Perform Smart Resize if Set
     // When smart_resize is enabled, use the original image dimensions (h, w)
@@ -183,6 +180,10 @@ struct Resize {
     // When smart_resize is disabled, fall back to the fixed config dimensions.
     auto [height, width] = smart_resize_ ? smart_resize(static_cast<int64_t>(h), static_cast<int64_t>(w))
                                          : std::make_tuple(height_, width_);
+    if (height <= 0 || width <= 0 || height > (std::numeric_limits<int>::max)() ||
+        width > (std::numeric_limits<int>::max)() / 4) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: output geometry must fit positive imaging dimensions"};
+    }
     h = static_cast<int>(height);
     w = static_cast<int>(width);
     
@@ -192,9 +193,41 @@ struct Resize {
       height = static_cast<int64_t>(h * scale);
     }
 
-    auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
-    ImagingDelete(rgb_image);
-    if (output_image == nullptr) {
+    if (height <= 0 || width <= 0 || height > (std::numeric_limits<int>::max)() ||
+        width > (std::numeric_limits<int>::max)() / 4 ||
+        static_cast<uint64_t>(height) > (std::numeric_limits<size_t>::max)() / (static_cast<size_t>(width) * 3)) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: output geometry must fit positive imaging dimensions"};
+    }
+    if (interpolation_ == "CUBIC_OPENCV") {
+      ResizeOpenCVCubic(input.Data(), source_height, source_width, output.Allocate({height, width, c}),
+                        static_cast<int>(height), static_cast<int>(width));
+      return {};
+    }
+    using ImagingPtr = std::unique_ptr<std::remove_pointer_t<Imaging>, decltype(&ImagingDelete)>;
+    ImagingPtr rgb_image(ImagingNew("RGB", source_width, source_height), ImagingDelete);
+    if (!rgb_image) {
+      return {kOrtxErrorOutOfMemory, "[Resize]: input imaging allocation failed"};
+    }
+    const auto* input_data = input.Data();
+    for (int i = 0; i < source_height; ++i) {
+      for (int j = 0; j < source_width; ++j) {
+        uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + static_cast<size_t>(j) * 4);
+        const size_t offset = (static_cast<size_t>(i) * source_width + j) * 3;
+        pixel[0] = input_data[offset];
+        pixel[1] = input_data[offset + 1];
+        pixel[2] = input_data[offset + 2];
+        pixel[3] = 0;
+      }
+    }
+    const int interp = InterpolationMethods().at(interpolation_);
+    float box[4] = {0.0f, 0.0f, static_cast<float>(source_width), static_cast<float>(source_height)};
+    ImagingPtr output_image(
+        int16_coeffs_
+            ? ImagingResampleInt16(rgb_image.get(), static_cast<int>(width), static_cast<int>(height), interp, box)
+            : ImagingResample(rgb_image.get(), static_cast<int>(width), static_cast<int>(height), interp, box),
+        ImagingDelete);
+    rgb_image.reset();
+    if (!output_image) {
       return {kOrtxErrorInvalidArgument, "[Resize]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
     }
 
@@ -206,7 +239,6 @@ struct Resize {
       }
     }
 
-    ImagingDelete(output_image);
     return {};
   }
 
@@ -224,6 +256,12 @@ struct Resize {
         if (InterpolationMethods().find(interpolation_) == InterpolationMethods().end()) {
           return {kOrtxErrorInvalidArgument, "[Resize]: Invalid interpolation method"};
         }
+      } else if (key == "coefficient_type") {
+        const auto& type = std::get<std::string>(value);
+        if (type != "int16" && type != "int32") {
+          return {kOrtxErrorInvalidArgument, "[Resize]: coefficient_type must be int16 or int32"};
+        }
+        int16_coeffs_ = type == "int16";
       } else if (key == "smart_resize") {
         smart_resize_ = std::get<int64_t>(value) != 0;
       } else if (key == "min_pixels") {
@@ -246,6 +284,50 @@ struct Resize {
   }
 
  private:
+  void ResizeOpenCVCubic(const uint8_t* source, int source_height, int source_width, uint8_t* destination,
+                         int target_height, int target_width) {
+    // Four-tap, half-pixel cubic without antialiasing. Clip and round only after both passes.
+    auto coefficients = [](double fraction) {
+      constexpr double a = -0.75;
+      const double next = fraction + 1.0, other = 1.0 - fraction;
+      std::array<double, 4> weights;
+      weights[0] = ((a * next - 5.0 * a) * next + 8.0 * a) * next - 4.0 * a;
+      weights[1] = ((a + 2.0) * fraction - (a + 3.0)) * fraction * fraction + 1.0;
+      weights[2] = ((a + 2.0) * other - (a + 3.0)) * other * other + 1.0;
+      weights[3] = 1.0 - weights[0] - weights[1] - weights[2];
+      return weights;
+    };
+    const double scale_y = static_cast<double>(source_height) / target_height;
+    const double scale_x = static_cast<double>(source_width) / target_width;
+    for (int y = 0; y < target_height; ++y) {
+      const double position_y = (y + 0.5) * scale_y - 0.5;
+      const int64_t base_y = static_cast<int64_t>(std::floor(position_y));
+      const auto vertical = coefficients(position_y - static_cast<double>(base_y));
+      for (int x = 0; x < target_width; ++x) {
+        const double position_x = (x + 0.5) * scale_x - 0.5;
+        const int64_t base_x = static_cast<int64_t>(std::floor(position_x));
+        const auto horizontal = coefficients(position_x - static_cast<double>(base_x));
+        for (size_t channel = 0; channel < 3; ++channel) {
+          double value = 0.0;
+          for (int row = 0; row < 4; ++row) {
+            const auto source_y = static_cast<size_t>(std::clamp<int64_t>(base_y + row - 1, 0, source_height - 1));
+            double line = 0.0;
+            for (int column = 0; column < 4; ++column) {
+              const auto source_x = static_cast<size_t>(std::clamp<int64_t>(base_x + column - 1, 0, source_width - 1));
+              line += source[(source_y * source_width + source_x) * 3 + channel] * horizontal[column];
+            }
+            value += line * vertical[row];
+          }
+          value = std::clamp(value, 0.0, 255.0);
+          int rounded = static_cast<int>(value);
+          const double remainder = value - rounded;
+          if (remainder > 0.5 || (remainder == 0.5 && rounded % 2 != 0)) ++rounded;
+          destination[(static_cast<size_t>(y) * target_width + x) * 3 + channel] = static_cast<uint8_t>(rounded);
+        }
+      }
+    }
+  }
+
   int64_t height_{256};
   int64_t width_{256};
   bool keep_aspect_ratio_{true};
@@ -262,6 +344,7 @@ struct Resize {
   */
 
   bool smart_resize_{false};
+  bool int16_coeffs_{false};
   int64_t image_factor_{28};
   int64_t min_pixels_{3136};
   int64_t max_pixels_{12845056};

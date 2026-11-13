@@ -50,6 +50,7 @@ extern "C" {
 
 Imaging ImagingNew(const char* mode, int xsize, int ysize);
 Imaging ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]);
+Imaging ImagingResampleInt16(Imaging imIn, int xsize, int ysize, int filter, float box[4]);
 void ImagingDelete(Imaging im);
 
 #ifdef __cplusplus
