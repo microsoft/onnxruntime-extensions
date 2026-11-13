@@ -39,9 +39,23 @@
 #define M_PI 3.14159265358979323846
 #endif
 
-#define MAKE_UINT32(u0, u1, u2, u3) \
-    ((uint32_t)(u0) | ((uint32_t)(u1) << 8) | ((uint32_t)(u2) << 16) | ((uint32_t)(u3) << 24))
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__)
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+#define ONNX_LITTLE_ENDIAN 1
+#else /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
+#define ONNX_BIG_ENDIAN 1
+#endif /* __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__ */
+#else /* defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) */
+#define ONNX_LITTLE_ENDIAN 1
+#endif /* defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) */
 
+#if defined(ONNX_LITTLE_ENDIAN)
+#define MAKE_UINT32_LE(u0, u1, u2, u3) \
+    ((uint32_t)(u0) | ((uint32_t)(u1) << 8) | ((uint32_t)(u2) << 16) | ((uint32_t)(u3) << 24))
+#else /* defined(ONNX_LITTLE_ENDIAN) */
+#define MAKE_UINT32_LE(u0, u1, u2, u3) \
+    ((uint32_t)(u3) | ((uint32_t)(u2) << 8) | ((uint32_t)(u1) << 16) | ((uint32_t)(u0) << 24))
+#endif /* defined(ONNX_LITTLE_ENDIAN) */
 
 #define IMAGING_MODE_LENGTH \
     6 + 1 /* Band names ("1", "L", "P", "RGB", "RGBA", "CMYK", "YCbCr", "BGR;xy") */
@@ -832,7 +846,7 @@ ImagingResampleHorizontal_8bpc(
                         ss3 += ((uint8_t)imIn->image[yy + offset][(x + xmin) * 4 + 3]) *
                                k[x];
                     }
-                    v = MAKE_UINT32(clip8(ss0), 0, 0, clip8(ss3));
+                    v = MAKE_UINT32_LE(clip8(ss0), 0, 0, clip8(ss3));
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
@@ -852,7 +866,7 @@ ImagingResampleHorizontal_8bpc(
                         ss2 += ((uint8_t)imIn->image[yy + offset][(x + xmin) * 4 + 2]) *
                                k[x];
                     }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), 0);
+                    v = MAKE_UINT32_LE(clip8(ss0), clip8(ss1), clip8(ss2), 0);
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
@@ -874,7 +888,7 @@ ImagingResampleHorizontal_8bpc(
                         ss3 += ((uint8_t)imIn->image[yy + offset][(x + xmin) * 4 + 3]) *
                                k[x];
                     }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
+                    v = MAKE_UINT32_LE(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
@@ -919,7 +933,7 @@ ImagingResampleVertical_8bpc(
                         ss0 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 0]) * k[y];
                         ss3 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 3]) * k[y];
                     }
-                    v = MAKE_UINT32(clip8(ss0), 0, 0, clip8(ss3));
+                    v = MAKE_UINT32_LE(clip8(ss0), 0, 0, clip8(ss3));
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
@@ -936,7 +950,7 @@ ImagingResampleVertical_8bpc(
                         ss1 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 1]) * k[y];
                         ss2 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 2]) * k[y];
                     }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), 0);
+                    v = MAKE_UINT32_LE(clip8(ss0), clip8(ss1), clip8(ss2), 0);
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
@@ -954,7 +968,7 @@ ImagingResampleVertical_8bpc(
                         ss2 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 2]) * k[y];
                         ss3 += ((uint8_t)imIn->image[y + ymin][xx * 4 + 3]) * k[y];
                     }
-                    v = MAKE_UINT32(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
+                    v = MAKE_UINT32_LE(clip8(ss0), clip8(ss1), clip8(ss2), clip8(ss3));
                     memcpy(imOut->image[yy] + xx * sizeof(v), &v, sizeof(v));
                 }
             }
