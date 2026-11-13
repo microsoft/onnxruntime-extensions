@@ -301,6 +301,36 @@ TEST(TikTokenPathValidationTest, AcceptsEnclosedRelativePathsAndExtensionlessVoc
   EXPECT_EQ(ort_extensions::path("/tmp/model\\/tokenizer.json").parent_path(), "/tmp/model\\");
   EXPECT_EQ((ort_extensions::path("/tmp/model\\") / "tokenizer_config.json").string(),
             "/tmp/model\\/tokenizer_config.json");
+
+  // On POSIX, backslashes in tiktoken_file are literal filename characters rather than separators.
+  {
+    std::filesystem::create_directories(tok_dir / "sub");
+    write_file(tok_dir / "sub" / "vocab.tiktoken", "invalid_slash_target");
+    write_file(tok_dir / "sub\\vocab.tiktoken", raw_tiktoken);
+
+    json mod = base_module;
+    mod["tiktoken_file"] = "sub\\vocab.tiktoken";
+    write_file(tok_dir / "tokenizer_module.json", mod.dump());
+
+    ort_extensions::TokenJsonConfig cfg;
+    ASSERT_TRUE(cfg.Load(tok_dir.string()).IsOk());
+    EXPECT_EQ(cfg.vocab_path_, (tok_dir / "sub\\vocab.tiktoken").string());
+
+    std::unique_ptr<std::istream> vocab_stream;
+    ASSERT_TRUE(cfg.OpenVocabFile(vocab_stream).IsOk());
+    ASSERT_NE(vocab_stream, nullptr);
+    const std::string loaded_bytes{std::istreambuf_iterator<char>{*vocab_stream}, {}};
+    EXPECT_EQ(loaded_bytes, raw_tiktoken);
+
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, tok_dir.string().c_str());
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+    std::filesystem::remove(tok_dir / "sub\\vocab.tiktoken");
+    write_file(tok_dir / "sub" / "vocab.tiktoken", raw_tiktoken);
+    OrtxTokenizer* missing_literal = nullptr;
+    EXPECT_EQ(OrtxCreateTokenizer(&missing_literal, tok_dir.string().c_str()), kOrtxErrorInvalidFile);
+    EXPECT_EQ(missing_literal, nullptr);
+  }
 #endif
 }
 
@@ -328,14 +358,10 @@ TEST(TikTokenPathValidationTest, RejectsTraversalAbsoluteDeviceDirectoryAndEscap
   std::vector<std::string> rejected_paths = {
       "..",
       "../parent.tiktoken",
-      "..\\parent.tiktoken",
       "sub/../../parent.tiktoken",
       "../tok_outside/outside.tiktoken",
       outside_file.string(),
       "/etc/hostname",
-      "\\Windows\\win.ini",
-      "C:\\Windows\\win.ini",
-      "C:parent.tiktoken",
       ".",
       "./.",
       "sub",
@@ -346,6 +372,10 @@ TEST(TikTokenPathValidationTest, RejectsTraversalAbsoluteDeviceDirectoryAndEscap
   rejected_paths.emplace_back("cl100k_base.tiktoken\0ignored", 28);
 
 #ifdef _WIN32
+  rejected_paths.push_back("..\\parent.tiktoken");
+  rejected_paths.push_back("\\Windows\\win.ini");
+  rejected_paths.push_back("C:\\Windows\\win.ini");
+  rejected_paths.push_back("C:parent.tiktoken");
   rejected_paths.push_back("cl100k_base.tiktoken:$DATA");
   rejected_paths.push_back("NUL");
   rejected_paths.push_back("CON.tiktoken");

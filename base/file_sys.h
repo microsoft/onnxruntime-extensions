@@ -135,10 +135,7 @@ class path {
     if (rel_path.empty() || rel_path.find('\0') != std::string::npos) {
       return false;
     }
-    if (rel_path.front() == '/' || rel_path.front() == '\\' || rel_path.back() == '/' || rel_path.back() == '\\') {
-      return false;
-    }
-    if (rel_path.size() >= 2 && std::isalpha(static_cast<unsigned char>(rel_path[0])) && rel_path[1] == ':') {
+    if (is_separator(rel_path.front()) || is_separator(rel_path.back())) {
       return false;
     }
 #ifdef _WIN32
@@ -150,7 +147,7 @@ class path {
     bool last_is_file = false;
     std::string segment;
     for (size_t i = 0; i <= rel_path.size(); ++i) {
-      if (i == rel_path.size() || rel_path[i] == '/' || rel_path[i] == '\\') {
+      if (i == rel_path.size() || is_separator(rel_path[i])) {
         if (segment.empty() || segment == "..") {
           return false;
         }
@@ -186,7 +183,7 @@ class path {
     std::vector<std::string> segments;
     std::string seg;
     for (size_t i = 0; i <= rel_path.size(); ++i) {
-      if (i == rel_path.size() || rel_path[i] == '/' || rel_path[i] == '\\') {
+      if (i == rel_path.size() || is_separator(rel_path[i])) {
         if (!seg.empty() && seg != ".") {
           segments.push_back(seg);
         }
