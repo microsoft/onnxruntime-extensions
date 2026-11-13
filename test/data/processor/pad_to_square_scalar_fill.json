@@ -1,0 +1,34 @@
+{
+  "processor": {
+    "name": "pad_to_square_scalar_fill",
+    "transforms": [
+      {
+        "operation": {
+          "name": "decode_image",
+          "type": "DecodeImage",
+          "attrs": {
+            "color_space": "RGB"
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "pad_to_square",
+          "type": "PadToSquare",
+          "attrs": {
+            "fill": 64
+          }
+        }
+      },
+      {
+        "operation": {
+          "name": "rescale",
+          "type": "Rescale",
+          "attrs": {
+            "rescale_factor": 1.0
+          }
+        }
+      }
+    ]
+  }
+}

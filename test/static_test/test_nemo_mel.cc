@@ -6,6 +6,7 @@
 #include <cstring>
 #include <numeric>
 #include <set>
+#include <stdexcept>
 #include <vector>
 
 #include "gtest/gtest.h"
@@ -287,6 +288,55 @@ static AttrDict MakeNemoLogMelAttrs() {
   return attrs;
 }
 
+TEST(NemoMelTest, RejectsWindowLargerThanFft) {
+  auto attrs = MakeNemoLogMelAttrs();
+  attrs["win_length"] = int64_t{513};
+  NemoLogMel kernel;
+  EXPECT_EQ(kernel.Init(attrs).Code(), kOrtxErrorInvalidArgument);
+}
+
+TEST(NemoMelTest, RejectsInvalidWindowLengths) {
+  for (const int64_t length : {int64_t{0}, int64_t{-1}, int64_t{1} << 32}) {
+    auto attrs = MakeNemoLogMelAttrs();
+    attrs["win_length"] = length;
+    NemoLogMel kernel;
+    EXPECT_EQ(kernel.Init(attrs).Code(), kOrtxErrorInvalidArgument) << length;
+  }
+}
+
+TEST(NemoMelTest, RejectsInvalidFftSizes) {
+  for (const int64_t size : {int64_t{0}, int64_t{-1}, (int64_t{1} << 32) + 512}) {
+    auto attrs = MakeNemoLogMelAttrs();
+    attrs["fft_size"] = size;
+    NemoLogMel kernel;
+    EXPECT_EQ(kernel.Init(attrs).Code(), kOrtxErrorInvalidArgument) << size;
+  }
+}
+
+TEST(NemoMelTest, RejectsInvalidNativeStftSizes) {
+  for (const int win_length : {0, -1, 513}) {
+    auto cfg = MakeTestConfig();
+    cfg.win_length = win_length;
+    std::vector<float> magnitudes;
+    int num_frames = 0;
+    EXPECT_THROW(ComputeSTFTFrame(nullptr, nullptr, win_length, cfg.fft_size, magnitudes), std::invalid_argument);
+    EXPECT_THROW(NemoComputeLogMelBatch(nullptr, 0, cfg, num_frames), std::invalid_argument);
+    EXPECT_THROW(NemoStreamingMelExtractor{cfg}, std::invalid_argument);
+  }
+}
+
+TEST(NemoMelTest, AcceptsWindowEqualToFft) {
+  auto attrs = MakeNemoLogMelAttrs();
+  attrs["win_length"] = int64_t{512};
+  NemoLogMel kernel;
+  ASSERT_TRUE(kernel.Init(AttrDict{}).IsOk());
+  ASSERT_TRUE(kernel.Init(attrs).IsOk());
+  std::vector<float> silence(1600, 0.0f);
+  auto input = MakeInputTensor({1600}, silence.data());
+  auto output = MakeOutputTensor();
+  EXPECT_TRUE(kernel.Compute(input, output).IsOk());
+}
+
 // =====================================================================
 // PerFeatureNormalize kernel tests
 // =====================================================================
@@ -464,12 +514,12 @@ TEST(NemoMelTest, LogMelInitRejectsInvalidAttributes) {
     EXPECT_FALSE(kernel.Init(attrs).IsOk()) << key << "=" << value;
   };
 
-  expect_rejected("win_length", 1024);  // larger than fft_size
   expect_rejected("num_mels", 0);
-  expect_rejected("fft_size", -512);
+  expect_rejected("num_mels", int64_t{1} << 32);  // does not fit in int
   expect_rejected("hop_length", 0);
+  expect_rejected("hop_length", -160);
   expect_rejected("sample_rate", 0);
-  expect_rejected("fft_size", int64_t{1} << 32);  // does not fit in int
+  expect_rejected("sample_rate", int64_t{1} << 32);
 
   NemoLogMel kernel;
   EXPECT_TRUE(kernel.Init(MakeNemoLogMelAttrs()).IsOk());

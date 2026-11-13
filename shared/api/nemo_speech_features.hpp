@@ -106,26 +106,37 @@ class NemoLogMel {
  public:
   template <typename DictT>
   OrtxStatus Init(const DictT& attrs) {
-    // Integer attributes must be positive and fit in int; they size buffers and index frames.
-    auto get_positive_int = [](int64_t v, int& out) {
-      if (v <= 0 || v > std::numeric_limits<int>::max()) {
-        return false;
-      }
-      out = static_cast<int>(v);
-      return true;
-    };
-    bool ok = true;
     for (const auto& [key, value] : attrs) {
       if (key == "num_mels") {
-        ok = get_positive_int(std::get<int64_t>(value), cfg_.num_mels);
+        const auto num_mels = std::get<int64_t>(value);
+        if (num_mels <= 0 || num_mels > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: num_mels must be a positive int."};
+        }
+        cfg_.num_mels = static_cast<int>(num_mels);
       } else if (key == "fft_size") {
-        ok = get_positive_int(std::get<int64_t>(value), cfg_.fft_size);
+        const auto fft_size = std::get<int64_t>(value);
+        if (fft_size <= 0 || fft_size > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: fft_size must be a positive int."};
+        }
+        cfg_.fft_size = static_cast<int>(fft_size);
       } else if (key == "hop_length") {
-        ok = get_positive_int(std::get<int64_t>(value), cfg_.hop_length);
+        const auto hop_length = std::get<int64_t>(value);
+        if (hop_length <= 0 || hop_length > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: hop_length must be a positive int."};
+        }
+        cfg_.hop_length = static_cast<int>(hop_length);
       } else if (key == "win_length") {
-        ok = get_positive_int(std::get<int64_t>(value), cfg_.win_length);
+        const auto win_length = std::get<int64_t>(value);
+        if (win_length <= 0 || win_length > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must be a positive int."};
+        }
+        cfg_.win_length = static_cast<int>(win_length);
       } else if (key == "sample_rate") {
-        ok = get_positive_int(std::get<int64_t>(value), cfg_.sample_rate);
+        const auto sample_rate = std::get<int64_t>(value);
+        if (sample_rate <= 0 || sample_rate > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: sample_rate must be a positive int."};
+        }
+        cfg_.sample_rate = static_cast<int>(sample_rate);
       } else if (key == "preemph") {
         cfg_.preemph = static_cast<float>(std::get<double>(value));
       } else if (key == "log_eps") {
@@ -133,13 +144,9 @@ class NemoLogMel {
       } else if (key != "_comment") {
         return {kOrtxErrorInvalidArgument, "[NemoLogMel]: Invalid key in the JSON configuration."};
       }
-      if (!ok) {
-        return {kOrtxErrorInvalidArgument,
-                "[NemoLogMel]: Integer attributes must be positive and fit in a 32-bit int."};
-      }
     }
     if (cfg_.win_length > cfg_.fft_size) {
-      return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must not exceed fft_size."};
+      return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must not exceed a positive fft_size."};
     }
     return {};
   }

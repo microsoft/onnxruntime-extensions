@@ -38,6 +38,7 @@ Operation::KernelRegistry ImageProcessor::kernel_registry_ = {
     {"Rescale", []() { return CreateKernelInstance(&Rescale::Compute); }},
     {"Normalize", []() { return CreateKernelInstance(&Normalize::Compute); }},
     {"CenterCrop", []() { return CreateKernelInstance(&CenterCrop::Compute); }},
+    {"PadToSquare", []() { return CreateKernelInstance(&PadToSquare::Compute); }},
     {"ConvertRGB", []() { return CreateKernelInstance(convert_to_rgb); }},
     {"Permute3D", []() { return CreateKernelInstance(&Permute3D::Compute); }},
     {"Phi3ImageTransform", []() { return CreateKernelInstance(phi3_hd_transform); }},

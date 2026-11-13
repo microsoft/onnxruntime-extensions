@@ -453,6 +453,77 @@ struct CenterCrop {
   int64_t target_w_{224};
 };
 
+// Pads an (H, W, C) image to a (S, S, C) square with S = max(H, W). The image is pasted at row
+// (S - H) / 2 and column (S - W) / 2, rounded down, and the border is filled with `fill`, one value
+// per channel or a single value for all of them. This is the "pad to square" (LLaVA expand2square)
+// step some vision encoders are trained with before a fixed-size Resize; square images pass through.
+struct PadToSquare {
+  template <typename DictT>
+  OrtxStatus Init(const DictT& attrs) {
+    for (const auto& [key, value] : attrs) {
+      if (key == "fill") {
+        if (const auto* values = std::get_if<std::vector<int64_t>>(&value)) {
+          fill_ = *values;
+        } else if (const auto* single = std::get_if<int64_t>(&value)) {
+          fill_ = {*single};
+        } else {
+          return {kOrtxErrorInvalidArgument, "[PadToSquare]: fill must be an integer or a list of integers"};
+        }
+      } else {
+        return {kOrtxErrorInvalidArgument, "[PadToSquare]: Invalid attribute " + key};
+      }
+    }
+
+    if (fill_.empty()) {
+      return {kOrtxErrorInvalidArgument, "[PadToSquare]: fill must have at least one value"};
+    }
+    for (auto v : fill_) {
+      if (v < 0 || v > 255) {
+        return {kOrtxErrorInvalidArgument, "[PadToSquare]: fill values must be in [0, 255]"};
+      }
+    }
+
+    return {};
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) {
+    auto& dimensions = input.Shape();
+    if (dimensions.size() != 3ULL) {
+      return {kOrtxErrorInvalidArgument, "[PadToSquare]: Only raw image formats"};
+    }
+
+    const int64_t h = dimensions[0];
+    const int64_t w = dimensions[1];
+    const int64_t c = dimensions[2];
+    if (fill_.size() != 1 && static_cast<int64_t>(fill_.size()) != c) {
+      return {kOrtxErrorInvalidArgument, "[PadToSquare]: fill has " + std::to_string(fill_.size()) +
+                                             " values but the image has " + std::to_string(c) + " channels"};
+    }
+
+    const int64_t side = (std::max)(h, w);
+    const int64_t top = (side - h) / 2;
+    const int64_t left = (side - w) / 2;
+    auto* input_data = input.Data();
+    auto* p_output_image = output.Allocate({side, side, c});
+
+    for (int64_t j = 0; j < side; ++j) {
+      for (int64_t k = 0; k < side; ++k) {
+        for (int64_t l = 0; l < c; ++l) {
+          p_output_image[(j * side + k) * c + l] = static_cast<uint8_t>(fill_[fill_.size() == 1 ? 0 : l]);
+        }
+      }
+    }
+    for (int64_t j = 0; j < h; ++j) {
+      std::memcpy(p_output_image + ((j + top) * side + left) * c, input_data + j * w * c, static_cast<size_t>(w * c));
+    }
+
+    return {};
+  }
+
+ private:
+  std::vector<int64_t> fill_{0, 0, 0};
+};
+
 struct Permute3D {
 
   OrtxStatus Compute(const ortc::Tensor<float>& input, ortc::Tensor<float>& output) {

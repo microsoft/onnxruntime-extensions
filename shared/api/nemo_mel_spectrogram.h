@@ -37,9 +37,9 @@ float ApplyPreemphasis(const float* audio, size_t n, float preemph,
                        float prev_sample, float* out);
 
 /// Compute power spectrum for a single windowed frame.
+/// Throws std::invalid_argument unless 0 < frame_len <= fft_size.
 void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
                       int fft_size, std::vector<float>& magnitudes);
-
 
 // BATCH LOG-MEL EXTRACTION
 /// Compute NeMo-compatible log-mel spectrogram for a complete audio buffer.
@@ -48,6 +48,7 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
 ///
 /// Output layout: row-major [num_mels, num_frames].
 /// out_num_frames is set to the number of time frames produced.
+/// Throws std::invalid_argument unless 0 < cfg.win_length <= cfg.fft_size.
 std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples,
                                           const NemoMelConfig& cfg, int& out_num_frames);
 
@@ -70,6 +71,7 @@ class NemoStreamingMelExtractor {
  public:
   NemoStreamingMelExtractor() = default;
 
+  /// Throws std::invalid_argument unless 0 < cfg.win_length <= cfg.fft_size.
   explicit NemoStreamingMelExtractor(const NemoMelConfig& cfg);
 
   /// Process one chunk of raw PCM audio (mono, float32).
