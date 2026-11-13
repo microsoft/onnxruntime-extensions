@@ -13,7 +13,7 @@ namespace std {
 
 template <class T>
 struct hash<std::vector<T>> {
-  size_t operator()(const vector<T>& __vector) const noexcept;
+  size_t operator()(const vector<T>& __vec) const noexcept;
 };
 }  // namespace std
 

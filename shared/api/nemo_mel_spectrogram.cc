@@ -18,6 +18,10 @@
 #define M_PI 3.14159265358979323846
 #endif
 
+#if defined(_AIX) && defined(hz)
+#undef hz
+#endif
+
 namespace nemo_mel {
 
 // Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1]
