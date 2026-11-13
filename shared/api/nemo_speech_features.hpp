@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <cstdint>
+#include <limits>
 #include <variant>
 
 namespace ort_extensions {
@@ -109,11 +110,19 @@ class NemoLogMel {
       if (key == "num_mels") {
         cfg_.num_mels = static_cast<int>(std::get<int64_t>(value));
       } else if (key == "fft_size") {
-        cfg_.fft_size = static_cast<int>(std::get<int64_t>(value));
+        const auto fft_size = std::get<int64_t>(value);
+        if (fft_size <= 0 || fft_size > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: fft_size must be a positive int."};
+        }
+        cfg_.fft_size = static_cast<int>(fft_size);
       } else if (key == "hop_length") {
         cfg_.hop_length = static_cast<int>(std::get<int64_t>(value));
       } else if (key == "win_length") {
-        cfg_.win_length = static_cast<int>(std::get<int64_t>(value));
+        const auto win_length = std::get<int64_t>(value);
+        if (win_length <= 0 || win_length > (std::numeric_limits<int>::max)()) {
+          return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must be a positive int."};
+        }
+        cfg_.win_length = static_cast<int>(win_length);
       } else if (key == "sample_rate") {
         cfg_.sample_rate = static_cast<int>(std::get<int64_t>(value));
       } else if (key == "preemph") {
@@ -123,6 +132,9 @@ class NemoLogMel {
       } else if (key != "_comment") {
         return {kOrtxErrorInvalidArgument, "[NemoLogMel]: Invalid key in the JSON configuration."};
       }
+    }
+    if (cfg_.win_length > cfg_.fft_size) {
+      return {kOrtxErrorInvalidArgument, "[NemoLogMel]: win_length must not exceed a positive fft_size."};
     }
     return {};
   }

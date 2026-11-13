@@ -9,6 +9,7 @@
 #include <cassert>
 #include <cmath>
 #include <cstring>
+#include <stdexcept>
 #include <vector>
 
 #include <dlib/matrix.h>
@@ -19,6 +20,14 @@
 #endif
 
 namespace nemo_mel {
+
+namespace {
+void ValidateSTFTSizes(int win_length, int fft_size) {
+  if (win_length <= 0 || fft_size <= 0 || win_length > fft_size) {
+    throw std::invalid_argument("NeMo requires 0 < win_length <= fft_size");
+  }
+}
+}  // namespace
 
 // Apply pre-emphasis filter: y[n] = x[n] - preemph * x[n-1]
 // For batch mode pass prev_sample = 0.0f; for streaming pass the last sample
@@ -92,6 +101,7 @@ std::vector<std::vector<float>> CreateMelFilterbank(int num_mels, int fft_size, 
 
 void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
                       int fft_size, std::vector<float>& magnitudes) {
+  ValidateSTFTSizes(frame_len, fft_size);
   int num_bins = fft_size / 2 + 1;
   magnitudes.resize(num_bins);
 
@@ -115,6 +125,7 @@ void ComputeSTFTFrame(const float* frame, const float* window, int frame_len,
 
 std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples,
                                           const NemoMelConfig& cfg, int& out_num_frames) {
+  ValidateSTFTSizes(cfg.win_length, cfg.fft_size);
   auto mel_filters = CreateMelFilterbank(cfg.num_mels, cfg.fft_size, cfg.sample_rate);
   auto window = hann_window(cfg.win_length);
 
@@ -162,6 +173,7 @@ std::vector<float> NemoComputeLogMelBatch(const float* audio, size_t num_samples
 
 NemoStreamingMelExtractor::NemoStreamingMelExtractor(const NemoMelConfig& cfg)
     : cfg_(cfg) {
+  ValidateSTFTSizes(cfg_.win_length, cfg_.fft_size);
   mel_filters_ = CreateMelFilterbank(cfg_.num_mels, cfg_.fft_size, cfg_.sample_rate);
   hann_window_ = hann_window_symmetric(cfg_.win_length);
   audio_overlap_.assign(cfg_.fft_size / 2, 0.0f);
