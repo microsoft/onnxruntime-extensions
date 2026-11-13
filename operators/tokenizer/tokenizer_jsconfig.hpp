@@ -147,7 +147,7 @@ class TokenJsonConfig final {
         vocab_stream = std::make_unique<std::istringstream>(vocab_str);
       }
     } else {
-      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_.data()).open());
+      auto ifs = std::make_unique<std::ifstream>(path(vocab_path_).open());
       if (!ifs->is_open()) {
         return OrtxStatus(extError_t::kOrtxErrorInvalidArgument, vocab_path_ + ": does not exist.");
       }
@@ -179,8 +179,15 @@ class TokenJsonConfig final {
 
     blob_ = &blob;
     model_max_length_ = json_config.value("model_max_length", 1e+30);
-    std::string tiktoken_file = json_config.value("tiktoken_file", "");
+    std::string tiktoken_file;
+    auto tiktoken_status = ReadOptionalStringField(json_config, "tiktoken_file", tiktoken_file);
+    if (!tiktoken_status.IsOk()) {
+      return tiktoken_status;
+    }
     if (!tiktoken_file.empty()) {
+      if (!ortx::path::is_safe_relative_path(tiktoken_file)) {
+        return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tiktoken_file);
+      }
       if (blob.raw_model_blob_len == 0) {
         return OrtxStatus(kOrtxErrorInvalidArgument, "missing tiktoken file content in blob.raw_model_blob.");
       }
@@ -209,7 +216,8 @@ class TokenJsonConfig final {
         return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tok_path_obj.string());
       }
 
-      tok_dir = ortx::path(tok_path_obj.parent_path());
+      auto parent = tok_path_obj.parent_path();
+      tok_dir = ortx::path(parent.empty() ? "." : parent);
     }
 
     auto config_path = tok_dir / "tokenizer_config.json";
@@ -261,12 +269,13 @@ class TokenJsonConfig final {
     }
 
     model_max_length_ = json_config.value("model_max_length", 1e+30);
-    std::string tiktoken_file = json_config.value("tiktoken_file", "");
+    std::string tiktoken_file;
+    auto tiktoken_status = ReadOptionalStringField(json_config, "tiktoken_file", tiktoken_file);
+    if (!tiktoken_status.IsOk()) {
+      return tiktoken_status;
+    }
     if (!tiktoken_file.empty()) {
-      auto tktok_path = tok_dir / tiktoken_file;
-      if (tktok_path.exists()) {
-        vocab_path_ = tktok_path.string();
-      } else {
+      if (!tok_dir.resolve_enclosed_regular_file(tiktoken_file, vocab_path_)) {
         return OrtxStatus(kOrtxErrorInvalidFile, "Invalid file: " + tiktoken_file);
       }
     } else {
@@ -358,6 +367,19 @@ class TokenJsonConfig final {
   }
 
  private:
+  static OrtxStatus ReadOptionalStringField(const json& config, const char* key, std::string& out) {
+    out.clear();
+    auto iter = config.find(key);
+    if (iter == config.end() || iter->is_null()) {
+      return {};
+    }
+    if (!iter->is_string()) {
+      return OrtxStatus(kOrtxErrorInvalidArgument, std::string(key) + " must be a string.");
+    }
+    out = iter->get<std::string>();
+    return {};
+  }
+
   void LoadAddedTokensDecoder(const json& json_config) {
     // Preserve config-only tokens without changing tokenizer-module override precedence.
     auto atd_iter = json_config.find("added_tokens_decoder");
