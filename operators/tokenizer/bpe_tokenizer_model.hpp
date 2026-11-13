@@ -224,8 +224,8 @@ class BpeModel {
     while (merge_item != merges_json.end()) {
       std::string w1, w2;
       if (merge_item->is_string()) {
+        // a JSON string is not a text line: a '\r' in it is part of a token (e.g. the merge "▁ \r")
         std::string line = merge_item.value();
-        line.erase(std::remove(line.begin(), line.end(), '\r'), line.end());
         if (line.empty()) continue;
         if ((line[0] == '#') && (index == 0)) continue;
         auto pos = line.find(' ');
