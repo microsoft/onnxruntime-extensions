@@ -5,6 +5,7 @@
 
 #pragma comment(lib, "Windowscodecs.lib")
 
+#include <limits>
 #include <wincodec.h>
 #include <wincodecsdk.h>
 #include <winrt/base.h>
@@ -106,6 +107,15 @@ struct EncodeImage {
    OrtxStatus EncodeWith(GUID conatinerFormatGUID, std::vector<PROPBAG2> options, std::vector<VARIANT> values,
                    const uint8_t* source_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                    size_t* outsize) const {
+     if (source_data == nullptr || outbuffer == nullptr || outsize == nullptr || !IsValidEncodeImageSize(width, height)) {
+       return {kOrtxErrorInvalidArgument, "[EncodeImage] Invalid image arguments or dimensions."};
+     }
+     *outbuffer = nullptr;
+     *outsize = 0;
+     if (pIWICFactory_ == nullptr) {
+       return {kOrtxErrorInternal, "[ImageEncoder]: WIC factory is not initialized."};
+     }
+
      const uint8_t* encode_source_data = source_data;
      winrt::com_ptr<IStream> pOutputStream;
      winrt::com_ptr<IWICBitmapEncoder> pIEncoder;
@@ -170,8 +180,13 @@ struct EncodeImage {
        // TODO: Handle this if we need to support more formats.
      }
 
-     UINT cbStride = (width * 24 + 7) / 8 /***WICGetStride***/;
-     UINT cbBufferSize = height * cbStride;
+     const uint64_t stride64 = (static_cast<uint64_t>(width) * 24ULL + 7ULL) / 8ULL;
+     const uint64_t buffer_size64 = static_cast<uint64_t>(height) * stride64;
+     if (stride64 > (std::numeric_limits<UINT>::max)() || buffer_size64 > (std::numeric_limits<UINT>::max)()) {
+       return {kOrtxErrorInvalidArgument, "[EncodeImage] Image buffer size exceeds WIC limits."};
+     }
+     const UINT cbStride = static_cast<UINT>(stride64);
+     const UINT cbBufferSize = static_cast<UINT>(buffer_size64);
 
      hr = pBitmapFrame->WritePixels(height, cbStride, cbBufferSize, (BYTE*)encode_source_data);
 
@@ -194,19 +209,24 @@ struct EncodeImage {
        return errorWithHr_("pOutputStream->Stat.", hr);
      }
 
+     if (outputStreamStat.cbSize.QuadPart > static_cast<ULONGLONG>((std::numeric_limits<ULONG>::max)())) {
+       return {kOrtxErrorInternal, "[ImageEncoder]: Encoded stream exceeds maximum read size."};
+     }
      const size_t size = static_cast<size_t>(outputStreamStat.cbSize.QuadPart);
      void *buffer = malloc(size);
      if (buffer == NULL) {
-       return errorWithHr_("malloc failed.", hr);
+       return {kOrtxErrorOutOfMemory, "[ImageEncoder]: Failed to allocate output buffer."};
      }
      ULONG cbRead = 0;
      // Seek to beginning for Read() to work properly.
      hr = pOutputStream->Seek(LARGE_INTEGER(), STREAM_SEEK_SET, NULL);
      if (FAILED(hr)) {
+       free(buffer);
        return errorWithHr_("pOutputStream->Seek.", hr);
      }
      hr = pOutputStream->Read(buffer, static_cast<ULONG>(size), &cbRead);
      if (FAILED(hr)) {
+       free(buffer);
        return errorWithHr_("pOutputStream->Read.", hr);
      }
      *outbuffer = (uint8_t*)buffer;
