@@ -69,5 +69,5 @@ In the C API build, onnxruntime-extensions can directly load Hugging Face tokeni
 
 3) `tokenizer_module.json` is a file that contains the user customized Python module information of the tokenizer, which is defined by onnxruntime-extensions, which is optional. The following fields are supported:
 
-- `tiktoken_file`: the path of the tiktoken file base64 encoded vocab file, which can be loaded by `OrtxCreateTokenizer` too.
+- `tiktoken_file`: relative path (within the tokenizer directory) to the base64-encoded tiktoken vocabulary file loaded by `OrtxCreateTokenizer`.
 - `added_tokens`: same as `tokenizer.json`. If `tokenizer.json` does not contain `added_tokens` or the file does not exist, this field can be input by the user.

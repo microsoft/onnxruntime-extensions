@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <chrono>
+#include <cstdlib>
 #include <filesystem>
 #include <iterator>
 #include <stdexcept>
@@ -226,6 +227,255 @@ TEST(BlobTokenizerConfigTest, CapturesAddedTokensBeforeModuleOverrides) {
   ASSERT_NE(config.added_tokens_decoder, nullptr);
   EXPECT_EQ(*config.added_tokens_decoder, json::parse(config_bytes).at("added_tokens_decoder"));
   EXPECT_EQ(config.added_tokens_.at(ustring("<module>")).id_, 8);
+}
+
+TEST(TikTokenPathValidationTest, AcceptsEnclosedRelativePathsAndExtensionlessVocab) {
+  const auto base_config = ReadTokenizerFile("data/tokenizer/phi-3-small/tokenizer_config.json");
+  const auto base_module = json::parse(ReadTokenizerFile("data/tokenizer/phi-3-small/tokenizer_module.json"));
+  const auto raw_tiktoken = ReadTokenizerFile("data/tokenizer/phi-3-small/cl100k_base.tiktoken");
+  const std::vector<extTokenId_t> expected_ids = {2028, 374, 264, 1296, 13};
+
+  ScopedTokenizerDirectory sandbox;
+  const auto tok_dir = sandbox.path / "model.v1";
+  std::filesystem::create_directories(tok_dir / "sub");
+
+  auto write_file = [](const std::filesystem::path& file_path, const std::string& content) {
+    std::ofstream out(file_path, std::ios::binary);
+    out << content;
+  };
+
+  write_file(tok_dir / "tokenizer_config.json", base_config);
+  write_file(tok_dir / "cl100k_base.tiktoken", raw_tiktoken);
+  write_file(tok_dir / "sub" / "nested.tiktoken", raw_tiktoken);
+  write_file(tok_dir / "tiktoken_vocab", raw_tiktoken);
+
+  for (const char* rel_path :
+       {"cl100k_base.tiktoken", "./cl100k_base.tiktoken", "sub/nested.tiktoken", "tiktoken_vocab"}) {
+    SCOPED_TRACE(rel_path);
+    json mod = base_module;
+    mod["tiktoken_file"] = rel_path;
+    write_file(tok_dir / "tokenizer_module.json", mod.dump());
+
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, tok_dir.string().c_str());
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+    std::vector<extTokenId_t> actual_ids;
+    ASSERT_NO_FATAL_FAILURE(Encode(tokenizer.get(), "This is a test.", &actual_ids));
+    EXPECT_EQ(actual_ids, expected_ids);
+  }
+
+#ifdef _WIN32
+  {
+    std::string lower_dir = tok_dir.string();
+    for (char& ch : lower_dir) {
+      ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, lower_dir.c_str());
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  }
+#endif
+
+  // Verified vocabulary bytes are retained from the opened handle rather than reopened by pathname.
+  {
+    json mod = base_module;
+    mod["tiktoken_file"] = "cl100k_base.tiktoken";
+    write_file(tok_dir / "tokenizer_module.json", mod.dump());
+    ort_extensions::TokenJsonConfig cfg;
+    ASSERT_TRUE(cfg.Load(tok_dir.string()).IsOk());
+    std::filesystem::remove(tok_dir / "cl100k_base.tiktoken");
+
+    std::unique_ptr<std::istream> vocab_stream;
+    ASSERT_TRUE(cfg.OpenVocabFile(vocab_stream).IsOk());
+    ASSERT_NE(vocab_stream, nullptr);
+    const std::string loaded_bytes{std::istreambuf_iterator<char>{*vocab_stream}, {}};
+    EXPECT_EQ(loaded_bytes, raw_tiktoken);
+  }
+
+  // Rooted file paths preserve their root directory instead of collapsing parent_path() to empty.
+  EXPECT_EQ(ort_extensions::path("tokenizer.json").parent_path(), "");
+  EXPECT_EQ(ort_extensions::path("/tokenizer.json").parent_path(), "/");
+  EXPECT_EQ((ort_extensions::path("/") / "tokenizer_config.json").string(), "/tokenizer_config.json");
+#ifdef _WIN32
+  EXPECT_EQ(ort_extensions::path("C:\\tokenizer.json").parent_path(), "C:\\");
+  EXPECT_EQ((ort_extensions::path("C:\\") / "tokenizer_config.json").string(), "C:\\tokenizer_config.json");
+#else
+  EXPECT_EQ(ort_extensions::path("/tmp/model\\/tokenizer.json").parent_path(), "/tmp/model\\");
+  EXPECT_EQ((ort_extensions::path("/tmp/model\\") / "tokenizer_config.json").string(),
+            "/tmp/model\\/tokenizer_config.json");
+
+  // On POSIX, backslashes in tiktoken_file are literal filename characters rather than separators.
+  {
+    std::filesystem::create_directories(tok_dir / "sub");
+    write_file(tok_dir / "sub" / "vocab.tiktoken", "invalid_slash_target");
+    write_file(tok_dir / "sub\\vocab.tiktoken", raw_tiktoken);
+
+    json mod = base_module;
+    mod["tiktoken_file"] = "sub\\vocab.tiktoken";
+    write_file(tok_dir / "tokenizer_module.json", mod.dump());
+
+    ort_extensions::TokenJsonConfig cfg;
+    ASSERT_TRUE(cfg.Load(tok_dir.string()).IsOk());
+    EXPECT_EQ(cfg.GetVocabDataFile(), (tok_dir / "sub\\vocab.tiktoken").string());
+
+    std::unique_ptr<std::istream> vocab_stream;
+    ASSERT_TRUE(cfg.OpenVocabFile(vocab_stream).IsOk());
+    ASSERT_NE(vocab_stream, nullptr);
+    const std::string loaded_bytes{std::istreambuf_iterator<char>{*vocab_stream}, {}};
+    EXPECT_EQ(loaded_bytes, raw_tiktoken);
+
+    OrtxObjectPtr<OrtxTokenizer> tokenizer(OrtxCreateTokenizer, tok_dir.string().c_str());
+    ASSERT_EQ(tokenizer.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+    std::filesystem::remove(tok_dir / "sub\\vocab.tiktoken");
+    write_file(tok_dir / "sub" / "vocab.tiktoken", raw_tiktoken);
+    OrtxTokenizer* missing_literal = nullptr;
+    EXPECT_EQ(OrtxCreateTokenizer(&missing_literal, tok_dir.string().c_str()), kOrtxErrorInvalidFile);
+    EXPECT_EQ(missing_literal, nullptr);
+  }
+#endif
+}
+
+TEST(TikTokenPathValidationTest, RejectsTraversalAbsoluteDeviceDirectoryAndEscapingLinks) {
+  const auto base_config = json::parse(ReadTokenizerFile("data/tokenizer/phi-3-small/tokenizer_config.json"));
+  const auto base_module = json::parse(ReadTokenizerFile("data/tokenizer/phi-3-small/tokenizer_module.json"));
+  const auto raw_tiktoken = ReadTokenizerFile("data/tokenizer/phi-3-small/cl100k_base.tiktoken");
+
+  ScopedTokenizerDirectory sandbox;
+  const auto tok_dir = sandbox.path / "tok";
+  const auto outside_dir = sandbox.path / "tok_outside";
+  std::filesystem::create_directories(tok_dir / "sub");
+  std::filesystem::create_directories(outside_dir);
+
+  auto write_file = [](const std::filesystem::path& file_path, const std::string& content) {
+    std::ofstream out(file_path, std::ios::binary);
+    out << content;
+  };
+
+  const auto outside_file = outside_dir / "outside.tiktoken";
+  write_file(outside_file, raw_tiktoken);
+  write_file(sandbox.path / "parent.tiktoken", raw_tiktoken);
+  write_file(tok_dir / "cl100k_base.tiktoken", raw_tiktoken);
+
+  std::vector<std::string> rejected_paths = {
+      "..",
+      "../parent.tiktoken",
+      "sub/../../parent.tiktoken",
+      "../tok_outside/outside.tiktoken",
+      outside_file.string(),
+      "/etc/hostname",
+      ".",
+      "./.",
+      "sub",
+      "sub/",
+      "sub/.",
+      "sub//cl100k_base.tiktoken",
+  };
+  rejected_paths.emplace_back("cl100k_base.tiktoken\0ignored", 28);
+
+#ifdef _WIN32
+  rejected_paths.push_back("..\\parent.tiktoken");
+  rejected_paths.push_back("\\Windows\\win.ini");
+  rejected_paths.push_back("C:\\Windows\\win.ini");
+  rejected_paths.push_back("C:parent.tiktoken");
+  rejected_paths.push_back("cl100k_base.tiktoken:$DATA");
+  rejected_paths.push_back("NUL");
+  rejected_paths.push_back("CON.tiktoken");
+  rejected_paths.push_back(".. ");
+  rejected_paths.push_back("cl100k_base.tiktoken.");
+
+  const auto junction_dir = tok_dir / "linked_out";
+  const std::wstring mklink_cmd =
+      L"cmd.exe /c mklink /J \"" + junction_dir.wstring() + L"\" \"" + outside_dir.wstring() + L"\" >nul 2>&1";
+  ASSERT_EQ(_wsystem(mklink_cmd.c_str()), 0);
+  ASSERT_TRUE(std::filesystem::exists(junction_dir / "outside.tiktoken"));
+  rejected_paths.push_back("linked_out/outside.tiktoken");
+#else
+  std::error_code symlink_ec;
+  std::filesystem::create_symlink(outside_file, tok_dir / "escaped.tiktoken", symlink_ec);
+  ASSERT_FALSE(symlink_ec) << symlink_ec.message();
+  rejected_paths.push_back("escaped.tiktoken");
+  std::filesystem::create_directory_symlink(outside_dir, tok_dir / "linked_out", symlink_ec);
+  ASSERT_FALSE(symlink_ec) << symlink_ec.message();
+  rejected_paths.push_back("linked_out/outside.tiktoken");
+  if (::mkfifo((tok_dir / "fifo.tiktoken").string().c_str(), 0600) == 0) {
+    rejected_paths.push_back("fifo.tiktoken");
+  }
+#endif
+
+  // 1. Via tokenizer_config.json (without tokenizer_module.json override)
+  for (const auto& bad_path : rejected_paths) {
+    SCOPED_TRACE(bad_path);
+    json cfg = base_config;
+    cfg["tiktoken_file"] = bad_path;
+    const auto cfg_bytes = cfg.dump();
+    write_file(tok_dir / "tokenizer_config.json", cfg_bytes);
+    std::error_code ec;
+    std::filesystem::remove(tok_dir / "tokenizer_module.json", ec);
+
+    OrtxTokenizer* tokenizer = nullptr;
+    EXPECT_EQ(OrtxCreateTokenizer(&tokenizer, tok_dir.string().c_str()), kOrtxErrorInvalidFile);
+    EXPECT_EQ(tokenizer, nullptr);
+
+    if (ort_extensions::path::is_safe_relative_path(bad_path)) {
+      // Link escapes are filesystem-level; lexical check passes for blob mode which does not touch disk.
+      continue;
+    }
+    const OrtxTokenizerBlob blob(cfg_bytes, "", "", raw_tiktoken);
+    EXPECT_EQ(OrtxCreateTokenizerFromBlob(&tokenizer, &blob), kOrtxErrorInvalidFile);
+    EXPECT_EQ(tokenizer, nullptr);
+  }
+
+  // 2. Via tokenizer_module.json override
+  write_file(tok_dir / "tokenizer_config.json", base_config.dump());
+  json bad_mod = base_module;
+  bad_mod["tiktoken_file"] = "../parent.tiktoken";
+  write_file(tok_dir / "tokenizer_module.json", bad_mod.dump());
+  {
+    OrtxTokenizer* tokenizer = nullptr;
+    EXPECT_EQ(OrtxCreateTokenizer(&tokenizer, tok_dir.string().c_str()), kOrtxErrorInvalidFile);
+    EXPECT_EQ(tokenizer, nullptr);
+  }
+
+#ifdef _WIN32
+  std::error_code rm_ec;
+  std::filesystem::remove(tok_dir / "linked_out", rm_ec);
+#endif
+}
+
+TEST(TikTokenPathValidationTest, HandlesNullAndRejectsNonStringTikTokenField) {
+  const auto config_str = ReadTokenizerFile("data/added-tokens/tokenizer_config.json");
+  const auto vocab_str = ReadTokenizerFile("data/added-tokens/tokenizer.json");
+
+  ScopedTokenizerDirectory dir;
+  dir.Write("tokenizer.json", vocab_str);
+
+  // Explicit null tiktoken_file falls back to tokenizer.json cleanly.
+  auto null_cfg = json::parse(config_str);
+  null_cfg["tiktoken_file"] = nullptr;
+  const auto null_cfg_bytes = null_cfg.dump();
+  dir.Write("tokenizer_config.json", null_cfg_bytes);
+  {
+    OrtxObjectPtr<OrtxTokenizer> file_tok(OrtxCreateTokenizer, dir.path.string().c_str());
+    EXPECT_EQ(file_tok.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+
+    const OrtxTokenizerBlob blob(null_cfg_bytes, vocab_str);
+    OrtxObjectPtr<OrtxTokenizer> blob_tok(OrtxCreateTokenizerFromBlob, &blob);
+    EXPECT_EQ(blob_tok.Code(), kOrtxOK) << OrtxGetLastErrorMessage();
+  }
+
+  // Non-string tiktoken_file fails cleanly with kOrtxErrorInvalidArgument without throwing.
+  for (const auto* bad_json : {R"({"tokenizer_class":"GPT2Tokenizer","tiktoken_file":123})",
+                               R"({"tokenizer_class":"GPT2Tokenizer","tiktoken_file":["cl100k_base.tiktoken"]})"}) {
+    SCOPED_TRACE(bad_json);
+    const std::string bad_json_bytes = bad_json;
+    dir.Write("tokenizer_config.json", bad_json_bytes);
+    OrtxTokenizer* tokenizer = nullptr;
+    EXPECT_EQ(OrtxCreateTokenizer(&tokenizer, dir.path.string().c_str()), kOrtxErrorInvalidArgument);
+    EXPECT_EQ(tokenizer, nullptr);
+
+    const OrtxTokenizerBlob blob(bad_json_bytes, vocab_str);
+    EXPECT_EQ(OrtxCreateTokenizerFromBlob(&tokenizer, &blob), kOrtxErrorInvalidArgument);
+    EXPECT_EQ(tokenizer, nullptr);
+  }
 }
 
 }  // namespace
