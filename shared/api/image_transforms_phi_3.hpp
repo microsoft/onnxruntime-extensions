@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "ext_status.h"
 #include "op_def_struct.h"
 #include "image_resample.h"
@@ -15,7 +17,7 @@ constexpr int image_resized_height = 336;
 constexpr float OPENAI_CLIP_MEAN[] = {0.48145466f, 0.4578275f, 0.40821073f};
 constexpr float OPENAI_CLIP_STD[] = {0.26862954f, 0.26130258f, 0.27577711f};
 
-inline Imaging padding_336_h(Imaging image) {
+inline ort_extensions::UniqueImaging padding_336_h(ort_extensions::UniqueImaging image) {
   // def padding_336(b):
   //     width, height = b.size
   //     tar = int(np.ceil(height / 336) * 336)
@@ -35,8 +37,8 @@ inline Imaging padding_336_h(Imaging image) {
   int32_t top_padding = static_cast<int32_t>((tar - height) / 2);
   int32_t bottom_padding = tar - image->ysize - top_padding;
 
-  Imaging output = ImagingNew("RGB", image->xsize, tar);
-  if (output == nullptr) {
+  ort_extensions::UniqueImaging output(ImagingNew("RGB", image->xsize, tar));
+  if (!output) {
     return nullptr;
   }
   for (int32_t i = 0; i < top_padding; ++i) {
@@ -64,11 +66,10 @@ inline Imaging padding_336_h(Imaging image) {
     }
   }
 
-  ImagingDelete(image);
   return output;
 }
 
-inline Imaging padding_336_w(Imaging image) {
+inline ort_extensions::UniqueImaging padding_336_w(ort_extensions::UniqueImaging image) {
   float width = static_cast<float>(image->xsize);
   int32_t tar = static_cast<int32_t>(std::ceil(width / image_resized_width) * image_resized_width);
   if (tar == image->xsize) {
@@ -78,8 +79,8 @@ inline Imaging padding_336_w(Imaging image) {
   int32_t left_padding = static_cast<int32_t>((tar - width) / 2);
   int32_t right_padding = tar - image->xsize - left_padding;
 
-  Imaging output = ImagingNew("RGB", tar, image->ysize);
-  if (output == nullptr) {
+  ort_extensions::UniqueImaging output(ImagingNew("RGB", tar, image->ysize));
+  if (!output) {
     return nullptr;
   }
   for (int32_t i = 0; i < image->ysize; ++i) {
@@ -103,11 +104,10 @@ inline Imaging padding_336_w(Imaging image) {
     }
   }
 
-  ImagingDelete(image);
   return output;
 }
 
-inline Imaging hd_transform(Imaging image, int hd_num) {
+inline ort_extensions::UniqueImaging hd_transform(ort_extensions::UniqueImaging image, int hd_num) {
   //     width, height = img.size
   auto [width, height] = std::make_tuple(image->xsize, image->ysize);
 
@@ -142,15 +142,15 @@ inline Imaging hd_transform(Imaging image, int hd_num) {
 
   //     img = torchvision.transforms.functional.resize(img, [new_h, new_w])
   float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
-  auto output_image =
-      ImagingResample(image, static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, box);
-  ImagingDelete(image);
-  if (output_image == nullptr) {
+  ort_extensions::UniqueImaging output_image(
+      ImagingResample(image.get(), static_cast<int>(new_w), static_cast<int>(new_h), IMAGING_TRANSFORM_BILINEAR, box));
+  image.reset();
+  if (!output_image) {
     return nullptr;
   }
 
   //     img = padding_336(img)
-  return width < height ? padding_336_w(output_image) : padding_336_h(output_image);
+  return width < height ? padding_336_w(std::move(output_image)) : padding_336_h(std::move(output_image));
 }
 
 // Function to calculate 1D index from 3D indices
@@ -178,6 +178,12 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
     return {kOrtxErrorInvalidArgument, "[hd_transform]: Only raw image formats"};
   }
 
+  if (dimensions[0] <= 0 || dimensions[1] <= 0 ||
+      dimensions[0] > (std::numeric_limits<int32_t>::max)() ||
+      dimensions[1] > (std::numeric_limits<int32_t>::max)()) {
+    return {kOrtxErrorInvalidArgument, "[hd_transform]: Invalid image dimensions"};
+  }
+
   // Normalize the pixel value with mean and var
   auto input_data = input.Data();
   int32_t h = static_cast<int32_t>(dimensions[0]);
@@ -191,67 +197,72 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   //                                     static_cast<int32_t>(w)};  // W
 
   // cv::Mat rgb_image(static_cast<int>(h), static_cast<int>(w), CV_8UC3, const_cast<uint8_t*>(input_data));
-  Imaging rgb_image = ImagingNew("RGB", w, h);
-  if (rgb_image == nullptr) {
+  ort_extensions::UniqueImaging rgb_image(ImagingNew("RGB", w, h));
+  if (!rgb_image) {
     return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for RGB image"};
   }
   for (int32_t i = 0; i < h; ++i) {
     for (int32_t j = 0; j < w; ++j) {
       uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
-      pixel[0] = input_data[(i * w + j) * 3];
-      pixel[1] = input_data[(i * w + j) * 3 + 1];
-      pixel[2] = input_data[(i * w + j) * 3 + 2];
+      const size_t src_idx = (static_cast<size_t>(i) * static_cast<size_t>(w) + static_cast<size_t>(j)) * 3;
+      pixel[0] = input_data[src_idx];
+      pixel[1] = input_data[src_idx + 1];
+      pixel[2] = input_data[src_idx + 2];
       pixel[3] = 0;  // unused
     }
   }
 
   // cv::Mat rgb_image(h, w, CV_8UC3, const_cast<uint8_t*>(input_data));
   // elems = [HD_transform(im, hd_num = self.num_crops) for im in images]
-  auto elem = hd_transform(rgb_image, max_crops);
+  auto elem = hd_transform(std::move(rgb_image), max_crops);
   // # tensor transform and normalize
-  if (elem == nullptr) {
+  if (!elem) {
     return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for elem"};
   }
 
   std::tie(w, h) = std::make_tuple(elem->xsize, elem->ysize);
   uint8_t** elem_image = reinterpret_cast<uint8_t**>(elem->image);
-  auto rgb_image_ptr = std::make_unique<float[]>(c * h * w);  // channel first
+  auto rgb_image_ptr = std::make_unique<float[]>(static_cast<size_t>(c) * static_cast<size_t>(h) * static_cast<size_t>(w));  // channel first
   auto p_pixel_values = rgb_image_ptr.get();
   for (int32_t k = 0; k < c; ++k) {
     for (int32_t i = 0; i < h; ++i) {
       for (int32_t j = 0; j < w; ++j) {
-        p_pixel_values[k * h * w + i * w + j] =
+        p_pixel_values[(static_cast<size_t>(k) * static_cast<size_t>(h) + static_cast<size_t>(i)) * static_cast<size_t>(w) + static_cast<size_t>(j)] =
             (static_cast<float>(elem_image[i][j * 4 + k]) / 255.f - OPENAI_CLIP_MEAN[k]) / OPENAI_CLIP_STD[k];
       }
     }
   }
-  ImagingDelete(elem);
+  elem.reset();
 
   auto shape = image_sizes.Allocate({2});
   // shapes = [[im.size(1), im.size(2)] for im in hd_images]
   shape[0] = h;
   shape[1] = w;
 
-  auto image_size_1c = h * w;
-  std::vector<Imaging> global_image(c);  // resample the image per channel
+  auto image_size_1c = static_cast<size_t>(h) * static_cast<size_t>(w);
+  std::vector<ort_extensions::UniqueImaging> global_image(c);  // resample the image per channel
   for (int32_t k = 0; k < c; ++k) {
     // # create global image
-    auto image_1c = ImagingNew("F", w, h);
+    ort_extensions::UniqueImaging image_1c(ImagingNew("F", w, h));
+    if (!image_1c) {
+      return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for channel image"};
+    }
     for (int32_t y = 0; y < h; ++y) {
       for (int32_t x = 0; x < w; ++x) {
         float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
-        *(pixel + x) = p_pixel_values[k * image_size_1c + y * w + x];
+        *(pixel + x) = p_pixel_values[static_cast<size_t>(k) * image_size_1c +
+                                      static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x)];
       }
     }
     // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
     //  mode='bicubic',).to(im.dtype) for im in hd_images]
     float box[]{0.0f, 0.0f, static_cast<float>(image_1c->xsize), static_cast<float>(image_1c->ysize)};
-    global_image[k] =
-        ImagingResample(image_1c, image_resized_width, image_resized_height, IMAGING_TRANSFORM_BICUBIC, box);
-    if (global_image[k] == nullptr) {
+    global_image[k].reset(
+        ImagingResample(image_1c.get(), image_resized_width, image_resized_height, IMAGING_TRANSFORM_BICUBIC, box));
+    image_1c.reset();
+    if (!global_image[k]) {
       return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for global_image"};
     }
-    ImagingDelete(image_1c);
   }
 
   {
@@ -281,10 +292,7 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
              image_resized_width * sizeof(float));
     }
   }
-
-  for (auto img : global_image) {
-    ImagingDelete(img);
-  }
+  global_image.clear();
 
   auto num_crops = static_cast<int>((shape[0] / image_resized_height) * (shape[1] / image_resized_width));
   // chop the image into crops

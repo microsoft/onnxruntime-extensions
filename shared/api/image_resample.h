@@ -52,6 +52,23 @@ Imaging ImagingNew(const char* mode, int xsize, int ysize);
 Imaging ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]);
 void ImagingDelete(Imaging im);
 
+// Optional test observer/fault-injection callback:
+//   event == 0 : pre-allocation check (return 0 to simulate OOM, non-zero to proceed)
+//   event == 1 : image successfully allocated
+//   event == -1: image about to be destroyed
+// Remains NULL in production so normal execution performs no shared-state writes.
+typedef int (*ImagingTestAllocHook)(int event);
+void ImagingSetTestAllocHook(ImagingTestAllocHook hook);
+
 #ifdef __cplusplus
 }
+
+#include <memory>
+
+namespace ort_extensions {
+struct ImagingDeleter {
+  void operator()(Imaging im) const noexcept { ImagingDelete(im); }
+};
+using UniqueImaging = std::unique_ptr<ImagingMemoryInstance, ImagingDeleter>;
+}  // namespace ort_extensions
 #endif

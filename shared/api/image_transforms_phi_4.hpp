@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <limits>
 #include <set>
 #include <string>
 
@@ -47,27 +48,39 @@ class Phi4VisionDynamicPreprocess {
     mask_size=mask_resolution) elems.append(elem) image_attention_masks.append(attention_mask)
     */
     const int64_t base_resolution = dyhd_base_resolution_;
+    if (base_resolution < 14 || base_resolution > (std::numeric_limits<int>::max)()) {
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid dyhd_base_resolution"};
+    }
     const int64_t mask_resolution = base_resolution / 14;
     const uint8_t* input_data = ts_image.Data();
     int64_t h = ts_image.Shape()[0];
     int64_t w = ts_image.Shape()[1];
-    Imaging image = ImagingNew("RGB", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
+    if (h <= 0 || w <= 0 ||
+        h > (std::numeric_limits<int>::max)() ||
+        w > (std::numeric_limits<int>::max)()) {
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid image dimensions"};
+    }
+    UniqueImaging image(ImagingNew("RGB", static_cast<int>(w), static_cast<int>(h)));
+    if (!image) {
+      return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: Failed to allocate memory for RGB image"};
+    }
     for (int64_t i = 0; i < h; ++i) {
       for (int64_t j = 0; j < w; ++j) {
         uint8_t* pixel = reinterpret_cast<uint8_t*>(image->image[i] + j * 4);
-        pixel[0] = input_data[(i * w + j) * 3];
-        pixel[1] = input_data[(i * w + j) * 3 + 1];
-        pixel[2] = input_data[(i * w + j) * 3 + 2];
+        const size_t src_idx = (static_cast<size_t>(i) * static_cast<size_t>(w) + static_cast<size_t>(j)) * 3;
+        pixel[0] = input_data[src_idx];
+        pixel[1] = input_data[src_idx + 1];
+        pixel[2] = input_data[src_idx + 2];
         pixel[3] = 0;  // unused
       }
     }
 
-    Imaging elem{};
+    UniqueImaging elem;
     std::vector<std::vector<int64_t>> image_attention_masks;
     OrtxStatus status =
-      DynamicPreprocess(image, elem, image_attention_masks, 1, dynamic_hd_, base_resolution, mask_resolution);
+      DynamicPreprocess(image.get(), elem, image_attention_masks, 1, dynamic_hd_, base_resolution, mask_resolution);
 
-    ImagingDelete(image);
+    image.reset();
     if (!status.IsOk()) {
       return status;
     }
@@ -79,8 +92,7 @@ class Phi4VisionDynamicPreprocess {
         std::memcpy(p_output_image + c0_index, elem->image[i] + j * 4, c);
       }
     }
-
-    ImagingDelete(elem);
+    elem.reset();
 
     auto attention_mask_data = attention_mask.Allocate(
       {static_cast<int64_t>(image_attention_masks.size()), static_cast<int64_t>(image_attention_masks[0].size())});
@@ -191,7 +203,7 @@ class Phi4VisionDynamicPreprocess {
       return resized_img, attention_mask
     */
 
-  OrtxStatus DynamicPreprocess(Imaging image, Imaging& resized_image, std::vector<std::vector<int64_t>>& attention_mask,
+  OrtxStatus DynamicPreprocess(Imaging image, UniqueImaging& resized_image, std::vector<std::vector<int64_t>>& attention_mask,
                                int64_t min_num = 1, int64_t max_num = 12, int64_t image_size = 384,
                                int64_t mask_size = 27) const {
     int64_t orig_width = image->xsize;
@@ -290,9 +302,9 @@ class Phi4VisionDynamicPreprocess {
 
     // image = torchvision.transforms.functional.resize(image, [new_size[1], new_size[0]],)
     float box[4] = {0.0f, 0.0f, static_cast<float>(image->xsize), static_cast<float>(image->ysize)};
-    auto output_image = ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
-                                        IMAGING_TRANSFORM_BILINEAR, box);
-    if (output_image == nullptr) {
+    UniqueImaging output_image(ImagingResample(image, static_cast<int>(new_size.first), static_cast<int>(new_size.second),
+                                               IMAGING_TRANSFORM_BILINEAR, box));
+    if (!output_image) {
       return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
     }
 
@@ -300,11 +312,11 @@ class Phi4VisionDynamicPreprocess {
       resized_img = torchvision.transforms.functional.pad(
         image, [0, 0, padding_width, padding_height], fill=[255,255,255])
     */
-    Imaging resized_img = ImagingNew(
+    UniqueImaging resized_img(ImagingNew(
       "RGB",
       output_image->xsize + ort_extensions::narrow<int>(padding_width),
-      output_image->ysize + ort_extensions::narrow<int>(padding_height));
-    if (resized_img == nullptr) {
+      output_image->ysize + ort_extensions::narrow<int>(padding_height)));
+    if (!resized_img) {
       return {kOrtxErrorOutOfMemory, "[Phi4VisionProcessor]: The aspect ratio is very extreme"};
     }
 
@@ -329,8 +341,7 @@ class Phi4VisionDynamicPreprocess {
       }
     }
 
-    ImagingDelete(output_image);
-    resized_image = resized_img;
+    resized_image = std::move(resized_img);
     return {};
   }
 
@@ -362,15 +373,21 @@ class Phi4VisionProcessor {
                      ortc::Tensor<int64_t>& image_sizes,
                      ortc::Tensor<int64_t>& returned_image_attention_mask,
                      ortc::Tensor<int64_t>& num_img_tokens) const {
+    if (hd_image.Shape().size() != 3) {
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Expected rank-3 input"};
+    }
     // Defense-in-depth: reject non-3-channel inputs. Downstream code hardcodes 3 channels
     // when allocating/copying tensors. A non-3-channel input would cause heap corruption (CWE-122).
-    if (hd_image.Shape().size() >= 3 && hd_image.Shape()[2] != 3) {
+    if (hd_image.Shape()[2] != 3) {
       return {kOrtxErrorInvalidArgument,
               "[Phi4VisionProcessor]: Expected 3-channel input, got " +
               std::to_string(hd_image.Shape()[2]) + " channels"};
     }
 
-    const int32_t base_resolution = ort_extensions::narrow<int32_t>(dyhd_base_resolution_);
+    if (dyhd_base_resolution_ < 14 || dyhd_base_resolution_ > (std::numeric_limits<int32_t>::max)()) {
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid dyhd_base_resolution"};
+    }
+    const int32_t base_resolution = static_cast<int32_t>(dyhd_base_resolution_);
     const int64_t mask_resolution = base_resolution / 14;
     /*
       hd_images = [img_processor(im) for im in elems]
@@ -382,27 +399,36 @@ class Phi4VisionProcessor {
     auto hd_image_data = hd_image.Data();
     auto hd_image_shape = hd_image.Shape();
     auto [h, w, c] = std::make_tuple(hd_image_shape[0], hd_image_shape[1], hd_image_shape[2]);
+    if (h <= 0 || w <= 0 ||
+        h > (std::numeric_limits<int>::max)() ||
+        w > (std::numeric_limits<int>::max)()) {
+      return {kOrtxErrorInvalidArgument, "[Phi4VisionProcessor]: Invalid image dimensions"};
+    }
     ortc::Tensor<float> ts_global_image{&CppAllocator::Instance()};
     auto global_image_data = ts_global_image.Allocate({c, base_resolution, base_resolution});
-    Imaging global_image_1c{};  // resample the image per channel
     for (int32_t k = 0; k < c; ++k) {
       // # create global image
-      auto image_1c = ImagingNew("F", ort_extensions::narrow<int>(w), ort_extensions::narrow<int>(h));
+      UniqueImaging image_1c(ImagingNew("F", static_cast<int>(w), static_cast<int>(h)));
+      if (!image_1c) {
+        return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for channel image"};
+      }
       for (int32_t y = 0; y < h; ++y) {
         for (int32_t x = 0; x < w; ++x) {
           float* pixel = reinterpret_cast<float*>(image_1c->image32[y]);
-          *(pixel + x) = hd_image_data[(y * w + x) * c + k];
+          *(pixel + x) = hd_image_data[(static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x)) *
+                                           static_cast<size_t>(c) +
+                                       static_cast<size_t>(k)];
         }
       }
       // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
       //  mode='bicubic',).to(im.dtype) for im in hd_images]
       float box[]{0.0f, 0.0f, static_cast<float>(image_1c->xsize), static_cast<float>(image_1c->ysize)};
-      global_image_1c =
-          ImagingResample(image_1c, base_resolution, base_resolution, IMAGING_TRANSFORM_BICUBIC, box);
-      if (global_image_1c == nullptr) {
+      UniqueImaging global_image_1c(
+          ImagingResample(image_1c.get(), base_resolution, base_resolution, IMAGING_TRANSFORM_BICUBIC, box));
+      image_1c.reset();
+      if (!global_image_1c) {
         return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for global_image"};
       }
-      ImagingDelete(image_1c);
 
       auto global_image_size = global_image_1c->ysize * global_image_1c->xsize;
       for (int i = 0; i < global_image_1c->ysize; ++i) {
@@ -411,8 +437,6 @@ class Phi4VisionProcessor {
             + i * global_image_1c->xsize + j] = reinterpret_cast<float*>(global_image_1c->image32[i])[j];
         }
       }
-
-      ImagingDelete(global_image_1c);
     }
 
     /*
