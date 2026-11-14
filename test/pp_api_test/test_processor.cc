@@ -13,6 +13,8 @@
 #include "shared/api/image_processor.h"
 #include "shared/api/image_transforms_gemma4.hpp"
 #include "shared/api/image_transforms.hpp"
+#include "shared/api/image_transforms_phi_3.hpp"
+#include "shared/api/image_transforms_phi_4.hpp"
 
 using namespace ort_extensions;
 
@@ -992,6 +994,77 @@ TEST(ProcessorTest, TestPixtralImageProcessingMultiImage) {
     }
   }
 }
+
+TEST(ProcessorTest, ImageTransformsHandleFailedImagingAllocationsAndInvalidShapes) {
+  // xsize == INT_MAX / 4 exceeds ImagingNewPrologueSubtype's (INT_MAX / 4) - 1 linesize cap,
+  // deterministically making ImagingNew return nullptr without allocating large buffers.
+  const int64_t kUnallocatableWidth = static_cast<int64_t>((std::numeric_limits<int>::max)() / 4);
+  const int64_t kOverIntMax = static_cast<int64_t>((std::numeric_limits<int>::max)()) + 1;
+  uint8_t dummy_u8[12]{};
+  float dummy_f32[12]{};
+
+  // 1. Resize::Compute
+  {
+    Resize resize;
+    ASSERT_TRUE(resize.Init(AttrDict{{"height", int64_t{16}}, {"width", int64_t{16}}}).IsOk());
+
+    ortc::Tensor<uint8_t> oom_in({1, kUnallocatableWidth, 3}, dummy_u8);
+    ortc::Tensor<uint8_t> out(&CppAllocator::Instance());
+    EXPECT_EQ(resize.Compute(oom_in, out).Code(), kOrtxErrorOutOfMemory);
+
+    for (const auto& bad_shape : {std::vector<int64_t>{0, 4, 3},
+                                  std::vector<int64_t>{4, -1, 3},
+                                  std::vector<int64_t>{kOverIntMax, 1, 3}}) {
+      ortc::Tensor<uint8_t> bad_in(bad_shape, dummy_u8);
+      EXPECT_EQ(resize.Compute(bad_in, out).Code(), kOrtxErrorInvalidArgument);
+    }
+  }
+
+  // 2. phi3_hd_transform & padding helpers
+  {
+    ortc::Tensor<uint8_t> oom_in({1, kUnallocatableWidth, 3}, dummy_u8);
+    ortc::Tensor<float> pv(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_tokens(&CppAllocator::Instance());
+    EXPECT_EQ(phi3_hd_transform(oom_in, pv, sizes, num_tokens).Code(), kOrtxErrorOutOfMemory);
+
+    ortc::Tensor<uint8_t> bad_in({0, 4, 3}, dummy_u8);
+    EXPECT_EQ(phi3_hd_transform(bad_in, pv, sizes, num_tokens).Code(), kOrtxErrorInvalidArgument);
+
+    Imaging small_h = ImagingNew("RGB", 1, 1);
+    ASSERT_NE(small_h, nullptr);
+    small_h->xsize = static_cast<int>(kUnallocatableWidth);
+    EXPECT_EQ(padding_336_h(small_h), nullptr);
+  }
+
+  // 3. Phi4VisionDynamicPreprocess::Compute
+  {
+    Phi4VisionDynamicPreprocess dyn_pre;
+    ortc::Tensor<uint8_t> oom_in({1, kUnallocatableWidth, 3}, dummy_u8);
+    ortc::Tensor<uint8_t> resized(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> mask(&CppAllocator::Instance());
+    EXPECT_EQ(dyn_pre.Compute(oom_in, resized, mask).Code(), kOrtxErrorOutOfMemory);
+
+    ortc::Tensor<uint8_t> bad_in({kOverIntMax, 1, 3}, dummy_u8);
+    EXPECT_EQ(dyn_pre.Compute(bad_in, resized, mask).Code(), kOrtxErrorInvalidArgument);
+  }
+
+  // 4. Phi4VisionProcessor::Compute
+  {
+    Phi4VisionProcessor proc;
+    ortc::Tensor<float> oom_hd({1, kUnallocatableWidth, 3}, dummy_f32);
+    ortc::Tensor<int64_t> mask_in({32, 32}, reinterpret_cast<int64_t*>(dummy_u8));
+    ortc::Tensor<float> embeds(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> ret_mask(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_tokens(&CppAllocator::Instance());
+    EXPECT_EQ(proc.Compute(oom_hd, mask_in, embeds, sizes, ret_mask, num_tokens).Code(), kOrtxErrorOutOfMemory);
+
+    ortc::Tensor<float> rank2_hd({4, 3}, dummy_f32);
+    EXPECT_EQ(proc.Compute(rank2_hd, mask_in, embeds, sizes, ret_mask, num_tokens).Code(), kOrtxErrorInvalidArgument);
+  }
+}
+
 
 TEST(ProcessorTest, TestPadToSquare) {
   // Runs a processor config on one image and holds its first output, [1, H, W, C] float.

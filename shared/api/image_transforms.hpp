@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "ext_status.h"
 #include "op_def_struct.h"
 #include "image_resample.h"
@@ -153,6 +155,12 @@ struct Resize {
       return {kOrtxErrorInvalidArgument, "[Resize]: Only raw image formats"};
     }
 
+    if (dimensions[0] <= 0 || dimensions[1] <= 0 ||
+        dimensions[0] > (std::numeric_limits<int>::max)() ||
+        dimensions[1] > (std::numeric_limits<int>::max)()) {
+      return {kOrtxErrorInvalidArgument, "[Resize]: Invalid image dimensions"};
+    }
+
     auto* input_data = input.Data();
     int h = static_cast<int>(dimensions[0]);
     int w = static_cast<int>(dimensions[1]);
@@ -163,12 +171,16 @@ struct Resize {
     }
 
     Imaging rgb_image = ImagingNew("RGB", w, h);
+    if (rgb_image == nullptr) {
+      return {kOrtxErrorOutOfMemory, "[Resize]: Failed to allocate memory for RGB image"};
+    }
     for (int32_t i = 0; i < h; ++i) {
       for (int32_t j = 0; j < w; ++j) {
         uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
-        pixel[0] = input_data[(i * w + j) * 3];
-        pixel[1] = input_data[(i * w + j) * 3 + 1];
-        pixel[2] = input_data[(i * w + j) * 3 + 2];
+        const size_t src_idx = (static_cast<size_t>(i) * static_cast<size_t>(w) + static_cast<size_t>(j)) * 3;
+        pixel[0] = input_data[src_idx];
+        pixel[1] = input_data[src_idx + 1];
+        pixel[2] = input_data[src_idx + 2];
         pixel[3] = 0;  // unused
       }
     }
@@ -183,6 +195,12 @@ struct Resize {
     // When smart_resize is disabled, fall back to the fixed config dimensions.
     auto [height, width] = smart_resize_ ? smart_resize(static_cast<int64_t>(h), static_cast<int64_t>(w))
                                          : std::make_tuple(height_, width_);
+    if (height <= 0 || width <= 0 ||
+        height > (std::numeric_limits<int>::max)() ||
+        width > (std::numeric_limits<int>::max)()) {
+      ImagingDelete(rgb_image);
+      return {kOrtxErrorInvalidArgument, "[Resize]: Invalid target image dimensions"};
+    }
     h = static_cast<int>(height);
     w = static_cast<int>(width);
     
@@ -190,6 +208,12 @@ struct Resize {
       double scale = (std::max)(static_cast<double>(width) / w, static_cast<double>(height) / h);
       width = static_cast<int64_t>(w * scale);
       height = static_cast<int64_t>(h * scale);
+      if (height <= 0 || width <= 0 ||
+          height > (std::numeric_limits<int>::max)() ||
+          width > (std::numeric_limits<int>::max)()) {
+        ImagingDelete(rgb_image);
+        return {kOrtxErrorInvalidArgument, "[Resize]: Invalid target image dimensions"};
+      }
     }
 
     auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);

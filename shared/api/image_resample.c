@@ -106,20 +106,18 @@ struct ImagingMemoryArenaInstance ImagingDefaultArena = {
 
 
 extern void *
-ImagingError_MemoryError(void)  {
-    assert(0 && "out of memory");
+ImagingError_MemoryError(void) {
     return NULL;
 }
 
 extern void *
-ImagingError_ValueError(const char *message){
-    assert(0 && "exception: bad argument to function");
+ImagingError_ValueError(const char *message) {
+    (void)message;
     return NULL;
 }
 
 extern void *
-ImagingError_ModeError(void){
-    assert(0 && "bad image mode");
+ImagingError_ModeError(void) {
     return NULL;
 }
 

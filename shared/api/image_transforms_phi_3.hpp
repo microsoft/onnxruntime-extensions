@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <limits>
+
 #include "ext_status.h"
 #include "op_def_struct.h"
 #include "image_resample.h"
@@ -37,6 +39,7 @@ inline Imaging padding_336_h(Imaging image) {
 
   Imaging output = ImagingNew("RGB", image->xsize, tar);
   if (output == nullptr) {
+    ImagingDelete(image);
     return nullptr;
   }
   for (int32_t i = 0; i < top_padding; ++i) {
@@ -80,6 +83,7 @@ inline Imaging padding_336_w(Imaging image) {
 
   Imaging output = ImagingNew("RGB", tar, image->ysize);
   if (output == nullptr) {
+    ImagingDelete(image);
     return nullptr;
   }
   for (int32_t i = 0; i < image->ysize; ++i) {
@@ -178,6 +182,12 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
     return {kOrtxErrorInvalidArgument, "[hd_transform]: Only raw image formats"};
   }
 
+  if (dimensions[0] <= 0 || dimensions[1] <= 0 ||
+      dimensions[0] > (std::numeric_limits<int32_t>::max)() ||
+      dimensions[1] > (std::numeric_limits<int32_t>::max)()) {
+    return {kOrtxErrorInvalidArgument, "[hd_transform]: Invalid image dimensions"};
+  }
+
   // Normalize the pixel value with mean and var
   auto input_data = input.Data();
   int32_t h = static_cast<int32_t>(dimensions[0]);
@@ -198,9 +208,10 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   for (int32_t i = 0; i < h; ++i) {
     for (int32_t j = 0; j < w; ++j) {
       uint8_t* pixel = reinterpret_cast<uint8_t*>(rgb_image->image[i] + j * 4);
-      pixel[0] = input_data[(i * w + j) * 3];
-      pixel[1] = input_data[(i * w + j) * 3 + 1];
-      pixel[2] = input_data[(i * w + j) * 3 + 2];
+      const size_t src_idx = (static_cast<size_t>(i) * static_cast<size_t>(w) + static_cast<size_t>(j)) * 3;
+      pixel[0] = input_data[src_idx];
+      pixel[1] = input_data[src_idx + 1];
+      pixel[2] = input_data[src_idx + 2];
       pixel[3] = 0;  // unused
     }
   }
@@ -232,15 +243,25 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
   shape[0] = h;
   shape[1] = w;
 
-  auto image_size_1c = h * w;
-  std::vector<Imaging> global_image(c);  // resample the image per channel
+  auto image_size_1c = static_cast<size_t>(h) * static_cast<size_t>(w);
+  std::vector<Imaging> global_image(c, nullptr);  // resample the image per channel
+  auto cleanup_global_images = [&global_image]() {
+    for (auto img : global_image) {
+      ImagingDelete(img);
+    }
+  };
   for (int32_t k = 0; k < c; ++k) {
     // # create global image
     auto image_1c = ImagingNew("F", w, h);
+    if (image_1c == nullptr) {
+      cleanup_global_images();
+      return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for channel image"};
+    }
     for (int32_t y = 0; y < h; ++y) {
       for (int32_t x = 0; x < w; ++x) {
         float* pixel = reinterpret_cast<float*>(image_1c->image[y]);
-        *(pixel + x) = p_pixel_values[k * image_size_1c + y * w + x];
+        *(pixel + x) = p_pixel_values[static_cast<size_t>(k) * image_size_1c +
+                                      static_cast<size_t>(y) * static_cast<size_t>(w) + static_cast<size_t>(x)];
       }
     }
     // global_image = [torch.nn.functional.interpolate(im.unsqueeze(0).float(), size=(336, 336),
@@ -248,10 +269,11 @@ inline OrtxStatus phi3_hd_transform(const ortc::Tensor<uint8_t>& input, ortc::Te
     float box[]{0.0f, 0.0f, static_cast<float>(image_1c->xsize), static_cast<float>(image_1c->ysize)};
     global_image[k] =
         ImagingResample(image_1c, image_resized_width, image_resized_height, IMAGING_TRANSFORM_BICUBIC, box);
+    ImagingDelete(image_1c);
     if (global_image[k] == nullptr) {
+      cleanup_global_images();
       return {kOrtxErrorOutOfMemory, "[hd_transform]: Failed to allocate memory for global_image"};
     }
-    ImagingDelete(image_1c);
   }
 
   {
