@@ -337,3 +337,76 @@ TEST(ImageDecoderTest, TestJpegOversizeDimensionsRejected) {
   std::cout << "[Expected rejection] JPEG 17000x17000: " << status.ToString() << std::endl;
   ASSERT_FALSE(status.IsOk()) << "Oversized JPEG (17000x17000) should have been rejected but was accepted.";
 }
+
+TEST(ImageDecoderTest, TestEncodeImageInvalidAndOverflowingDimensionsRejected) {
+  uint8_t dummy_pixels[4 * 3 * 3]{};
+  for (size_t i = 0; i < sizeof(dummy_pixels); ++i) {
+    dummy_pixels[i] = static_cast<uint8_t>((i * 17) & 0xFF);
+  }
+
+  const std::vector<std::vector<int64_t>> invalid_shapes = {
+      {4, 4},
+      {4, 4, 4},
+      {0, 4, 3},
+      {4, 0, 3},
+      {-2, 4, 3},
+      {4, -2, 3},
+      {1, 16385, 3},
+      {16385, 1, 3},
+      {10001, 10000, 3},           // > 100M pixels while each dim <= 16384
+      {37838, 37838, 3},           // int32 h * w * 3 wrap
+      {717, 1000000, 3},           // int32 row-stride wrap
+      {(1LL << 32) + 3, 4, 3},     // int64 -> int32 truncation wrap
+  };
+
+  for (const char* ext : {".png", ".jpg"}) {
+    for (const char* clr : {"rgb", "bgr"}) {
+      ort_extensions::EncodeImage encoder;
+      std::unordered_map<std::string, std::variant<std::string>> attrs = {
+          {"file_extension", ext},
+          {"color_space", clr},
+      };
+      ASSERT_TRUE(encoder.Init(attrs).IsOk());
+
+      for (const auto& bad_shape : invalid_shapes) {
+        ortc::Tensor<uint8_t> bad_input(bad_shape, dummy_pixels);
+        ortc::Tensor<uint8_t> output{&CppAllocator::Instance()};
+        EXPECT_EQ(encoder.Compute(bad_input, output).Code(), kOrtxErrorInvalidArgument);
+      }
+
+      // Valid 3x4 RGB/BGR image encodes and decodes back to matching dimensions.
+      ortc::Tensor<uint8_t> valid_input({3, 4, 3}, dummy_pixels);
+      ortc::Tensor<uint8_t> encoded{&CppAllocator::Instance()};
+      ASSERT_TRUE(encoder.Compute(valid_input, encoded).IsOk());
+      ASSERT_EQ(encoded.Shape().size(), 1U);
+      EXPECT_GT(encoded.Shape()[0], 0);
+
+      ort_extensions::DecodeImage decoder;
+      ASSERT_TRUE(decoder.Init(std::unordered_map<std::string, std::variant<std::string>>()).IsOk());
+      ortc::Tensor<uint8_t> decoded{&CppAllocator::Instance()};
+      ASSERT_TRUE(decoder.Compute(encoded, decoded).IsOk());
+      EXPECT_EQ(decoded.Shape(), (std::vector<int64_t>{3, 4, 3}));
+    }
+  }
+
+  // Direct backend EncodePng / EncodeJpg entry points also enforce bounds and null checks.
+  ort_extensions::internal::EncodeImage raw_encoder;
+  ASSERT_TRUE(raw_encoder.OnInit().IsOk());
+  uint8_t* out_buf = nullptr;
+  size_t out_size = 0;
+
+  for (const auto& [w, h] : {std::pair<int32_t, int32_t>{0, 4},
+                             std::pair<int32_t, int32_t>{4, -1},
+                             std::pair<int32_t, int32_t>{16385, 1},
+                             std::pair<int32_t, int32_t>{10000, 10001},
+                             std::pair<int32_t, int32_t>{1000000, 717}}) {
+    EXPECT_EQ(raw_encoder.EncodePng(dummy_pixels, raw_encoder.pngSupportsBgr(), w, h, &out_buf, &out_size).Code(),
+              kOrtxErrorInvalidArgument);
+    EXPECT_EQ(out_buf, nullptr);
+    EXPECT_EQ(raw_encoder.EncodeJpg(dummy_pixels, raw_encoder.JpgSupportsBgr(), w, h, &out_buf, &out_size).Code(),
+              kOrtxErrorInvalidArgument);
+    EXPECT_EQ(out_buf, nullptr);
+  }
+  EXPECT_EQ(raw_encoder.EncodePng(nullptr, raw_encoder.pngSupportsBgr(), 4, 3, &out_buf, &out_size).Code(),
+            kOrtxErrorInvalidArgument);
+}

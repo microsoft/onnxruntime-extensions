@@ -48,22 +48,28 @@ struct EncodeImage {
 private:
   OrtxStatus EncodeWith(CFStringRef type, CFDictionaryRef option, const uint8_t* source_data, bool source_is_bgr,
                  int32_t width, int32_t height, uint8_t** outbuffer, size_t* outsize) const{
+    if (source_data == nullptr || outbuffer == nullptr || outsize == nullptr || !IsValidEncodeImageSize(width, height)) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Invalid image arguments or dimensions."};
+    }
     assert(!source_is_bgr);
+    *outbuffer = nullptr;
+    *outsize = 0;
+
     const uint8_t* raw_pixel_source_data = source_data;
 
-    size_t cbStride = (width * 24 + 7) / 8;
-    size_t cbBufferSize = height * cbStride;
-    CFDataRef rawImageData = CFDataCreate(NULL, raw_pixel_source_data, cbBufferSize);
+    const size_t cbStride = (static_cast<size_t>(width) * 24 + 7) / 8;
+    const size_t cbBufferSize = static_cast<size_t>(height) * cbStride;
+    CFDataRef rawImageData = CFDataCreate(NULL, raw_pixel_source_data, static_cast<CFIndex>(cbBufferSize));
     if (rawImageData == nullptr) {
       return {kOrtxErrorInternal, "[ImageDecoder]: Failed to create CFData."};
     }
     CGDataProviderRef provider = CGDataProviderCreateWithCFData(rawImageData);
     CGColorSpaceRef colorspace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
-    CGImageRef image = CGImageCreate(width, // width
-                                     height, // height
+    CGImageRef image = CGImageCreate(static_cast<size_t>(width), // width
+                                     static_cast<size_t>(height), // height
                                      8, // bitsPerComponent
                                      24, // bitsPerPixel
-                                     3 * width, // bytesPerRow
+                                     cbStride, // bytesPerRow
                                      colorspace,
                                      kCGImageAlphaNone, // bitmapInfo
                                      provider,
@@ -71,30 +77,47 @@ private:
                                      true, // shouldInterpolate
                                      kCGRenderingIntentDefault // intent
                                      );
-    CFRelease(colorspace);
-    CFRelease(provider);
+    if (colorspace != nullptr) {
+      CFRelease(colorspace);
+    }
+    if (provider != nullptr) {
+      CFRelease(provider);
+    }
     CFRelease(rawImageData);
     if (image == nullptr) {
       return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CGImageCreate."};
     }
     CFMutableDataRef result = CFDataCreateMutable(NULL, 0);
     if (result == nullptr) {
+      CFRelease(image);
       return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CFDataCreateMutable."};
     }
     CGImageDestinationRef imageDest = CGImageDestinationCreateWithData(result, type, 1 /* count */, NULL);
     if (imageDest == nullptr) {
+      CFRelease(result);
+      CFRelease(image);
       return {kOrtxErrorInternal, "[ImageEncoder]: Failed to CGImageDestinationCreateWithData."};
     }
     CGImageDestinationAddImage(imageDest, image, option);
-    CGImageDestinationFinalize(imageDest);
+    const bool finalized = CGImageDestinationFinalize(imageDest);
     CFRelease(imageDest);
     CFRelease(image);
+    if (!finalized) {
+      CFRelease(result);
+      return {kOrtxErrorInternal, "[ImageEncoder]: Failed to finalize CGImageDestination."};
+    }
 
-    int size = CFDataGetLength(result);
-    *outbuffer = (uint8_t*)malloc(size);
-    CFDataGetBytes(result, CFRangeMake(0, size), *outbuffer);
+    const CFIndex size = CFDataGetLength(result);
+    if (size > 0) {
+      *outbuffer = static_cast<uint8_t*>(malloc(static_cast<size_t>(size)));
+      if (*outbuffer == nullptr) {
+        CFRelease(result);
+        return {kOrtxErrorOutOfMemory, "[ImageEncoder]: Failed to allocate output buffer."};
+      }
+      CFDataGetBytes(result, CFRangeMake(0, size), *outbuffer);
+    }
     CFRelease(result);
-    *outsize = size;
+    *outsize = static_cast<size_t>(size);
     return {};
   }
 

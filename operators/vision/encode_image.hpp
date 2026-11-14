@@ -7,6 +7,18 @@
 #include "string_utils.h"
 
 #include <cstdint>
+#include <limits>
+
+namespace ort_extensions::internal {
+inline constexpr int64_t kMaxEncodeImageDimension = 16384;
+inline constexpr uint64_t kMaxEncodePixelCount = 100'000'000;
+
+inline bool IsValidEncodeImageSize(int64_t width, int64_t height) {
+  return width > 0 && height > 0 &&
+         width <= kMaxEncodeImageDimension && height <= kMaxEncodeImageDimension &&
+         static_cast<uint64_t>(width) * static_cast<uint64_t>(height) <= kMaxEncodePixelCount;
+}
+}  // namespace ort_extensions::internal
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
 #if _WIN32
@@ -95,11 +107,17 @@ struct EncodeImage: public internal::EncodeImage {
     if (dimensions.size() != 3 || dimensions[2] != 3) {
       return {kOrtxErrorInvalidArgument, "[EncodeImage] requires rank 3 rgb input in channels last format."};
     }
+    if (!internal::IsValidEncodeImageSize(dimensions[1], dimensions[0])) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Image dimensions must be positive and within allowed limits."};
+    }
 
-    int32_t height = static_cast<int32_t>(dimensions[0]);  // H
-    int32_t width = static_cast<int32_t>(dimensions[1]);   // W
-    const int32_t color_space = 3;
+    const int32_t height = static_cast<int32_t>(dimensions[0]);  // H
+    const int32_t width = static_cast<int32_t>(dimensions[1]);   // W
+    constexpr size_t color_space = 3;
     const uint8_t* input_data_ptr = input.Data();
+    if (input_data_ptr == nullptr) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Input tensor data is null."};
+    }
     uint8_t* outbuffer = nullptr;
     size_t outsize = 0;
 
@@ -116,14 +134,13 @@ struct EncodeImage: public internal::EncodeImage {
     }
 
     if (conversion_needed) {
-      conversion_buf = std::make_unique<uint8_t[]>(height * width * color_space);
+      const size_t pixel_count = static_cast<size_t>(height) * static_cast<size_t>(width);
+      conversion_buf = std::make_unique<uint8_t[]>(pixel_count * color_space);
       auto cvt_data = conversion_buf.get();
-      for (int32_t y = 0; y < height; ++y) {
-        for (int32_t x = 0; x < width; ++x) {
-          cvt_data[(y * width + x) * color_space + 0] = input_data_ptr[(y * width + x) * color_space + 2];
-          cvt_data[(y * width + x) * color_space + 1] = input_data_ptr[(y * width + x) * color_space + 1];
-          cvt_data[(y * width + x) * color_space + 2] = input_data_ptr[(y * width + x) * color_space + 0];
-        }
+      for (size_t i = 0; i < pixel_count; ++i) {
+        cvt_data[i * color_space + 0] = input_data_ptr[i * color_space + 2];
+        cvt_data[i * color_space + 1] = input_data_ptr[i * color_space + 1];
+        cvt_data[i * color_space + 2] = input_data_ptr[i * color_space + 0];
       }
       encoding_data = cvt_data;
     }
@@ -144,7 +161,9 @@ struct EncodeImage: public internal::EncodeImage {
 
     std::vector<int64_t> output_dimensions{static_cast<int64_t>(outsize)};
     uint8_t* data = output.Allocate(output_dimensions);
-    memcpy(data, outbuffer, outsize);
+    if (outsize > 0 && outbuffer != nullptr) {
+      memcpy(data, outbuffer, outsize);
+    }
 
     if (outbuffer != nullptr) {
       free(outbuffer);

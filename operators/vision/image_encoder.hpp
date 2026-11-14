@@ -1,6 +1,8 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+#pragma once
+
 #include "zlib.h"
 #if ZLIB_VERNUM != 0x12b0
 // the following is a trick to show the invalid version number for the diagnosis.
@@ -28,7 +30,13 @@ struct EncodeImage {
   bool JpgSupportsBgr() const{ return false; }
   OrtxStatus EncodeJpg(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height, uint8_t** outbuffer,
                 size_t* outsize) const {
+    if (rgb_data == nullptr || outbuffer == nullptr || outsize == nullptr || !IsValidEncodeImageSize(width, height)) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Invalid image arguments or dimensions."};
+    }
     assert(!source_is_bgr);
+    *outbuffer = nullptr;
+    *outsize = 0;
+
     struct jpeg_compress_struct cinfo;
     struct jpeg_error_mgr jerr;
 
@@ -58,9 +66,10 @@ struct EncodeImage {
 
     jpeg_start_compress(&cinfo, TRUE);
 
+    const size_t row_stride = static_cast<size_t>(width) * 3;
     JSAMPROW row_pointer[1];
     while (cinfo.next_scanline < cinfo.image_height) {
-      row_pointer[0] = (JSAMPROW)&rgb_data[cinfo.next_scanline * cinfo.image_width * 3];
+      row_pointer[0] = const_cast<JSAMPROW>(&rgb_data[static_cast<size_t>(cinfo.next_scanline) * row_stride]);
       jpeg_write_scanlines(&cinfo, row_pointer, 1);
     }
 
@@ -73,7 +82,13 @@ struct EncodeImage {
 
   OrtxStatus EncodePng(const uint8_t* rgb_data, bool source_is_bgr, int32_t width, int32_t height,
                 uint8_t** outbuffer, size_t* outsize) const {
+    if (rgb_data == nullptr || outbuffer == nullptr || outsize == nullptr || !IsValidEncodeImageSize(width, height)) {
+      return {kOrtxErrorInvalidArgument, "[EncodeImage] Invalid image arguments or dimensions."};
+    }
     assert(!source_is_bgr);
+    *outbuffer = nullptr;
+    *outsize = 0;
+
     std::vector<uint8_t> png_buffer;
     png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (!png_ptr) {
@@ -109,8 +124,9 @@ struct EncodeImage {
 
     png_write_info(png_ptr, info_ptr);
 
+    const size_t row_stride = static_cast<size_t>(width) * 3;
     for (int32_t y = 0; y < height; ++y) {
-      png_write_row(png_ptr, (png_bytep)&rgb_data[y * width * 3]);
+      png_write_row(png_ptr, const_cast<png_bytep>(&rgb_data[static_cast<size_t>(y) * row_stride]));
     }
 
     png_write_flush(png_ptr);
@@ -118,8 +134,13 @@ struct EncodeImage {
     png_destroy_write_struct(&png_ptr, &info_ptr);
 
     const auto size = png_buffer.size();
-    *outbuffer = (uint8_t*)malloc(size);
-    std::copy(png_buffer.data(), png_buffer.data() + size, *outbuffer);
+    if (size > 0) {
+      *outbuffer = static_cast<uint8_t*>(malloc(size));
+      if (*outbuffer == nullptr) {
+        return {kOrtxErrorOutOfMemory, "[EncodeImage] Failed to allocate output buffer."};
+      }
+      std::copy(png_buffer.data(), png_buffer.data() + size, *outbuffer);
+    }
     *outsize = size;
     return {};
   }
