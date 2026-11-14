@@ -5,6 +5,8 @@
 #include <tuple>
 #include <fstream>
 #include <filesystem>
+#include <cstdlib>
+#include <memory>
 
 #include "gtest/gtest.h"
 #include "shared/api/c_api_utils.hpp"
@@ -63,7 +65,8 @@ TEST(ImgDecoderTest, TestPngEncoderDecoder) {
     image_encoder.EncodePng(out_tensor.Data(), false, width, height, &encodeOutputBuffer, &encodeSize);
   }
 
-  ASSERT_NE(encodeOutputBuffer, nullptr);
+  std::unique_ptr<uint8_t, decltype(&std::free)> encoded_output(encodeOutputBuffer, &std::free);
+  ASSERT_NE(encoded_output, nullptr);
 }
 
 TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
@@ -156,7 +159,8 @@ TEST(ImageDecoderTest, TestJpegEncoderDecoder) {
     image_encoder.EncodeJpg(out_tensor.Data(), false, width, height, &encodeOutputBuffer, &encodeSize);
   }
 
-  ASSERT_NE(encodeOutputBuffer, nullptr);
+  std::unique_ptr<uint8_t, decltype(&std::free)> encoded_output(encodeOutputBuffer, &std::free);
+  ASSERT_NE(encoded_output, nullptr);
 }
 
 #if OCOS_ENABLE_VENDOR_IMAGE_CODECS
