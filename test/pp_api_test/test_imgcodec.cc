@@ -382,10 +382,17 @@ TEST(ImageDecoderTest, TestEncodeImageInvalidAndOverflowingDimensionsRejected) {
       EXPECT_GT(encoded.Shape()[0], 0);
 
       ort_extensions::DecodeImage decoder;
-      ASSERT_TRUE(decoder.Init(std::unordered_map<std::string, std::variant<std::string>>()).IsOk());
+      std::unordered_map<std::string, std::variant<std::string>> dec_attrs = {
+          {"color_space", clr},
+      };
+      ASSERT_TRUE(decoder.Init(dec_attrs).IsOk());
       ortc::Tensor<uint8_t> decoded{&CppAllocator::Instance()};
       ASSERT_TRUE(decoder.Compute(encoded, decoded).IsOk());
-      EXPECT_EQ(decoded.Shape(), (std::vector<int64_t>{3, 4, 3}));
+      ASSERT_EQ(decoded.Shape(), (std::vector<int64_t>{3, 4, 3}));
+      if (std::string(ext) == ".png") {
+        EXPECT_EQ(std::vector<uint8_t>(decoded.Data(), decoded.Data() + sizeof(dummy_pixels)),
+                  std::vector<uint8_t>(dummy_pixels, dummy_pixels + sizeof(dummy_pixels)));
+      }
     }
   }
 
