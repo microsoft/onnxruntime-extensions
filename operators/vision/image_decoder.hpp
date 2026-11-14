@@ -3,7 +3,11 @@
 
 #pragma once
 
+#include <csetjmp>
 #include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <vector>
 
 #include "png.h"
 #if _WIN32
@@ -11,6 +15,7 @@
 #include <basetsd.h>
 #endif
 #include "jpeglib.h"
+#include "jerror.h"
 #include "op_def_struct.h"
 #include "ext_status.h"
 
@@ -23,232 +28,249 @@ static constexpr uint64_t kMaxPixelCount = 100'000'000;  // 100 megapixels
 struct DecodeImage {
   OrtxStatus OnInit() { return {}; }
 
-  OrtxStatus DecodePNG(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len,
-                       ortc::Tensor<uint8_t>& output) const {
-    // Decode the PNG image
-    png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (!png) {
-      return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png read struct."};
-    }
-
-    png_infop info = png_create_info_struct(png);
-    if (!info) {
-      png_destroy_read_struct(&png, nullptr, nullptr);
-      return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png info struct."};
-    }
-
-    if (setjmp(png_jmpbuf(png))) {
-      png_destroy_read_struct(&png, &info, nullptr);
-      return {kOrtxErrorCorruptData, "[ImageDecoder]: Error during png creation."};
-    }
-
-    struct BufferState {
-      const uint8_t* ptr;
-      png_size_t size;
-    } bufferState = {encoded_image_data, static_cast<png_size_t>(encoded_image_data_len)};
-
-    png_set_read_fn(png, &bufferState, [](png_structp pngPtr, png_bytep data, png_size_t length) {
-      BufferState* state = static_cast<BufferState*>(png_get_io_ptr(pngPtr));
-      if (length > state->size) png_error(pngPtr, "Read Error: Exceeded buffer size");
-      memcpy(data, state->ptr, length);
-      state->ptr += length;
-      state->size -= length;
-    });
-
-    png_read_info(png, info);
-
-    auto width = png_get_image_width(png, info);
-    auto height = png_get_image_height(png, info);
-    png_byte color_type = png_get_color_type(png, info);
-    png_byte bit_depth = png_get_bit_depth(png, info);
-
-    if (bit_depth == 16) {
-      png_set_strip_16(png);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_PALETTE) {
-      png_set_palette_to_rgb(png);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) {
-      png_set_expand_gray_1_2_4_to_8(png);
-    }
-
-    if (png_get_valid(png, info, PNG_INFO_tRNS)) {
-      png_set_tRNS_to_alpha(png);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_RGB || color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_PALETTE) {
-      png_set_filler(png, 0xFF, PNG_FILLER_AFTER);
-    }
-
-    if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
-      png_set_gray_to_rgb(png);
-    }
-
-    png_read_update_info(png, info);
-
-    // Dimension limit to prevent decompression bombs
-    if (width > kMaxImageDimension || height > kMaxImageDimension ||
-        static_cast<uint64_t>(width) * height > kMaxPixelCount) {
-      png_destroy_read_struct(&png, &info, nullptr);
-      return {kOrtxErrorInvalidArgument,
-              "[ImageDecoder]: PNG dimensions exceed maximum allowed size."};
-    }
-
-    std::vector<int64_t> output_dimensions{height, width, 3};
-    uint8_t* output_data = output.Allocate(output_dimensions);
-    // Read the image row by row
-    std::vector<uint8_t> row(width * 4);
-    for (uint32_t i = 0; i < height; ++i) {
-      png_read_row(png, row.data(), nullptr);
-      for (uint32_t j = 0; j < width; ++j) {
-        for (uint32_t k = 0; k < 3; ++k) {
-          output_data[i * width * 3 + j * 3 + k] = row[j * 4 + k];
-        }
-      }
-    }
-
-    png_destroy_read_struct(&png, &info, nullptr);
-    return {};
-  }
-
-  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
-    const auto& dimensions = input.Shape();
-    if (dimensions.size() != 1ULL) {
-      return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};
-    }
-
-    // Get data & the length
-    const uint8_t* encoded_image_data = input.Data();
-    const int64_t encoded_image_data_len = input.NumberOfElement();
-
-    // check it's a PNG image or JPEG image
-    if (encoded_image_data_len < 8) {
+  OrtxStatus DecodePNG(const uint8_t* data, int64_t size, ortc::Tensor<uint8_t>& output) const {
+    if (data == nullptr || size <= 0) {
       return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Invalid image data."};
     }
 
-    if (png_sig_cmp(encoded_image_data, 0, 8) == 0) {
-      return DecodePNG(encoded_image_data, encoded_image_data_len, output);
-    } else {
-      // Initialize JPEG decompression object
-      jpeg_decompress_struct cinfo;
-      jpeg_error_mgr jerr;
-      cinfo.err = jpeg_std_error(&jerr);
+    PngDecoder decoder(data, static_cast<size_t>(size));
+    return decoder.Read(output);
+  }
+
+  OrtxStatus Compute(const ortc::Tensor<uint8_t>& input, ortc::Tensor<uint8_t>& output) const {
+    if (input.Shape().size() != 1ULL) {
+      return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Only raw image formats are supported."};
+    }
+
+    const auto* data = input.Data();
+    const auto size = input.NumberOfElement();
+    if (data == nullptr || size < 8) {
+      return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Invalid image data."};
+    }
+
+    if (png_sig_cmp(data, 0, 8) == 0) {
+      return DecodePNG(data, size, output);
+    }
+
+    JpegDecoder decoder(data, static_cast<size_t>(size));
+    return decoder.Read(output);
+  }
+
+ private:
+  static bool ValidDimensions(uint64_t width, uint64_t height) {
+    return width != 0 && height != 0 && width <= kMaxImageDimension && height <= kMaxImageDimension &&
+           width * height <= kMaxPixelCount;
+  }
+
+  // Keep mutable codec state and C++ owners in the caller of Read: longjmp must not
+  // bypass destructors or leave modified automatic objects in the setjmp frame.
+  struct PngDecoder {
+    const uint8_t* data;
+    size_t remaining;
+    png_structp png{nullptr};
+    png_infop info{nullptr};
+    std::vector<png_bytep> rows;
+
+    PngDecoder(const uint8_t* input, size_t size) : data(input), remaining(size) {}
+    PngDecoder(const PngDecoder&) = delete;
+    PngDecoder& operator=(const PngDecoder&) = delete;
+
+    ~PngDecoder() {
+      if (png != nullptr) {
+        png_destroy_read_struct(&png, &info, nullptr);
+      }
+    }
+
+    void AllocateRows(ortc::Tensor<uint8_t>& output, png_uint_32 width, png_uint_32 height) {
+      auto* pixels = output.Allocate({height, width, 3});
+      rows.resize(height);
+      for (size_t y = 0; y < height; ++y) {
+        rows[y] = pixels + y * width * 3;
+      }
+    }
+
+    OrtxStatus Read(ortc::Tensor<uint8_t>& output) {
+      png = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+      if (png == nullptr) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png read struct."};
+      }
+
+      info = png_create_info_struct(png);
+      if (info == nullptr) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to create png info struct."};
+      }
+
+      if (setjmp(png_jmpbuf(png))) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Failed to decode PNG image."};
+      }
+
+      png_set_read_fn(png, this, [](png_structp reader, png_bytep destination, png_size_t length) {
+        auto& state = *static_cast<PngDecoder*>(png_get_io_ptr(reader));
+        if (length > state.remaining) {
+          png_error(reader, "Read Error: Exceeded buffer size");
+        }
+
+        std::memcpy(destination, state.data, length);
+        state.data += length;
+        state.remaining -= length;
+      });
+
+      png_read_info(png, info);
+      const auto width = png_get_image_width(png, info);
+      const auto height = png_get_image_height(png, info);
+      if (!ValidDimensions(width, height)) {
+        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: PNG dimensions exceed maximum allowed size."};
+      }
+
+      const auto color_type = png_get_color_type(png, info);
+      const auto bit_depth = png_get_bit_depth(png, info);
+      if (bit_depth == 16) {
+        png_set_strip_16(png);
+      }
+
+      if (color_type == PNG_COLOR_TYPE_PALETTE) {
+        png_set_palette_to_rgb(png);
+      }
+
+      if (color_type == PNG_COLOR_TYPE_GRAY && bit_depth < 8) {
+        png_set_expand_gray_1_2_4_to_8(png);
+      }
+
+      if (png_get_valid(png, info, PNG_INFO_tRNS)) {
+        png_set_tRNS_to_alpha(png);
+      }
+
+      png_set_strip_alpha(png);
+      if (color_type == PNG_COLOR_TYPE_GRAY || color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        png_set_gray_to_rgb(png);
+      }
+
+      png_set_interlace_handling(png);
+      png_read_update_info(png, info);
+      if (png_get_bit_depth(png, info) != 8 || png_get_channels(png, info) != 3 ||
+          png_get_rowbytes(png, info) != static_cast<size_t>(width) * 3) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Unexpected PNG output layout."};
+      }
+
+      AllocateRows(output, width, height);
+      png_read_image(png, rows.data());
+      png_read_end(png, info);
+      return {};
+    }
+  };
+
+  struct JpegErrorManager : jpeg_error_mgr {
+    std::jmp_buf jump;
+    char message[JMSG_LENGTH_MAX]{};
+
+    static void ErrorExit(j_common_ptr cinfo) {
+      auto& error = *static_cast<JpegErrorManager*>(cinfo->err);
+      error.format_message(cinfo, error.message);
+      std::longjmp(error.jump, 1);
+    }
+
+    static void EmitMessage(j_common_ptr cinfo, int level) {
+      // libjpeg otherwise recovers from premature scan ends with fabricated pixels.
+      if (level < 0) {
+        ErrorExit(cinfo);
+      }
+    }
+  };
+
+  struct JMemorySourceManager : jpeg_source_mgr {
+    JMemorySourceManager(const uint8_t* data, size_t size) {
+      next_input_byte = reinterpret_cast<const JOCTET*>(data);
+      bytes_in_buffer = size;
+      init_source = [](j_decompress_ptr) {};
+      fill_input_buffer = [](j_decompress_ptr cinfo) -> boolean {
+        // This is a complete in-memory image, not a suspendable stream.
+        ERREXIT(cinfo, JERR_INPUT_EOF);
+        return FALSE;
+      };
+      skip_input_data = [](j_decompress_ptr cinfo, long count) {
+        if (count <= 0) {
+          return;
+        }
+
+        auto& source = *cinfo->src;
+        const auto size_to_skip = static_cast<size_t>(count);
+        if (size_to_skip > source.bytes_in_buffer) {
+          ERREXIT(cinfo, JERR_INPUT_EOF);
+        }
+
+        source.next_input_byte += size_to_skip;
+        source.bytes_in_buffer -= size_to_skip;
+      };
+      resync_to_restart = jpeg_resync_to_restart;
+      term_source = [](j_decompress_ptr) {};
+    }
+  };
+
+  struct JpegDecoder {
+    jpeg_decompress_struct cinfo{};
+    JpegErrorManager error{};
+    JMemorySourceManager source;
+
+    JpegDecoder(const uint8_t* data, size_t size) : source(data, size) {
+      cinfo.err = jpeg_std_error(&error);
+      error.error_exit = JpegErrorManager::ErrorExit;
+      error.emit_message = JpegErrorManager::EmitMessage;
+    }
+
+    JpegDecoder(const JpegDecoder&) = delete;
+    JpegDecoder& operator=(const JpegDecoder&) = delete;
+
+    ~JpegDecoder() { jpeg_destroy_decompress(&cinfo); }
+
+    static uint8_t* AllocateOutput(ortc::Tensor<uint8_t>& output, const jpeg_decompress_struct& info) {
+      return output.Allocate({info.output_height, info.output_width, 3});
+    }
+
+    OrtxStatus Read(ortc::Tensor<uint8_t>& output) {
+      if (setjmp(error.jump)) {
+        return {kOrtxErrorCorruptData, std::string("[ImageDecoder]: Failed to decode JPEG image: ") + error.message};
+      }
+
       jpeg_create_decompress(&cinfo);
+      cinfo.src = &source;
+      if (jpeg_read_header(&cinfo, TRUE) != JPEG_HEADER_OK) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Incomplete JPEG header."};
+      }
 
-      // Set up the custom memory source manager
-      JMemorySourceManager srcManager(encoded_image_data, encoded_image_data_len);
-      cinfo.src = &srcManager;
-
-      // Read the JPEG header to get image info
-      jpeg_read_header(&cinfo, TRUE);
-
-      // Security: explicitly reject CMYK/YCCK color spaces before decompression.
-      // These have 4 channels and downstream code assumes 3 channels (CVE-class: CWE-122).
       if (cinfo.jpeg_color_space == JCS_CMYK || cinfo.jpeg_color_space == JCS_YCCK) {
-        jpeg_destroy_decompress(&cinfo);
         return {kOrtxErrorInvalidArgument,
                 "[ImageDecoder]: Unsupported JPEG color space (CMYK/YCCK). Only RGB and grayscale are supported."};
       }
 
-      // Force RGB output to ensure consistent 3-channel output regardless of input
-      // (e.g., grayscale JPEGs are expanded to RGB).
+      // Check the header before starting decompression, which can allocate image-sized buffers.
+      if (!ValidDimensions(cinfo.image_width, cinfo.image_height)) {
+        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: JPEG dimensions exceed maximum allowed size."};
+      }
+
       cinfo.out_color_space = JCS_RGB;
-
-      // Start decompression
-      jpeg_start_decompress(&cinfo);
-
-      // Dimension limit to prevent decompression bombs
-      if (cinfo.output_width > kMaxImageDimension ||
-          cinfo.output_height > kMaxImageDimension ||
-          static_cast<uint64_t>(cinfo.output_width) * cinfo.output_height > kMaxPixelCount) {
-        jpeg_destroy_decompress(&cinfo);
-        return {kOrtxErrorInvalidArgument,
-                "[ImageDecoder]: JPEG dimensions exceed maximum allowed size."};
+      if (!jpeg_start_decompress(&cinfo)) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Incomplete JPEG scan."};
       }
 
-      // Safety net: verify 3-channel output after decompression.
-      if (cinfo.output_components != 3) {
-        jpeg_destroy_decompress(&cinfo);
-        return {kOrtxErrorInvalidArgument,
-                "[ImageDecoder]: Unexpected JPEG output channels. Expected 3 (RGB), got " +
-                std::to_string(cinfo.output_components) + "."};
+      if (!ValidDimensions(cinfo.output_width, cinfo.output_height) || cinfo.output_components != 3) {
+        return {kOrtxErrorInvalidArgument, "[ImageDecoder]: Unexpected JPEG output dimensions or channels."};
       }
 
-      // Allocate memory for the image
-      std::vector<int64_t> output_dimensions{cinfo.output_height, cinfo.output_width, cinfo.output_components};
-      uint8_t* imageBuffer = output.Allocate(output_dimensions);
-
-      // Read the image data
-      int row_stride = cinfo.output_width * cinfo.output_components;
+      auto* pixels = AllocateOutput(output, cinfo);
+      const auto stride = static_cast<size_t>(cinfo.output_width) * 3;
       while (cinfo.output_scanline < cinfo.output_height) {
-        uint8_t* row_ptr = imageBuffer + (cinfo.output_scanline * row_stride);
-        jpeg_read_scanlines(&cinfo, &row_ptr, 1);
-        if (srcManager.extError != kOrtxOK) {
-          break;
+        auto* row = pixels + static_cast<size_t>(cinfo.output_scanline) * stride;
+        if (jpeg_read_scanlines(&cinfo, &row, 1) != 1) {
+          return {kOrtxErrorCorruptData, "[ImageDecoder]: Incomplete JPEG scanline."};
         }
       }
 
-      if (srcManager.extError != kOrtxOK) {
-        jpeg_destroy_decompress(&cinfo);
-        return {kOrtxErrorInternal, "[ImageDecoder]: Failed to decode JPEG image."};
+      if (!jpeg_finish_decompress(&cinfo)) {
+        return {kOrtxErrorCorruptData, "[ImageDecoder]: Incomplete JPEG image."};
       }
 
-      // Finish decompression
-      jpeg_finish_decompress(&cinfo);
-      jpeg_destroy_decompress(&cinfo);
+      return {};
     }
-    return {};
-  }
-
-  class JMemorySourceManager : public jpeg_source_mgr {
-   public:
-    // Constructor
-    JMemorySourceManager(const uint8_t* encoded_image_data, const int64_t encoded_image_data_len) {
-      // Initialize source fields
-      next_input_byte = reinterpret_cast<const JOCTET*>(encoded_image_data);
-      bytes_in_buffer = static_cast<size_t>(encoded_image_data_len);
-      init_source = &JMemorySourceManager::initSource;
-      fill_input_buffer = &JMemorySourceManager::fillInputBuffer;
-      skip_input_data = &JMemorySourceManager::skipInputData;
-      resync_to_restart = jpeg_resync_to_restart;
-      term_source = &JMemorySourceManager::termSource;
-    }
-
-    // Initialize source (no-op)
-    static void initSource(j_decompress_ptr cinfo) {
-      // No initialization needed
-    }
-
-    // Fill input buffer (not used here, always return FALSE)
-    static boolean fillInputBuffer(j_decompress_ptr cinfo) {
-      return FALSE;  // Buffer is managed manually
-    }
-
-    // Skip input data
-    static void skipInputData(j_decompress_ptr cinfo, long num_bytes) {
-      JMemorySourceManager* srcMgr = reinterpret_cast<JMemorySourceManager*>(cinfo->src);
-      if (num_bytes > 0) {
-        size_t bytes_to_skip = static_cast<size_t>(num_bytes);
-        while (bytes_to_skip > srcMgr->bytes_in_buffer) {
-          bytes_to_skip -= srcMgr->bytes_in_buffer;
-          if (srcMgr->fillInputBuffer(cinfo)) {
-            // Error: buffer ran out
-            srcMgr->extError = kOrtxErrorCorruptData;
-          }
-        }
-        srcMgr->next_input_byte += bytes_to_skip;
-        srcMgr->bytes_in_buffer -= bytes_to_skip;
-      }
-    }
-
-    // Terminate source (no-op)
-    static void termSource(j_decompress_ptr cinfo) {
-      // No cleanup needed
-    }
-
-    extError_t extError{kOrtxOK};  // Error handler
   };
 };
 
