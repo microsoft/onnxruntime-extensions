@@ -1164,12 +1164,12 @@ TEST(ProcessorTest, ImageTransformsHandleFailedImagingAllocationsAndInvalidShape
     return dyn_pre.Compute(in, resized, mask);
   });
 
-  verify_all_failure_points_release_images("Phi4VisionProcessor_multipass", 6, [&]() {
+  verify_all_failure_points_release_images("Phi4VisionProcessor_multipass", 9, [&]() {
     Phi4VisionProcessor proc;
-    std::vector<float> hd_f32(896 * 448 * 3, 0.5f);
-    std::vector<int64_t> mask_i64(64 * 32, 1);
-    ortc::Tensor<float> hd({896, 448, 3}, hd_f32.data());
-    ortc::Tensor<int64_t> mask_in({64, 32}, mask_i64.data());
+    std::vector<float> hd_f32(896 * 896 * 3, 0.5f);
+    std::vector<int64_t> mask_i64(64 * 64, 1);
+    ortc::Tensor<float> hd({896, 896, 3}, hd_f32.data());
+    ortc::Tensor<int64_t> mask_in({64, 64}, mask_i64.data());
     ortc::Tensor<float> embeds(&CppAllocator::Instance());
     ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
     ortc::Tensor<int64_t> ret_mask(&CppAllocator::Instance());
