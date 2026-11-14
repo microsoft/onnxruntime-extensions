@@ -1063,6 +1063,78 @@ TEST(ProcessorTest, ImageTransformsHandleFailedImagingAllocationsAndInvalidShape
     ortc::Tensor<float> rank2_hd({4, 3}, dummy_f32);
     EXPECT_EQ(proc.Compute(rank2_hd, mask_in, embeds, sizes, ret_mask, num_tokens).Code(), kOrtxErrorInvalidArgument);
   }
+
+  // 5. Exhaustive later-stage allocation failure injection: step fail_after = 0, 1, 2, ... across every
+  // intermediate ImagingNew / ImagingResample / padding / per-channel allocation until completion,
+  // verifying that every failure path releases all previously allocated Imaging buffers.
+  auto verify_all_failure_points_release_images = [](const char* label, auto&& run_transform) {
+    SCOPED_TRACE(label);
+    const int baseline_active = ImagingGetActiveAllocationsForTesting();
+    int failed_steps = 0;
+    bool eventually_succeeded = false;
+    for (int fail_after = 0; fail_after < 64; ++fail_after) {
+      ImagingSetFailAfterForTesting(fail_after);
+      OrtxStatus st = run_transform();
+      ImagingSetFailAfterForTesting(-1);
+      EXPECT_EQ(ImagingGetActiveAllocationsForTesting(), baseline_active) << "fail_after=" << fail_after;
+      if (st.IsOk()) {
+        eventually_succeeded = true;
+        break;
+      }
+      ++failed_steps;
+    }
+    EXPECT_TRUE(eventually_succeeded);
+    EXPECT_GE(failed_steps, 3);
+  };
+
+  // Non-multiple-of-336/448 dimensions (20x30) ensure padding_336_h/w and Phi-4 padding allocations run.
+  std::vector<uint8_t> valid_rgb(20 * 30 * 3, 128);
+  verify_all_failure_points_release_images("Resize", [&]() {
+    Resize resize;
+    EXPECT_TRUE(resize.Init(AttrDict{{"height", int64_t{16}}, {"width", int64_t{24}}}).IsOk());
+    ortc::Tensor<uint8_t> in({20, 30, 3}, valid_rgb.data());
+    ortc::Tensor<uint8_t> out(&CppAllocator::Instance());
+    return resize.Compute(in, out);
+  });
+
+  verify_all_failure_points_release_images("phi3_hd_transform_landscape", [&]() {
+    ortc::Tensor<uint8_t> in({20, 30, 3}, valid_rgb.data());
+    ortc::Tensor<float> pv(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_tokens(&CppAllocator::Instance());
+    return phi3_hd_transform(in, pv, sizes, num_tokens);
+  });
+
+  verify_all_failure_points_release_images("phi3_hd_transform_portrait", [&]() {
+    ortc::Tensor<uint8_t> in({30, 20, 3}, valid_rgb.data());
+    ortc::Tensor<float> pv(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_tokens(&CppAllocator::Instance());
+    return phi3_hd_transform(in, pv, sizes, num_tokens);
+  });
+
+  verify_all_failure_points_release_images("Phi4VisionDynamicPreprocess", [&]() {
+    Phi4VisionDynamicPreprocess dyn_pre;
+    // 100x300 triggers non-zero padding_height in DynamicPreprocess after ImagingResample succeeds.
+    std::vector<uint8_t> wide_rgb(100 * 300 * 3, 128);
+    ortc::Tensor<uint8_t> in({100, 300, 3}, wide_rgb.data());
+    ortc::Tensor<uint8_t> resized(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> mask(&CppAllocator::Instance());
+    return dyn_pre.Compute(in, resized, mask);
+  });
+
+  verify_all_failure_points_release_images("Phi4VisionProcessor", [&]() {
+    Phi4VisionProcessor proc;
+    std::vector<float> hd_f32(896 * 448 * 3, 0.5f);
+    std::vector<int64_t> mask_i64(64 * 32, 1);
+    ortc::Tensor<float> hd({896, 448, 3}, hd_f32.data());
+    ortc::Tensor<int64_t> mask_in({64, 32}, mask_i64.data());
+    ortc::Tensor<float> embeds(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> sizes(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> ret_mask(&CppAllocator::Instance());
+    ortc::Tensor<int64_t> num_tokens(&CppAllocator::Instance());
+    return proc.Compute(hd, mask_in, embeds, sizes, ret_mask, num_tokens);
+  });
 }
 
 

@@ -105,6 +105,19 @@ struct ImagingMemoryArenaInstance ImagingDefaultArena = {
 };
 
 
+static int g_imaging_active_allocations = 0;
+static int g_imaging_fail_after_allocations = -1;
+
+void
+ImagingSetFailAfterForTesting(int successful_allocations) {
+    g_imaging_fail_after_allocations = successful_allocations;
+}
+
+int
+ImagingGetActiveAllocationsForTesting(void) {
+    return g_imaging_active_allocations;
+}
+
 extern void *
 ImagingError_MemoryError(void) {
     return NULL;
@@ -124,6 +137,14 @@ ImagingError_ModeError(void) {
 Imaging
 ImagingNewPrologueSubtype(const char *mode, int xsize, int ysize, int size) {
     Imaging im;
+
+    if (g_imaging_fail_after_allocations >= 0) {
+        if (g_imaging_fail_after_allocations == 0) {
+            g_imaging_fail_after_allocations = -1;
+            return (Imaging)ImagingError_MemoryError();
+        }
+        g_imaging_fail_after_allocations -= 1;
+    }
 
     /* linesize overflow check, roughly the current largest space req'd */
     if (xsize > (INT_MAX / 4) - 1) {
@@ -285,6 +306,7 @@ ImagingNewPrologueSubtype(const char *mode, int xsize, int ysize, int size) {
     }
 
     ImagingDefaultArena.stats_new_count += 1;
+    g_imaging_active_allocations += 1;
 
     return im;
 }
@@ -431,6 +453,8 @@ ImagingDelete(Imaging im) {
     if (!im) {
         return;
     }
+
+    g_imaging_active_allocations -= 1;
 
     if (im->destroy) {
         im->destroy(im);

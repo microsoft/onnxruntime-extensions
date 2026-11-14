@@ -51,6 +51,8 @@ extern "C" {
 Imaging ImagingNew(const char* mode, int xsize, int ysize);
 Imaging ImagingResample(Imaging imIn, int xsize, int ysize, int filter, float box[4]);
 void ImagingDelete(Imaging im);
+void ImagingSetFailAfterForTesting(int successful_allocations);
+int ImagingGetActiveAllocationsForTesting(void);
 
 #ifdef __cplusplus
 }
