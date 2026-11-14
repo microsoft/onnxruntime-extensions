@@ -170,8 +170,8 @@ struct Resize {
       return {kOrtxErrorInvalidArgument, "[Resize]: Expected 3-channel RGB input, got " + std::to_string(c) + " channels"};
     }
 
-    Imaging rgb_image = ImagingNew("RGB", w, h);
-    if (rgb_image == nullptr) {
+    ort_extensions::UniqueImaging rgb_image(ImagingNew("RGB", w, h));
+    if (!rgb_image) {
       return {kOrtxErrorOutOfMemory, "[Resize]: Failed to allocate memory for RGB image"};
     }
     for (int32_t i = 0; i < h; ++i) {
@@ -198,7 +198,6 @@ struct Resize {
     if (height <= 0 || width <= 0 ||
         height > (std::numeric_limits<int>::max)() ||
         width > (std::numeric_limits<int>::max)()) {
-      ImagingDelete(rgb_image);
       return {kOrtxErrorInvalidArgument, "[Resize]: Invalid target image dimensions"};
     }
     h = static_cast<int>(height);
@@ -211,14 +210,14 @@ struct Resize {
       if (height <= 0 || width <= 0 ||
           height > (std::numeric_limits<int>::max)() ||
           width > (std::numeric_limits<int>::max)()) {
-        ImagingDelete(rgb_image);
         return {kOrtxErrorInvalidArgument, "[Resize]: Invalid target image dimensions"};
       }
     }
 
-    auto output_image = ImagingResample(rgb_image, static_cast<int>(width), static_cast<int>(height), interp, box);
-    ImagingDelete(rgb_image);
-    if (output_image == nullptr) {
+    ort_extensions::UniqueImaging output_image(
+        ImagingResample(rgb_image.get(), static_cast<int>(width), static_cast<int>(height), interp, box));
+    rgb_image.reset();
+    if (!output_image) {
       return {kOrtxErrorInvalidArgument, "[Resize]: ImagingResample failed (invalid parameters, unsupported mode, or out of memory)"};
     }
 
@@ -230,7 +229,6 @@ struct Resize {
       }
     }
 
-    ImagingDelete(output_image);
     return {};
   }
 
